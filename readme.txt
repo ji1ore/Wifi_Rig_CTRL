@@ -4,19 +4,20 @@ M5CoreHamCATは、Raspberry Pi Zero2WとM5CoreS3SEを用い、無線機に接続
 技術的には、Raspberry Pi Zero2W上のHamlibをFastAPIでWrapし、M5CoreS3SEからFastAPIを叩いて無線機の操作や
 無線機の情報を取得する、ということを行っています。
 できることは、無線機の情報の表示、、音声の受信操作です。
-音声信号の送信を行うことはできません。
+Ver1.10でPTT信号の送付に対応しました。
+ラジオマイク等でリグへ音声信号を送付したうえで、当機械よりPTTのON/OFFを発することができます。
 --
 2026/3/1
 M5CoreHamCAT_SpeakerはModule Audio経由で音を出すことができるようになったので、廃止します。
 
 --
 
-現在のところ、Yaesu FT-991A/IC-705 のみで動作確認を行っており、他の無線機での動作は未検証です。
+現在のところ、Yaesu FT-991A のみで動作確認を行っており、他の無線機での動作は未検証です。
 また、 M5CoreS3やM5CoreS3Lite、他のM5Coreシリーズで動作するかは未検証です。
 
 ②必要なもの
 当システムを動作させるために必要なものは以下のとおりです。
-・M5CoreS3SE/M5Core2(M5CoreS3SEのほうが快適に動作します)
+・M5CoreS3SE/M5Core2 ver1.1 (M5CoreS3SEのほうが快適に動作します)
 ・Module Audio(M5純正 SKU:M144)
 ・Raspberry Pi Zero2W
 ・Wifiルータ(上記２つの端末が同一Wifiネットワーク上に存在することを前提とします。)
@@ -26,6 +27,10 @@ M5CoreHamCAT_SpeakerはModule Audio経由で音を出すことができるよう
  なくても動作しますが、利便性があがりますので。
 ・MicroSDカード(16G以上、信頼性の高いもの)
 ・その他無線機やM5CoreS3SE、Raspberry Pi Zero2Wへの電源取得やCATデータ取得に用いるUSBケーブル類
+--
+音声信号の送信二必要なもの
+・メカニカルキー(M5純正 SK6812)
+・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
 ③セットアップ手順(Raspberry Pi Zero2W)
 https://github.com/ji1ore/M5CoreHamCAT/blob/main/RaspberryPiSetup/readme.txt
@@ -36,8 +41,8 @@ https://github.com/ji1ore/M5CoreHamCAT/blob/main/RaspberryPiSetup/readme.txt
 ・SSHログイン
 ・必要コマンドの実施(シェルファイルを用意してありますので簡単ですが時間がかかります)
 
-④セットアップ手順(M5CoreS3SE)
-M5CoreS3SEでは、M5Burnerを用いてファームウェアの読み込みを行ってください。
+④セットアップ手順(M5CoreS3SE/M5Core2)
+M5CoreS3SE/M5Core2では、M5Burnerを用いてファームウェアの読み込みを行ってください。
 Git上の以下フォルダにソースは公開します。
 https://github.com/ji1ore/M5CoreHamCAT/main/M5CoreHamCAT
 ソースはVisual Studio Code上のPlatformI/O上でのコンパイルを前提にしています。
@@ -45,7 +50,7 @@ https://github.com/ji1ore/M5CoreHamCAT/main/M5CoreHamCAT
 ・M5Burnerをダウンロードし、インストールします。
 ・M5Burnerを起動します。ユーザー登録を行います。
 ・M5CoreHamCATをDownloadします。
-・コンピュータにM5CoreS3SEをUSBケーブルで接続し、Burnします。
+・コンピュータにM5CoreS3SE/M5Core2をUSBケーブルで接続し、Burnします。
 MBurner上では、M5CoreHamCATで検索できます。
 
 ⑤注意点

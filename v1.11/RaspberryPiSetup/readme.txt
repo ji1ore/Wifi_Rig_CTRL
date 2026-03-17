@@ -27,7 +27,7 @@ ssh pi@raspizero
 
 sudo apt -y update
 sudo apt -y install bash
-wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v1.10/RaspberryPiSetup/setup_netwk.sh
+wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v1.11/RaspberryPiSetup/setup_netwk.sh
 chmod +x setup_netwk.sh
 bash setup_netwk.sh
 
@@ -41,7 +41,7 @@ ifconfig
 
 ※以下コマンドでupgradeするかの選択肢が出てきたら回答してください(Nでよいかと)。
 
-wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v1.10/RaspberryPiSetup/setup_fastapi_radio.sh
+wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v1.11/RaspberryPiSetup/setup_fastapi_radio.sh
 chmod +x setup_fastapi_radio.sh
 bash setup_fastapi_radio.sh
 

@@ -184,7 +184,7 @@ def poll_rig():
         except:
             pass
 
-        time.sleep(0.25)
+        time.sleep(1.0)
 
 def poll_signal():
     global last_power, last_sql, poll_enabled
@@ -239,7 +239,7 @@ def poll_signal():
                 pass
             last_sql = time.time()
 
-        time.sleep(0.25)
+        time.sleep(1.0)
 
 
 

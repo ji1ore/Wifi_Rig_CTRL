@@ -6,10 +6,14 @@ M5CoreHamCATは、Raspberry Pi Zero2WとM5CoreS3SEを用い、無線機に接続
 できることは、無線機の情報の表示、、音声の受信操作です。
 Ver1.10でPTT信号の送付に対応しました。
 ラジオマイク等でリグへ音声信号を送付したうえで、当機械よりPTTのON/OFFを発することができます。
+Ver1.20にてAPRSの送信に対応しました(動作確認、IC-705/ボーレート1200bpsのみ)。
+音声の受信とは排他の関係になりますが、APRS機能のついていない機種からラズパイ上のDireWolfを使い、APRS信号を
+送付することができます。APRSモードでは、現在周波数から別に設定したAPRS周波数に遷移して(144.66など)APRSの発信を
+行います。
+なお、ボーレートについては送信機種に依存するようで、IC-705(USB接続)からでは送信することができませんでした。
 --
 2026/3/1
 M5CoreHamCAT_SpeakerはModule Audio経由で音を出すことができるようになったので、廃止します。
-
 --
 
 現在のところ、Yaesu FT-991A のみで動作確認を行っており、他の無線機での動作は未検証です。
@@ -27,8 +31,11 @@ M5CoreHamCAT_SpeakerはModule Audio経由で音を出すことができるよう
  なくても動作しますが、利便性があがりますので。
 ・MicroSDカード(16G以上、信頼性の高いもの)
 ・その他無線機やM5CoreS3SE、Raspberry Pi Zero2Wへの電源取得やCATデータ取得に用いるUSBケーブル類
+APRS動作のために
+・スマートフォン(アプリ：Taskerが動作するもの)
+・スマートフォンアプリ、Tasker(有償)
 --
-音声信号の送信二必要なもの
+音声信号の送信に必要なもの
 ・メカニカルキー(M5純正 SK6812) PortC(M5Core2) PortB(M5CoreS3SE)に刺します。
 ・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
@@ -52,6 +59,9 @@ https://github.com/ji1ore/M5CoreHamCAT/main/M5CoreHamCAT
 ・M5CoreHamCATをDownloadします。
 ・コンピュータにM5CoreS3SE/M5Core2をUSBケーブルで接続し、Burnします。
 MBurner上では、M5CoreHamCATで検索できます。
+APRSについては、メイン画面のグレーアウトしたAPRSボタンを長押しすることにより、設定を修正できます。
+また、スマートフォンのGPSデータを、Taskerを使ってラズパイ上のFastAPIに送付することができます。
+設定手順は「RaspberryPiSetup」フォルダ内のReadmeを参照願います。
 
 ⑤注意点
 まだ結構不安定です。上手く動かないこともあると思いますので、何度か再起動するなど試してみてください。

@@ -17,12 +17,15 @@ sudo systemctl daemon-reload
 echo "drop-in 設定完了 (direwolf RestartPreventExitStatus=SIGKILL)"
 
 cat << 'APIEOF' > /home/pi/fastapi/api.py
-from fastapi import FastAPI, BackgroundTasks, Request, Form
+from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, Request, Security, Form
 from fastapi.responses import StreamingResponse
+from fastapi.security import APIKeyHeader
 from starlette.background import BackgroundTask
 from pydantic import BaseModel
+import array
 import glob
 import os
+import queue as _queue
 import select
 import signal
 import socket
@@ -31,7 +34,15 @@ import threading
 import time
 import asyncio
 
-app = FastAPI()
+# API Key 認証（環境変数 API_KEY が設定されている場合のみ有効）
+API_KEY = os.environ.get("API_KEY", "")
+_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+async def verify_key(key: str = Security(_api_key_header)):
+    if API_KEY and key != API_KEY:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+app = FastAPI(dependencies=[Depends(verify_key)])
 
 rig_lock = threading.Lock()
 radio_cache = {
@@ -277,7 +288,7 @@ def poll_signal():
 
 
 def watchdog_heartbeat():
-    global last_heartbeat
+    global last_heartbeat, last_ptt_state
     while True:
         if radio_cache.get("tx", False):
             if time.time() - last_heartbeat > 3.0:
@@ -287,6 +298,7 @@ def watchdog_heartbeat():
                 except Exception:
                     pass
                 radio_cache["tx"] = False
+                last_ptt_state = 0  # 次のハートビートでTXを再開できるようリセット
         time.sleep(0.1)
 
 
@@ -391,13 +403,17 @@ def ptt(state: int = Form(...)):
             subprocess.run(["sudo", "systemctl", "start", "direwolf.service"], capture_output=True)
         threading.Thread(target=restart_after_tx, daemon=True).start()
         return {"status": "ok", "ptt": 0}
-    # TX開始: direwolfをSIGKILLで停止 (drop-inにより再起動しない)
+    # ハートビート受信 — 即座に更新 (rigctlタイムアウトで遅延しないよう先頭で実施)
+    last_heartbeat = time.time()
+    if last_ptt_state == 1:
+        # 既にTX中: rigctlを再送せず即リターン (watchdog対策)
+        return {"status": "ok", "ptt": 1}
+    # TX開始 (初回のみ): direwolfをSIGKILLで停止
     subprocess.run(["pkill", "-9", "direwolf"], capture_output=True)
     subprocess.run(["pkill", "-9", "-f", "ffmpeg"], capture_output=True)
     rigctl_cmd_priority("T 1")
     radio_cache["tx"] = True
     last_ptt_state = 1
-    last_heartbeat = time.time()
     return {"status": "ok", "ptt": 1}
 
 
@@ -424,21 +440,33 @@ def set_power(value: float = Form(...)):
 
 @app.get("/radio/audio")
 def audio_stream(request: Request, background_tasks: BackgroundTasks):
+    from fastapi.responses import Response
     rate = request.query_params.get("rate", "48000")
     if not rate.isdigit():
         rate = "48000"
     print(f"[audio_rx] rate={rate}")
     subprocess.run(["pkill", "-f", "ffmpeg"], capture_output=True)
+    subprocess.run(["pkill", "-9", "aplay"], capture_output=True)
+    subprocess.run(["pkill", "-9", "direwolf"], capture_output=True)
+    time.sleep(0.3)
+    subprocess.run(["pkill", "-9", "direwolf"], capture_output=True)
+    time.sleep(0.1)
     cmd = [
         "ffmpeg", "-f", "alsa", "-thread_queue_size", "1024",
-        "-ar", rate, "-sample_fmt", "s16", "-i", "plughw:CARD=CODEC,DEV=0",
-        "-ac", "1", "-af", "highpass=f=300,lowpass=f=4000",
-        "-filter:a", "volume=10.0", "-f", "s16le", "-acodec", "pcm_s16le",
+        "-ar", rate, "-i", "plughw:CARD=CODEC,DEV=0",
+        "-ac", "1",
+        "-af", "highpass=f=300,lowpass=f=4000,volume=10.0",
+        "-f", "s16le", "-acodec", "pcm_s16le",
         "-nostdin", "-vn", "-sn", "-dn", "-map", "0:a",
-        "-flush_packets", "1", "-nostats", "-loglevel", "quiet", "pipe:1"
+        "-flush_packets", "1", "-nostats", "pipe:1"
     ]
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                start_new_session=True)
+    time.sleep(0.5)
+    if process.poll() is not None:
+        err = process.stderr.read().decode(errors="replace").strip()
+        print(f"[audio_rx] ffmpeg failed: {err}")
+        return Response(status_code=500, content=f"ffmpeg error: {err}")
 
     def cleanup():
         try:
@@ -455,6 +483,10 @@ def audio_stream(request: Request, background_tasks: BackgroundTasks):
                 process.stdout.close()
             except Exception:
                 pass
+            threading.Thread(
+                target=lambda: subprocess.run(["sudo", "systemctl", "start", "direwolf.service"], capture_output=True),
+                daemon=True
+            ).start()
 
     def stream():
         try:
@@ -474,38 +506,102 @@ def audio_stream(request: Request, background_tasks: BackgroundTasks):
 
 @app.post("/radio/audio_tx")
 async def audio_tx(request: Request, rate: int = 8000):
-    # ptt=1でffmpegをSIGKILL済み・再起動なし → 短い待機のみ
-    await asyncio.sleep(0.2)
+    print(f"[audio_tx] received rate={rate}")
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, lambda: [
+        subprocess.run(["pkill", "-9", "direwolf"], capture_output=True),
+        subprocess.run(["pkill", "-9", "aplay"], capture_output=True),
+    ])
+    await asyncio.sleep(0.5)
     process = subprocess.Popen(
         ["aplay", "-D", "plughw:CARD=CODEC,DEV=0", "-f", "S16_LE", "-r", str(rate), "-c", "1"],
-        stdin=subprocess.PIPE, stderr=subprocess.PIPE
+        stdin=subprocess.PIPE, stderr=subprocess.PIPE,
+        bufsize=0
     )
     print(f"[audio_tx] aplay started pid={process.pid} rate={rate}")
     await asyncio.sleep(0.1)
     if process.poll() is not None:
         err = process.stderr.read().decode(errors="replace")
-        print(f"[audio_tx] aplay failed: {err}")
+        print(f"[audio_tx] aplay failed to start: {err}")
         return {"error": f"aplay failed: {err}"}
-    loop = asyncio.get_running_loop()
+
+    stats = {"chunks": 0, "bytes": 0, "write_errors": 0, "dropped": 0}
+    TX_GAIN = 2.0
+    # キューで asyncio イベントループと書き込みスレッドを完全に分離
+    # → ハートビート等の sync endpoint がスレッドプールを取れないことを防ぐ
+    chunk_q = _queue.Queue(maxsize=16)
+
+    def write_chunk(c):
+        try:
+            data = bytes(c)
+            if len(data) % 2:
+                data = data[:-1]
+            if not data:
+                return
+            samples = array.array('h', data)
+            for i in range(len(samples)):
+                samples[i] = max(-32768, min(32767, int(samples[i] * TX_GAIN)))
+            out = samples.tobytes()
+            fd = process.stdin.fileno()
+            mv = memoryview(out)
+            offset = 0
+            while offset < len(out):
+                n = os.write(fd, mv[offset:])
+                offset += n
+            stats["bytes"] += len(c)
+        except OSError as e:
+            stats["write_errors"] += 1
+            print(f"[audio_tx] write error: {e}")
+
+    def writer():
+        while True:
+            item = chunk_q.get()
+            if item is None:
+                break
+            write_chunk(item)
+
+    wt = threading.Thread(target=writer, daemon=True)
+    wt.start()
+
     try:
         async for chunk in request.stream():
             if process.poll() is not None:
                 err = process.stderr.read().decode(errors="replace")
                 print(f"[audio_tx] aplay exited early: {err}")
                 break
-            await loop.run_in_executor(None, process.stdin.write, chunk)
+            stats["chunks"] += 1
+            try:
+                chunk_q.put_nowait(chunk)
+            except _queue.Full:
+                stats["dropped"] += 1  # ライターが遅い場合はドロップ
     except Exception as e:
-        print(f"[audio_tx] error: {e}")
+        print(f"[audio_tx] stream {type(e).__name__}: {e!r}")
     finally:
-        try:
-            process.stdin.close()
-        except Exception:
-            pass
-        try:
-            process.wait(timeout=2)
-        except subprocess.TimeoutExpired:
-            process.kill()
-        print(f"[audio_tx] aplay finished rc={process.returncode}")
+        def _cleanup_aplay():
+            try:
+                chunk_q.put(None, timeout=2)
+            except Exception:
+                pass
+            wt.join(timeout=3)
+            try:
+                process.stdin.close()
+            except Exception:
+                pass
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+            ae = ""
+            try:
+                ae = process.stderr.read(512).decode(errors="replace").strip()
+            except Exception:
+                pass
+            return ae
+        aplay_err = await loop.run_in_executor(None, _cleanup_aplay)
+        print(f"[audio_tx] done chunks={stats['chunks']} bytes={stats['bytes']} "
+              f"dropped={stats['dropped']} write_errors={stats['write_errors']} "
+              f"rc={process.returncode} aplay_err={aplay_err!r}")
     return {"status": "ok"}
 
 

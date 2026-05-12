@@ -112,3 +112,43 @@ To prevent audio delay, the system reconnects every 10 minutes.
 During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
+
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v1.30)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control.
+No M5Core / Module Audio / Unit Encoder hardware is required.
+The Raspberry Pi setup is the same as for the M5Core version.
+
+● Features
+- Real-time display of receive frequency, mode, and signal strength
+- Change frequency, mode, power, and squelch
+- Play received audio through the smartphone speaker (SPK)
+- PTT ON/OFF and audio transmission (send microphone audio to the radio)
+- WiFi PTT (PTT control via external devices such as M5Atom)
+- APRS beacon transmission (via DireWolf, with smartphone GPS support)
+- Multiple profile support (switch between connection targets)
+- API Key authentication support
+- Remote access via WireGuard VPN
+
+● Requirements
+- Android smartphone (Android 8.0 or later recommended)
+- Raspberry Pi Zero 2W (already set up)
+- Wi-Fi environment
+
+● Installation
+Download and install the APK from the following GitHub folder:
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.30/M5CoreHamCAT_Android
+
+  1. Download Wifi_RIG_CTRL_v1.30.apk
+  2. Enable "Install unknown apps" in Android settings
+  3. Tap the APK to install
+
+Source code is also published in the same folder (buildable with Android Studio / PlatformIO).
+
+● Raspberry Pi Setup
+Follow the same setup procedure as for the M5Core version.
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.30/RaspberryPiSetup
+
+● Remote Access from Outside Home (WireGuard VPN)
+If connecting from outside your home network (e.g., via mobile data), WireGuard setup is required.
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.30/WireGuard

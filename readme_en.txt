@@ -113,11 +113,21 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v1.31)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v1.40)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v1.31)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v1.40)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v1.40
+- USB CW relay mode (M5ATOM Lite / M5ATOM S3 Lite connected directly to Android via USB)
+  - CW mode: relays key state to Raspberry Pi /cw/key
+  - Non-CW mode (FM, etc.): streams CW audio tone to /radio/audio_tx
+  - Android sidetone playback (low latency, ON/OFF setting remembered)
+  - CW VPN buffer setting (key signal delay compensation)
+  - FM-CW PTT delay setting (prevents beginning cutoff on VPN; separate from CW delay)
+- IC-705 TX audio level fix (PCM set to 100%; requires re-running create_api.sh)
+- FM-CW audio conflict fix when SPK is active
 
 ● Features
 - Real-time display of receive frequency, mode, and signal strength
@@ -125,21 +135,26 @@ The Raspberry Pi setup is the same as for the M5Core version.
 - Play received audio through the smartphone speaker (SPK)
 - PTT ON/OFF and audio transmission (send microphone audio to the radio)
 - WiFi PTT (PTT control via external devices such as M5Atom)
+- USB CW relay (connect M5ATOM directly to Android to relay CW key signals)
 - APRS beacon transmission (via DireWolf, with smartphone GPS support)
 - Multiple profile support (switch between connection targets)
 - API Key authentication support
 - Remote access via WireGuard VPN
 
 ● Requirements
-- Android smartphone (Android 8.0 or later recommended)
+- Android smartphone (Android 5.0 / API 21 or later)
 - Raspberry Pi Zero 2W (already set up)
 - Wi-Fi environment
 
+For USB CW relay:
+- M5ATOM Lite or M5ATOM S3 Lite (with Wifi_Rig_CW Ver1.40 firmware)
+- OTG-compatible USB cable
+
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.31/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.40/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v1.31.apk
+  1. Download Wifi_RIG_CTRL_v1.40.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
@@ -147,8 +162,13 @@ Source code is also published in the same folder (buildable with Android Studio 
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.31/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.40/RaspberryPiSetup
+
+When upgrading from v1.31, re-run create_api.sh (includes IC-705 audio fix):
+  bash ~/create_api.sh
 
 ● Remote Access from Outside Home (WireGuard VPN)
 If connecting from outside your home network (e.g., via mobile data), WireGuard setup is required.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.31/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.40/WireGuard
+
+2026/5/17

@@ -663,13 +663,12 @@ async def audio_tx(request: Request, rate: int = 8000):
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, lambda: [
         subprocess.run(["pkill", "-9", "direwolf"], capture_output=True),
-        subprocess.run(["pkill", "-9", "aplay"], capture_output=True),
-        # ffmpegはcaptureサブストリーム使用 — aplayのplaybackとは独立
-        # TX中も常時起動のまま維持する（PTT OFF後の即時RX再開のため）
+        subprocess.run(["pkill", "-9", "ffmpeg"],   capture_output=True),  # ALSAデバイスを解放
+        subprocess.run(["pkill", "-9", "aplay"],    capture_output=True),
     ])
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(0.2)  # ffmpeg解放待ち (0.1→0.2)
     process = subprocess.Popen(
-        ["aplay", "-D", "plughw:CARD=CODEC,DEV=0", "-f", "S16_LE", "-r", str(rate), "-c", "1", "-B", "300000"],
+        ["aplay", "-D", "plughw:CARD=CODEC,DEV=0", "-f", "S16_LE", "-r", str(rate), "-c", "1", "-B", "100000"],
         stdin=subprocess.PIPE, stderr=subprocess.PIPE,
         bufsize=0
     )
@@ -969,7 +968,17 @@ def aprs_loop():
                 dest_call="APDW18", dest_ssid=0,
                 path=aprs_cfg.path.split(","), info=info
             )
-            send_kiss(kiss_wrap(ax25))
+            try:
+                send_kiss(kiss_wrap(ax25))
+            except Exception as kiss_err:
+                print(f"[APRS] KISS send failed (direwolf not running?): {kiss_err}")
+                if normal_freq:
+                    rigctl_cmd_priority(f"F {normal_freq}")
+                    radio_cache["freq"] = normal_freq
+                    last_user_freq_change = time.time()
+                tx_in_progress = False
+                time.sleep(5)
+                continue
             time.sleep(0.15)
             if wait_tx_complete(timeout=5.0):
                 print("[APRS] TX complete")
@@ -1231,7 +1240,8 @@ CWBEOF
 chmod +x /home/pi/cw_bridge.py
 echo "cw_bridge.py 生成完了"
 
-sudo systemctl restart fastapi
+sudo systemctl restart fastapi fastapi-audio
 echo ""
 echo "完了。30秒後にログを確認:"
 echo "  sudo journalctl -u fastapi -f"
+echo "  sudo journalctl -u fastapi-audio -f"

@@ -142,7 +142,20 @@ sudo systemctl restart systemd-journald
 # 2. piユーザーがUSBシリアルデバイスにアクセスできるよう dialout グループに追加
 sudo usermod -aG dialout pi
 
-# 3. ext4 ジャーナリング確認 (デフォルトで有効、追加設定不要)
+# 3. piユーザーがUSBオーディオデバイスに直接アクセスできるよう audio グループに追加
+#    (plughw:CARD=CODEC,DEV=0 への aplay/arecord アクセスに必要)
+sudo usermod -aG audio pi
+
+# 4. piユーザーが journalctl で direwolf ログを読めるよう systemd-journal グループに追加
+#    (APRS TX完了検出の watch_direwolf_tx() に必要)
+sudo usermod -aG systemd-journal pi
+
+# 5. USBオーディオ(IC-705) PCM出力を0dBに設定 (TX音声変調レベル確保)
+#    デフォルト84% = -20dB ではラジオが変調されない
+amixer -c CODEC sset 'PCM' 100% 2>/dev/null || true
+sudo alsactl store 2>/dev/null || true
+
+# 6. ext4 ジャーナリング確認 (デフォルトで有効、追加設定不要)
 # fsync() を使う _atomic_write() で重要ファイルの整合性を保証
 
 echo "電源保護設定完了"
@@ -152,6 +165,13 @@ echo ""
 echo "環境セットアップ完了。api.py を生成します..."
 bash ~/create_api.sh
 
+# ── サービス起動（enable だけでは再起動まで起動しないため即時起動）──────
+sudo systemctl start direwolf || true
+sudo systemctl start fastapi fastapi-audio || true
+
 echo ""
 echo "セットアップ完了。サービス状態確認:"
-echo "  sudo systemctl status fastapi"
+echo "  sudo systemctl status fastapi fastapi-audio direwolf"
+echo ""
+echo "注意: グループ変更 (audio, dialout, systemd-journal) はログアウト/再ログイン後に有効。"
+echo "  sudo reboot  # 推奨: 再起動で全設定を反映"

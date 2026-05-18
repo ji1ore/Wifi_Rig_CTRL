@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="RasPi CONNECT"
+            android:textColor="#00FFFF"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="24dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Host / IP Address"
+            android:textColor="#AAAAAA"
+            android:textSize="12sp" />
+        <EditText
+            android:id="@+id/editHost"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/edit_bg"
+            android:textColor="#FFFFFF"
+            android:hint="192.168.1.100 or hamcat.local"
+            android:textColorHint="#666666"
+            android:inputType="text"
+            android:padding="10dp"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="API Port"
+            android:textColor="#AAAAAA"
+            android:textSize="12sp" />
+        <EditText
+            android:id="@+id/editApiPort"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/edit_bg"
+            android:textColor="#FFFFFF"
+            android:hint="8210"
+            android:textColorHint="#666666"
+            android:inputType="number"
+            android:padding="10dp"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Audio Port"
+            android:textColor="#AAAAAA"
+            android:textSize="12sp" />
+        <EditText
+            android:id="@+id/editAudioPort"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/edit_bg"
+            android:textColor="#FFFFFF"
+            android:hint="8211"
+            android:textColorHint="#666666"
+            android:inputType="number"
+            android:padding="10dp"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="API Key (optional)"
+            android:textColor="#AAAAAA"
+            android:textSize="12sp" />
+        <EditText
+            android:id="@+id/editApiKey"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/edit_bg"
+            android:textColor="#FFFFFF"
+            android:hint="leave blank if not needed"
+            android:textColorHint="#666666"
+            android:inputType="text"
+            android:padding="10dp"
+            android:layout_marginBottom="16dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="24dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Use mDNS"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+            <Switch
+                android:id="@+id/switchMdns"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnConnect"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Connect"
+            android:backgroundTint="#1565C0"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="16dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#FF4444"
+            android:textSize="14sp"
+            android:layout_marginTop="8dp" />
+
+    </LinearLayout>
+</ScrollView>

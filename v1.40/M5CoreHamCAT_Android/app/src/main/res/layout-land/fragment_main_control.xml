@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:background="#000000"
+    android:padding="8dp">
+
+    <!-- Left: display area -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingEnd="8dp">
+
+        <!-- Model + TX -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="2dp">
+            <TextView
+                android:id="@+id/tvModel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:text="---" />
+            <TextView
+                android:id="@+id/tvTxIndicator"
+                android:layout_width="40dp"
+                android:layout_height="24dp"
+                android:gravity="center"
+                android:text="TX"
+                android:textSize="12sp"
+                android:textColor="#000000"
+                android:background="#DDDDDD" />
+        </LinearLayout>
+
+        <!-- Frequency display: auto-sizes to fill available height -->
+        <TextView
+            android:id="@+id/tvFreq"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="0.00000"
+            android:textColor="#FFFFFF"
+            android:textSize="48sp"
+            app:autoSizeTextType="uniform"
+            app:autoSizeMinTextSize="16sp"
+            app:autoSizeMaxTextSize="64sp"
+            android:textStyle="bold"
+            android:fontFamily="monospace"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- MHz label -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="end"
+            android:text="MHz"
+            android:textColor="#888888"
+            android:textSize="12sp"
+            android:paddingEnd="4dp" />
+
+        <!-- S-meter -->
+        <LinearLayout
+            android:id="@+id/llSmeter"
+            android:layout_width="match_parent"
+            android:layout_height="16dp"
+            android:orientation="horizontal"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="4dp" />
+
+        <!-- Info row: Step / Mode / Width / Pow / SQL -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="4dp">
+            <TextView android:id="@+id/tvStep"  android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:textColor="#CCCCCC" android:textSize="14sp" android:gravity="center"/>
+            <TextView android:id="@+id/tvMode"  android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:textColor="#CCCCCC" android:textSize="14sp" android:gravity="center"/>
+            <TextView android:id="@+id/tvWidth" android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:textColor="#CCCCCC" android:textSize="14sp" android:gravity="center"/>
+            <TextView android:id="@+id/tvPow"   android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:textColor="#CCCCCC" android:textSize="14sp" android:gravity="center"/>
+            <TextView android:id="@+id/tvSQL"   android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:textColor="#CCCCCC" android:textSize="14sp" android:gravity="center"/>
+        </LinearLayout>
+
+        <!-- Volume slider -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Vol"
+                android:textColor="#888888"
+                android:textSize="14sp"
+                android:layout_marginEnd="6dp"/>
+            <SeekBar
+                android:id="@+id/seekVolume"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:max="100"
+                android:progress="50" />
+        </LinearLayout>
+
+        <!-- CW USB ステータスバー -->
+        <LinearLayout
+            android:id="@+id/llCwUsb"
+            android:layout_width="match_parent"
+            android:layout_height="28dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="#111111"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
+            android:layout_marginTop="4dp"
+            android:clickable="true"
+            android:focusable="true">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CW:"
+                android:textColor="#888888"
+                android:textSize="12sp"
+                android:layout_marginEnd="4dp"/>
+            <TextView
+                android:id="@+id/tvCwUsbStatus"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="USB: Not connected"
+                android:textColor="#555555"
+                android:textSize="12sp"/>
+            <TextView
+                android:id="@+id/tvCwServerStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Svr:--"
+                android:textColor="#AAAAAA"
+                android:textSize="11sp"
+                android:layout_marginStart="6dp"/>
+            <TextView
+                android:id="@+id/tvCwUsbPort"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ttyACM0"
+                android:textColor="#444444"
+                android:textSize="11sp"/>
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Right: button grid 4x3 -->
+    <GridLayout
+        android:id="@+id/gridButtons"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:columnCount="4"
+        android:rowCount="3"
+        android:useDefaultMargins="true">
+
+        <Button android:id="@+id/btnFreq"  android:text="Freq" android:textSize="16sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1565C0" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnStep"  android:text="Step" android:textSize="16sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1565C0" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnMode"  android:text="Mode" android:textSize="16sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1565C0" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnWidth" android:text="Wid"  android:textSize="16sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1565C0" android:textColor="#FFFFFF" android:padding="0dp"/>
+
+        <Button android:id="@+id/btnPow"   android:text="Pow"  android:textSize="16sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1565C0" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnSQL"   android:text="SQL"  android:textSize="16sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1565C0" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnAprs"  android:text="APRS" android:textSize="16sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#455A64" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnPtt"   android:text="PTT"  android:textSize="16sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#6A1B9A" android:textColor="#FFFFFF" android:padding="0dp"/>
+
+        <Button android:id="@+id/btnBack"  android:text="Back" android:textSize="16sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#B71C1C" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnSpk"   android:text="SPK"  android:textSize="16sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1B5E20" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnDown"  android:text="DOWN" android:textSize="16sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#E65100" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnUp"    android:text="UP"   android:textSize="16sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#E65100" android:textColor="#FFFFFF" android:padding="0dp"/>
+
+    </GridLayout>
+
+</LinearLayout>

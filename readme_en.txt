@@ -113,21 +113,30 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v1.40)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v1.50)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v1.40)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v1.50)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
 
-● What's New in v1.40
+● What's New in v1.50
+- Multi-channel CW decoder (long-press SPK button to show/hide decode panel)
+  - Up to 5 simultaneous stations (TX row + RX rows ×5)
+  - Strongest signal always shown in yellow (RX0), auto-promoted
+  - Frequency drift tracking ±125 Hz (prevents duplicate channels)
+  - Automatic merging of duplicate channels for the same frequency
+  - Accurate decoding above 20 WPM (Float ditWins adaptive algorithm)
+  - Energy-based noise rejection (stops decoding after signal disappears)
+  - VPN latency support: audio bursts exceeding 2 seconds are skipped
+- No Raspberry Pi changes required (no need to re-run create_api.sh)
+
+● v1.40 Features (no changes)
 - USB CW relay mode (M5ATOM Lite / M5ATOM S3 Lite connected directly to Android via USB)
   - CW mode: relays key state to Raspberry Pi /cw/key
   - Non-CW mode (FM, etc.): streams CW audio tone to /radio/audio_tx
   - Android sidetone playback (low latency, ON/OFF setting remembered)
   - CW VPN buffer setting (key signal delay compensation)
   - FM-CW PTT delay setting (prevents beginning cutoff on VPN; separate from CW delay)
-- IC-705 TX audio level fix (PCM set to 100%; requires re-running create_api.sh)
-- FM-CW audio conflict fix when SPK is active
 
 ● Features
 - Real-time display of receive frequency, mode, and signal strength
@@ -152,9 +161,9 @@ For USB CW relay:
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.40/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.50/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v1.40.apk
+  1. Download Wifi_RIG_CTRL_v1.50.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
@@ -162,13 +171,13 @@ Source code is also published in the same folder (buildable with Android Studio 
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.40/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.50/RaspberryPiSetup
 
-When upgrading from v1.31, re-run create_api.sh (includes IC-705 audio fix):
-  bash ~/create_api.sh
+No Raspberry Pi update is required when upgrading from v1.40 (APK replacement only).
 
 ● Remote Access from Outside Home (WireGuard VPN)
 If connecting from outside your home network (e.g., via mobile data), WireGuard setup is required.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.40/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.50/WireGuard
+(No changes from v1.40)
 
-2026/5/17
+2026/5/18

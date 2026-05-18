@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#000000"
+    android:padding="12dp"
+    android:gravity="top">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Enter Frequency (MHz)"
+        android:textColor="#FFFF00"
+        android:textSize="16sp"
+        android:layout_marginBottom="8dp" />
+
+    <EditText
+        android:id="@+id/etFreqInput"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="@drawable/edit_bg"
+        android:gravity="center_vertical|end"
+        android:padding="12dp"
+        android:textColor="#FFFFFF"
+        android:textSize="28sp"
+        android:fontFamily="monospace"
+        android:inputType="numberDecimal"
+        android:imeOptions="actionDone"
+        android:textColorHint="#555555"
+        android:hint="0.00000"
+        android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/btnOk"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:text="OK"
+        android:backgroundTint="#1565C0"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:layout_marginTop="8dp" />
+
+</LinearLayout>

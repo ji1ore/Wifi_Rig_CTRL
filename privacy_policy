@@ -1,0 +1,60 @@
+# Privacy Policy / プライバシーポリシー
+
+**Wifi RIG CTRL**  
+Last updated: 2026-05-18
+
+---
+
+## 日本語
+
+### 収集する情報
+
+Wifi RIG CTRL は、以下の情報のみをデバイス内でローカルに使用します。
+外部サーバー（Google・広告ネットワーク等）への送信は一切行いません。
+
+| 情報 | 用途 | 保存先 |
+|---|---|---|
+| 接続先ホスト名・ポート・APIキー | ユーザーが設定した Raspberry Pi への接続情報 | 端末内 SharedPreferences |
+| APRS コールサイン・SSID・座標 | APRS ビーコン送信の設定 | 端末内 SharedPreferences |
+| GPS 位置情報（任意） | APRS ビーコンへの座標付加（明示的に許可した場合のみ） | 送信されない・保存されない |
+| マイク音声 | PTT 送信中にのみ無線機へストリーミング（録音・保存なし） | 送信されない・保存されない |
+
+### 第三者への情報提供
+本アプリはいかなる情報も第三者に提供しません。
+
+### 広告・アナリティクス
+本アプリは広告および使用状況の追跡機能を含みません。
+
+### 変更について
+プライバシーポリシーを変更する場合は、このページを更新します。
+
+### お問い合わせ
+jiro.ueno0213@gmail.com
+
+---
+
+## English
+
+### Information We Collect
+
+Wifi RIG CTRL uses the following information locally on your device only.
+No data is transmitted to external servers (Google, ad networks, etc.).
+
+| Information | Purpose | Storage |
+|---|---|---|
+| Host, port, API key | Connection settings for your Raspberry Pi | On-device SharedPreferences |
+| APRS callsign, SSID, coordinates | APRS beacon configuration | On-device SharedPreferences |
+| GPS location (optional) | Appended to APRS beacon when explicitly permitted | Not transmitted or stored |
+| Microphone audio | Streamed to the radio only while PTT is active (not recorded) | Not transmitted or stored |
+
+### Third-Party Sharing
+We do not share any information with third parties.
+
+### Advertising & Analytics
+This app contains no advertisements and no usage tracking.
+
+### Changes
+We will update this page if the privacy policy changes.
+
+### Contact
+jiro.ueno0213@gmail.com

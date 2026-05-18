@@ -18,10 +18,13 @@ android {
 
     signingConfigs {
         release {
+            def props = new Properties()
+            def propsFile = rootProject.file('local.properties')
+            if (propsFile.exists()) props.load(propsFile.newDataInputStream())
             storeFile file('../wifi_rig_ctrl.jks')
-            storePassword 'azusa2go'
-            keyAlias 'wifi-rig-ctrl'
-            keyPassword 'azusa2go'
+            storePassword props.getProperty('STORE_PASSWORD', '')
+            keyAlias props.getProperty('KEY_ALIAS', 'wifi-rig-ctrl')
+            keyPassword props.getProperty('KEY_PASSWORD', '')
         }
     }
 

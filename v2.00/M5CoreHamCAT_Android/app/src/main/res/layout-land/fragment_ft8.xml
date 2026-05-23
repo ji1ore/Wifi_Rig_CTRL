@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:background="#000000"
+    android:padding="4dp">
+
+    <!-- Left: all controls (everything except decoded log) -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingEnd="4dp">
+
+        <!-- Top bar: Back / Title / UTC -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="2dp">
+
+            <Button
+                android:id="@+id/btnFt8Back"
+                android:layout_width="44dp"
+                android:layout_height="30dp"
+                android:text="←"
+                android:textSize="14sp"
+                android:padding="0dp"
+                android:backgroundTint="#B71C1C"
+                android:textColor="#FFFFFF" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="FT8 / FT4"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/tvFt8Utc"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="UTC 00:00:00"
+                android:textColor="#00E5FF"
+                android:textSize="11sp"
+                android:fontFamily="monospace" />
+        </LinearLayout>
+
+        <!-- Mode + Region + Band + Freq row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="2dp">
+
+            <Button android:id="@+id/btnFt8Mode"
+                android:layout_width="44dp" android:layout_height="30dp"
+                android:text="FT8" android:textSize="11sp" android:padding="0dp"
+                android:backgroundTint="#1565C0" android:textColor="#FFFFFF"/>
+            <Button android:id="@+id/btnFt4Mode"
+                android:layout_width="44dp" android:layout_height="30dp"
+                android:text="FT4" android:textSize="11sp" android:padding="0dp"
+                android:backgroundTint="#333333" android:textColor="#AAAAAA"
+                android:layout_marginStart="2dp"/>
+            <Button android:id="@+id/btnRegionJa"
+                android:layout_width="32dp" android:layout_height="30dp"
+                android:text="JA" android:textSize="10sp" android:padding="0dp"
+                android:backgroundTint="#333333" android:textColor="#AAAAAA"
+                android:layout_marginStart="2dp"/>
+            <Spinner android:id="@+id/spinnerBand"
+                android:layout_width="0dp" android:layout_height="30dp" android:layout_weight="1"
+                android:layout_marginStart="4dp" android:background="#111111" android:popupBackground="#111111"/>
+            <TextView android:id="@+id/tvFt8Freq"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="14.074000" android:textColor="#FFFFFF" android:textSize="12sp"
+                android:fontFamily="monospace" android:textStyle="bold" android:layout_marginStart="4dp"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="MHz" android:textColor="#666666" android:textSize="10sp"/>
+            <Button android:id="@+id/btnFreqAdd"
+                android:layout_width="28dp" android:layout_height="30dp"
+                android:text="+" android:textSize="14sp" android:padding="0dp"
+                android:backgroundTint="#4A148C" android:textColor="#CE93D8"
+                android:layout_marginStart="2dp"/>
+        </LinearLayout>
+
+        <!-- Waterfall -->
+        <com.ji1ore.wifi_rig_ctrl.WaterfallView
+            android:id="@+id/waterfallFt8"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:layout_marginBottom="2dp"/>
+
+        <!-- RIG mode + POW controls -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="26dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="2dp">
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="RIG:" android:textColor="#888888" android:textSize="9sp"
+                android:layout_marginEnd="2dp"/>
+            <Button android:id="@+id/btnFt8RigMode"
+                android:layout_width="64dp" android:layout_height="24dp"
+                android:text="PKTUSB" android:textSize="9sp" android:padding="0dp"
+                android:backgroundTint="#1A3A1A" android:textColor="#88FF88"/>
+            <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="POW" android:textColor="#888888" android:textSize="9sp"
+                android:layout_marginEnd="2dp"/>
+            <Button android:id="@+id/btnFt8PowDown"
+                android:layout_width="24dp" android:layout_height="24dp"
+                android:text="▼" android:textSize="8sp" android:padding="0dp"
+                android:backgroundTint="#3A2A00" android:textColor="#FFAA00"/>
+            <TextView android:id="@+id/tvFt8Pow"
+                android:layout_width="38dp" android:layout_height="wrap_content"
+                android:text="100%" android:textColor="#FFAA00" android:textSize="11sp"
+                android:fontFamily="monospace" android:gravity="center"/>
+            <Button android:id="@+id/btnFt8PowUp"
+                android:layout_width="24dp" android:layout_height="24dp"
+                android:text="▲" android:textSize="8sp" android:padding="0dp"
+                android:backgroundTint="#3A2A00" android:textColor="#FFAA00"/>
+        </LinearLayout>
+
+        <!-- RX / TX Hz controls -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="28dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="2dp">
+
+            <TextView android:layout_width="22dp" android:layout_height="wrap_content"
+                android:text="RX" android:textColor="#00E5FF" android:textSize="10sp" android:textStyle="bold"/>
+            <Button android:id="@+id/btnRxHzDown"
+                android:layout_width="26dp" android:layout_height="26dp"
+                android:text="▼" android:textSize="9sp" android:padding="0dp"
+                android:backgroundTint="#1A3A4A" android:textColor="#00E5FF"/>
+            <TextView android:id="@+id/tvRxHz"
+                android:layout_width="46dp" android:layout_height="wrap_content"
+                android:text="1500" android:textColor="#00E5FF" android:textSize="12sp"
+                android:fontFamily="monospace" android:gravity="center"/>
+            <Button android:id="@+id/btnRxHzUp"
+                android:layout_width="26dp" android:layout_height="26dp"
+                android:text="▲" android:textSize="9sp" android:padding="0dp"
+                android:backgroundTint="#1A3A4A" android:textColor="#00E5FF"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Hz" android:textColor="#444444" android:textSize="9sp"/>
+
+            <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1"/>
+
+            <TextView android:layout_width="22dp" android:layout_height="wrap_content"
+                android:text="TX" android:textColor="#FF5555" android:textSize="10sp" android:textStyle="bold"/>
+            <Button android:id="@+id/btnTxHzDown"
+                android:layout_width="26dp" android:layout_height="26dp"
+                android:text="▼" android:textSize="9sp" android:padding="0dp"
+                android:backgroundTint="#4A1A1A" android:textColor="#FF5555"/>
+            <TextView android:id="@+id/tvTxHz"
+                android:layout_width="46dp" android:layout_height="wrap_content"
+                android:text="1500" android:textColor="#FF5555" android:textSize="12sp"
+                android:fontFamily="monospace" android:gravity="center"/>
+            <Button android:id="@+id/btnTxHzUp"
+                android:layout_width="26dp" android:layout_height="26dp"
+                android:text="▲" android:textSize="9sp" android:padding="0dp"
+                android:backgroundTint="#4A1A1A" android:textColor="#FF5555"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Hz" android:textColor="#444444" android:textSize="9sp"/>
+        </LinearLayout>
+
+        <!-- My callsign + GL -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="30dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="2dp">
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="MY:" android:textColor="#888888" android:textSize="10sp"/>
+            <EditText android:id="@+id/editMyCall"
+                android:layout_width="0dp" android:layout_height="28dp" android:layout_weight="2"
+                android:hint="JI1ORE" android:inputType="text|textCapCharacters"
+                android:textColor="#FFFFFF" android:textColorHint="#444444" android:textSize="12sp"
+                android:fontFamily="monospace" android:background="#111111"
+                android:paddingStart="6dp" android:paddingEnd="6dp" android:layout_marginStart="2dp"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text=" GL:" android:textColor="#888888" android:textSize="10sp"/>
+            <EditText android:id="@+id/editMyGl"
+                android:layout_width="0dp" android:layout_height="28dp" android:layout_weight="1"
+                android:hint="PM85" android:inputType="text|textCapCharacters"
+                android:textColor="#FFFFFF" android:textColorHint="#444444" android:textSize="12sp"
+                android:fontFamily="monospace" android:background="#111111"
+                android:paddingStart="6dp" android:paddingEnd="6dp" android:layout_marginStart="2dp"/>
+            <Button android:id="@+id/btnGpsGl"
+                android:layout_width="36dp" android:layout_height="28dp"
+                android:text="GPS" android:textSize="8sp" android:padding="0dp"
+                android:backgroundTint="#1B5E20" android:textColor="#AAFFAA"
+                android:layout_marginStart="2dp"/>
+        </LinearLayout>
+
+        <!-- DX callsign -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="30dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="2dp">
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="DX:" android:textColor="#888888" android:textSize="10sp"/>
+            <EditText android:id="@+id/editDxCall"
+                android:layout_width="0dp" android:layout_height="28dp" android:layout_weight="1"
+                android:hint="相手のコールサイン" android:inputType="text|textCapCharacters"
+                android:textColor="#FFFF88" android:textColorHint="#444444" android:textSize="12sp"
+                android:fontFamily="monospace" android:background="#111111"
+                android:paddingStart="6dp" android:paddingEnd="6dp" android:layout_marginStart="2dp"/>
+        </LinearLayout>
+
+        <!-- QSO step bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="2dp">
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="QSO:" android:textColor="#666666" android:textSize="9sp"/>
+            <TextView android:id="@+id/tvQsoStepCq"
+                android:layout_width="0dp" android:layout_height="22dp" android:layout_weight="1"
+                android:text="CQ" android:textSize="10sp" android:textStyle="bold" android:gravity="center"
+                android:background="#1B5E20" android:textColor="#AAFFAA" android:layout_marginStart="2dp"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="›" android:textColor="#444444" android:textSize="11sp"
+                android:paddingStart="1dp" android:paddingEnd="1dp"/>
+            <TextView android:id="@+id/tvQsoStepAns"
+                android:layout_width="0dp" android:layout_height="22dp" android:layout_weight="1"
+                android:text="ANS" android:textSize="10sp" android:textStyle="bold" android:gravity="center"
+                android:background="#222222" android:textColor="#555555"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="›" android:textColor="#444444" android:textSize="11sp"
+                android:paddingStart="1dp" android:paddingEnd="1dp"/>
+            <TextView android:id="@+id/tvQsoStepRpt"
+                android:layout_width="0dp" android:layout_height="22dp" android:layout_weight="1"
+                android:text="RPT" android:textSize="10sp" android:textStyle="bold" android:gravity="center"
+                android:background="#222222" android:textColor="#555555"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="›" android:textColor="#444444" android:textSize="11sp"
+                android:paddingStart="1dp" android:paddingEnd="1dp"/>
+            <TextView android:id="@+id/tvQsoStepRrr"
+                android:layout_width="0dp" android:layout_height="22dp" android:layout_weight="1"
+                android:text="RRR" android:textSize="10sp" android:textStyle="bold" android:gravity="center"
+                android:background="#222222" android:textColor="#555555"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="›" android:textColor="#444444" android:textSize="11sp"
+                android:paddingStart="1dp" android:paddingEnd="1dp"/>
+            <TextView android:id="@+id/tvQsoStep73"
+                android:layout_width="0dp" android:layout_height="22dp" android:layout_weight="1"
+                android:text="73" android:textSize="10sp" android:textStyle="bold" android:gravity="center"
+                android:background="#222222" android:textColor="#555555"/>
+        </LinearLayout>
+
+        <!-- Cycle timer bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="2dp">
+
+            <ProgressBar
+                android:id="@+id/progressFt8Cycle"
+                style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                android:layout_width="0dp"
+                android:layout_height="10dp"
+                android:layout_weight="1"
+                android:max="15000"
+                android:progress="0"/>
+
+            <TextView android:id="@+id/tvFt8CycleState"
+                android:layout_width="26dp" android:layout_height="wrap_content"
+                android:text="RX" android:textColor="#00FF00" android:textSize="11sp"
+                android:textStyle="bold" android:gravity="center" android:layout_marginStart="4dp"/>
+            <TextView android:id="@+id/tvFt8CycleTime"
+                android:layout_width="36dp" android:layout_height="wrap_content"
+                android:text="0/15s" android:textColor="#777777" android:textSize="10sp"
+                android:fontFamily="monospace" android:gravity="end"/>
+            <TextView android:id="@+id/tvDecodeStatus"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="" android:textColor="#888800" android:textSize="9sp"
+                android:fontFamily="monospace" android:layout_marginStart="4dp"/>
+        </LinearLayout>
+
+        <!-- TX message sequence -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="30dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <Button android:id="@+id/btnTxMsgPrev"
+                android:layout_width="28dp" android:layout_height="28dp"
+                android:text="◀" android:textSize="10sp" android:padding="0dp"
+                android:backgroundTint="#333333" android:textColor="#AAAAAA"/>
+            <TextView android:id="@+id/tvTxMsgPreview"
+                android:layout_width="0dp" android:layout_height="28dp" android:layout_weight="1"
+                android:text="CQ JI1ORE PM85" android:textColor="#FFFF88" android:textSize="11sp"
+                android:fontFamily="monospace" android:gravity="center_vertical"
+                android:paddingStart="6dp" android:paddingEnd="6dp"
+                android:background="#111111" android:layout_marginStart="2dp" android:layout_marginEnd="2dp"
+                android:singleLine="true"/>
+            <Button android:id="@+id/btnTxMsgNext"
+                android:layout_width="28dp" android:layout_height="28dp"
+                android:text="▶" android:textSize="10sp" android:padding="0dp"
+                android:backgroundTint="#333333" android:textColor="#AAAAAA"/>
+            <Button android:id="@+id/btnFt8TxEnable"
+                android:layout_width="60dp" android:layout_height="28dp"
+                android:text="TX OFF" android:textSize="10sp" android:padding="0dp"
+                android:backgroundTint="#333333" android:textColor="#AAAAAA"
+                android:layout_marginStart="4dp"/>
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Right: decoded message log -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingStart="4dp">
+
+        <!-- Column header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:background="#111111">
+
+            <TextView android:layout_width="60dp"  android:layout_height="wrap_content"
+                android:text="UTC"     android:textColor="#555555" android:textSize="10sp" android:fontFamily="monospace"/>
+            <TextView android:layout_width="32dp"  android:layout_height="wrap_content"
+                android:text="dB"      android:textColor="#555555" android:textSize="10sp" android:fontFamily="monospace" android:gravity="end"/>
+            <TextView android:layout_width="32dp"  android:layout_height="wrap_content"
+                android:text="DT"      android:textColor="#555555" android:textSize="10sp" android:fontFamily="monospace" android:gravity="end"/>
+            <TextView android:layout_width="40dp"  android:layout_height="wrap_content"
+                android:text="Hz"      android:textColor="#555555" android:textSize="10sp" android:fontFamily="monospace" android:gravity="end"/>
+            <TextView android:layout_width="0dp"   android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="Message" android:textColor="#555555" android:textSize="10sp" android:fontFamily="monospace" android:paddingStart="6dp"/>
+        </LinearLayout>
+
+        <!-- Decoded message list -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvFt8Messages"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="#0A0A0A"
+            android:clipToPadding="false"/>
+
+    </LinearLayout>
+
+</LinearLayout>

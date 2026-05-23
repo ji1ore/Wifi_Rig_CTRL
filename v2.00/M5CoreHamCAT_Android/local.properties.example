@@ -1,0 +1,11 @@
+# Copy this file to local.properties and fill in your values.
+# local.properties is NOT committed to version control.
+
+# Android SDK path (set automatically by Android Studio)
+sdk.dir=/path/to/Android/Sdk
+
+# Signing credentials for release build
+KEYSTORE_FILE=../wifi_rig_ctrl.jks
+KEYSTORE_PASSWORD=your_keystore_password
+KEY_ALIAS=wifi-rig-ctrl
+KEY_PASSWORD=your_key_password

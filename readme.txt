@@ -75,14 +75,23 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v1.50）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.01）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v1.50）。
+アプリを v1.30 より公開しています（最新版：v2.01）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
 
-●v1.50 の新機能
+●v2.01 の変更点
+・FT8/FT4 機能を WebView ベースに刷新（Pi 側ポート 8443 が必要）
+・Raspberry Pi 側の create_api.sh を再実行してください
+
+●v2.00 の新機能（v1.50 からの追加）
+・FT8/FT4 受信デコード・送信（実験的機能）
+・音声ストリームのサンプリングレート選択（8k〜48kHz）
+・フィルター幅の操作に対応
+
+●v1.50 の新機能（変更なし）
 ・多チャンネル CW デコーダー（SPK ボタン長押しでパネル表示）
   - 最大 5 局を同時受信・デコード（TX 行 + RX 行 ×5）
   - 最も強く聞こえている局を常に RX0（黄色）に自動昇格
@@ -90,7 +99,6 @@ Raspberry Pi のセットアップは M5Core 版と共通です。
   - 同一周波数のチャンネルを自動統合（重複表示なし）
   - 20 WPM 超でも正確にデコード
   - VPN 遅延対応：2 秒超の音声バーストをデコードをスキップ
-・Raspberry Pi 側の変更なし（create_api.sh の再実行不要）
 
 ●v1.40 の機能（変更なし）
 ・USB経由CW中継モード（M5ATOM Lite / M5ATOM S3 Lite をAndroidに直接USB接続）
@@ -102,18 +110,19 @@ Raspberry Pi のセットアップは M5Core 版と共通です。
 
 ●できること
 ・受信周波数・モード・信号強度のリアルタイム表示
-・周波数・モード・パワー・スケルチの変更
+・周波数・モード・パワー・スケルチ・フィルター幅の変更
 ・受信音声をスマートフォンのスピーカーで再生（SPK）
 ・PTT ON/OFF と音声送信（マイクの音声を無線機に送出）
 ・WiFi PTT（M5Atom 等の外部デバイスと連動した PTT 制御）
 ・USB CW中継（M5ATOM を直接 Android に接続して CW キー信号を中継）
+・FT8/FT4 受信デコード・送信（WebView ベース）
 ・APRS ビーコン送信（DireWolf 経由、スマートフォン GPS 対応）
 ・複数プロファイル対応（接続先の切り替え）
 ・API Key 認証対応
 ・WireGuard VPN 経由での外出先接続対応
 
 ●必要なもの
-・Android スマートフォン（Android 5.0 以上）
+・Android スマートフォン（Android 8.0 以上）
 ・Raspberry Pi Zero 2W（セットアップ済み）
 ・WiFi 環境
 
@@ -123,24 +132,24 @@ USB CW中継を使う場合:
 
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.50/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.01/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v1.50.apk をダウンロード
+  1. Wifi_RIG_CTRL_v2.01_debug.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
-ソースコードも同フォルダに公開しています（Android Studio / PlatformIO でビルド可能）。
+ソースコードも同フォルダに公開しています（Android Studio でビルド可能）。
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.50/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.01/RaspberryPiSetup
 
-v1.40 からのアップグレード時は Raspberry Pi 側の更新不要です（APK のみ入れ替え）。
+v1.50/v2.00 からのアップグレード時は Raspberry Pi 側の create_api.sh を再実行してください。
 
 ●外出先からの接続（WireGuard VPN）
 モバイル回線など自宅外から接続する場合は WireGuard のセットアップが必要です。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.50/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.01/WireGuard
 （v1.40 からの変更なし）
 
-2026/5/18
+2026/5/30
 以上。

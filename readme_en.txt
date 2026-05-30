@@ -113,22 +113,29 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v1.50)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.01)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v1.50)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.01)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
 
-● What's New in v1.50
+● What's New in v2.01
+- FT8/FT4 feature redesigned with WebView-based UI (requires port 8443 on Raspberry Pi)
+- Please re-run create_api.sh on the Raspberry Pi side
+
+● v2.00 Features (added from v1.50)
+- FT8/FT4 receive decode and transmit (experimental feature)
+- Selectable audio stream sampling rate (8k–48kHz)
+- Filter width control
+
+● v1.50 Features (no changes)
 - Multi-channel CW decoder (long-press SPK button to show/hide decode panel)
   - Up to 5 simultaneous stations (TX row + RX rows ×5)
   - Strongest signal always shown in yellow (RX0), auto-promoted
   - Frequency drift tracking ±125 Hz (prevents duplicate channels)
   - Automatic merging of duplicate channels for the same frequency
-  - Accurate decoding above 20 WPM (Float ditWins adaptive algorithm)
-  - Energy-based noise rejection (stops decoding after signal disappears)
+  - Accurate decoding above 20 WPM
   - VPN latency support: audio bursts exceeding 2 seconds are skipped
-- No Raspberry Pi changes required (no need to re-run create_api.sh)
 
 ● v1.40 Features (no changes)
 - USB CW relay mode (M5ATOM Lite / M5ATOM S3 Lite connected directly to Android via USB)
@@ -140,18 +147,19 @@ The Raspberry Pi setup is the same as for the M5Core version.
 
 ● Features
 - Real-time display of receive frequency, mode, and signal strength
-- Change frequency, mode, power, and squelch
+- Change frequency, mode, power, squelch, and filter width
 - Play received audio through the smartphone speaker (SPK)
 - PTT ON/OFF and audio transmission (send microphone audio to the radio)
 - WiFi PTT (PTT control via external devices such as M5Atom)
 - USB CW relay (connect M5ATOM directly to Android to relay CW key signals)
+- FT8/FT4 receive decode and transmit (WebView-based)
 - APRS beacon transmission (via DireWolf, with smartphone GPS support)
 - Multiple profile support (switch between connection targets)
 - API Key authentication support
 - Remote access via WireGuard VPN
 
 ● Requirements
-- Android smartphone (Android 5.0 / API 21 or later)
+- Android smartphone (Android 8.0 / API 26 or later)
 - Raspberry Pi Zero 2W (already set up)
 - Wi-Fi environment
 
@@ -161,23 +169,23 @@ For USB CW relay:
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.50/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.01/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v1.50.apk
+  1. Download Wifi_RIG_CTRL_v2.01_debug.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
-Source code is also published in the same folder (buildable with Android Studio / PlatformIO).
+Source code is also published in the same folder (buildable with Android Studio).
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.50/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.01/RaspberryPiSetup
 
-No Raspberry Pi update is required when upgrading from v1.40 (APK replacement only).
+When upgrading from v1.50 or v2.00, please re-run create_api.sh on the Raspberry Pi.
 
 ● Remote Access from Outside Home (WireGuard VPN)
 If connecting from outside your home network (e.g., via mobile data), WireGuard setup is required.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v1.50/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.01/WireGuard
 (No changes from v1.40)
 
-2026/5/18
+2026/5/30

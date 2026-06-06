@@ -75,14 +75,42 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.01）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.02）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v2.01）。
+アプリを v1.30 より公開しています（最新版：v2.02）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
 
-●v2.01 の変更点
+●v2.02 の変更点（v2.01 との比較）
+【新機能】
+・CW TX パネルを追加
+  - CQ / CALL K / AGN / UR 5NN BK の定型文ボタン
+  - WPM スライダー（5〜60 WPM、SeekBar）
+  - フリーテキスト入力（英語キーボード自動表示）
+  - CW モード: Hamlib キーヤー経由でモールス送信
+  - FM-CW モード: PCM トーンをラズパイへストリーミング送信
+    ※ FM-CW は約 0.5〜1 秒の遅延があります
+
+【改善・修正】
+・CW/CWR モード選択時にフィルター幅を自動で 500Hz に設定
+・POW UP/DOWN を 5% 刻みから 1% 刻みに変更
+・PWR / SQL ダイアログのステップ表示から「%」を削除
+・メッセージをすべて英語に統一
+
+【FastAPI 更新（要 create_api.sh 再実行）】
+・CW モールス送信 API 追加（/cw/send_morse / /cw/stop_morse / /cw/morse_status）
+・Break-in API 追加（/radio/setbkin / /radio/getbkin）
+・時刻同期 API 追加（/time）
+・FT8 専用音声デバイス設定 API 追加（/radio/audio_device_ft8）
+・cw_bridge.py リモートアップデート機能追加（/admin/update_cw_bridge）
+・APRS ビーコンのシンボル・コメント・宛先に設定値を反映
+・APRS PTT 制御を rigctld 経由（PTT RIG 2）に修正（送信できない問題を解消）
+・APRS KISS ポート待機タイムアウト延長（Pi Zero の起動時間に対応）
+・APRS TX 中の PTT ウォッチドッグ抑制（送信が途中で切れる問題を解消）
+・/aprs_config・/aprs_start を非ブロッキング化（Android の HTTP タイムアウト対策）
+
+●v2.01 の変更点（参考）
 ・FT8/FT4 機能を WebView ベースに刷新（Pi 側ポート 8443 が必要）
 ・Raspberry Pi 側の create_api.sh を再実行してください
 
@@ -132,9 +160,9 @@ USB CW中継を使う場合:
 
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.01/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v2.01_debug.apk をダウンロード
+  1. Wifi_RIG_CTRL_v2.02_debug.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
@@ -142,14 +170,15 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.01/M5CoreHamCAT_Android
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.01/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/RaspberryPiSetup
 
-v1.50/v2.00 からのアップグレード時は Raspberry Pi 側の create_api.sh を再実行してください。
+v2.01 からのアップグレード時は Raspberry Pi 側の create_api.sh を再実行してください。
+  bash ~/create_api.sh
 
 ●外出先からの接続（WireGuard VPN）
 モバイル回線など自宅外から接続する場合は WireGuard のセットアップが必要です。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.01/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 （v1.40 からの変更なし）
 
-2026/5/30
+2026/6/6
 以上。

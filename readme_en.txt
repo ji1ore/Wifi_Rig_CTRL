@@ -113,13 +113,42 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.01)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.02)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.01)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.02)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
 
-● What's New in v2.01
+● What's New in v2.02 (compared to v2.01)
+
+New features:
+- CW TX panel added
+  - Preset buttons: CQ / CALL K / AGN / UR 5NN BK
+  - WPM slider (5–60 WPM, SeekBar)
+  - Free text input (automatically shows English keyboard)
+  - CW mode: sends morse via Hamlib keyer
+  - FM-CW mode: streams PCM tone to Raspberry Pi
+    Note: FM-CW has ~0.5–1 second latency due to audio buffering
+
+Improvements & fixes:
+- CW/CWR mode now automatically sets filter width to 500 Hz
+- POW UP/DOWN now uses 1% steps (was 5%)
+- Removed "%" from step labels in PWR/SQL dialogs
+- All in-app messages translated to English
+
+FastAPI update (re-run create_api.sh required):
+- Added CW morse TX API (/cw/send_morse / /cw/stop_morse / /cw/morse_status)
+- Added Break-in API (/radio/setbkin / /radio/getbkin)
+- Added time sync API (/time)
+- Added FT8 audio device API (/radio/audio_device_ft8)
+- Added cw_bridge.py remote update (/admin/update_cw_bridge)
+- APRS beacon now uses symbol/comment/destination from config
+- Fixed APRS PTT control to use rigctld via PTT RIG 2 (resolves "cannot transmit" issue)
+- Extended APRS KISS port wait timeout to handle Pi Zero startup time
+- Suppressed PTT watchdog during APRS TX (resolves TX being cut off mid-packet)
+- Made /aprs_config and /aprs_start non-blocking (fixes Android HTTP timeout)
+
+● What's New in v2.01 (for reference)
 - FT8/FT4 feature redesigned with WebView-based UI (requires port 8443 on Raspberry Pi)
 - Please re-run create_api.sh on the Raspberry Pi side
 
@@ -169,9 +198,9 @@ For USB CW relay:
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.01/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v2.01_debug.apk
+  1. Download Wifi_RIG_CTRL_v2.02_debug.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
@@ -179,13 +208,14 @@ Source code is also published in the same folder (buildable with Android Studio)
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.01/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/RaspberryPiSetup
 
-When upgrading from v1.50 or v2.00, please re-run create_api.sh on the Raspberry Pi.
+When upgrading from v2.01, please re-run create_api.sh on the Raspberry Pi:
+  bash ~/create_api.sh
 
 ● Remote Access from Outside Home (WireGuard VPN)
 If connecting from outside your home network (e.g., via mobile data), WireGuard setup is required.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.01/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 (No changes from v1.40)
 
-2026/5/30
+2026/6/6

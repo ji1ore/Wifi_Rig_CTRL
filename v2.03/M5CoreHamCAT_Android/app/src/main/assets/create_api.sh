@@ -1,0 +1,2550 @@
+#!/bin/bash
+# api.py を完全に再作成する
+# set -e は使わない — sudo が不要なステップが sudo 失敗で止まらないよう
+
+if [ -f $HOME/fastapi/api.py ]; then
+    cp $HOME/fastapi/api.py $HOME/fastapi/api.py.bak2
+    echo "バックアップ: api.py.bak2"
+fi
+
+# sudo が使えるか確認（パスワードなしで実行できる場合のみシステム設定を行う）
+_HAS_SUDO=false
+if sudo -n true 2>/dev/null; then
+    _HAS_SUDO=true
+    echo "=== sudo 利用可能: システム設定を実施 ==="
+else
+    echo "=== sudo パスワードが必要なためシステム設定をスキップ ==="
+    echo "=== 初回のみ SSH で実行: sudo bash $HOME/create_api.sh ==="
+fi
+
+if $_HAS_SUDO; then
+    # pi ユーザーが sudo なしで systemctl restart できるよう NOPASSWD 設定
+    echo "$(whoami) ALL=(ALL) NOPASSWD: /bin/systemctl restart fastapi, /bin/systemctl restart fastapi-audio, /bin/systemctl restart webft8, /bin/systemctl restart direwolf, /bin/systemctl start direwolf, /bin/systemctl stop direwolf" \
+        | sudo tee /etc/sudoers.d/fastapi-restart > /dev/null
+    sudo chmod 0440 /etc/sudoers.d/fastapi-restart
+    echo "NOPASSWD 設定完了"
+
+    # fastapi.service に EnvironmentFile + Restart=always を追加
+    sudo mkdir -p /etc/systemd/system/fastapi.service.d/
+    cat << ENVEOF | sudo tee /etc/systemd/system/fastapi.service.d/env.conf
+[Service]
+EnvironmentFile=-$HOME/fastapi/.env
+Restart=always
+RestartSec=3
+ENVEOF
+    sudo mkdir -p /etc/systemd/system/fastapi-audio.service.d/
+    cat << ENVEOF2 | sudo tee /etc/systemd/system/fastapi-audio.service.d/env.conf
+[Service]
+EnvironmentFile=-$HOME/fastapi/.env
+Restart=always
+RestartSec=3
+ENVEOF2
+
+    # direwolf.service が SIGKILL 後に再起動しないよう drop-in を追加
+    sudo mkdir -p /etc/systemd/system/direwolf.service.d/
+    cat << 'DROPINEOF' | sudo tee /etc/systemd/system/direwolf.service.d/no-kill-restart.conf
+[Service]
+RestartPreventExitStatus=SIGKILL
+DROPINEOF
+    sudo systemctl daemon-reload
+    echo "drop-in 設定完了"
+
+    # sox インストール (arecord|sox パイプラインで音量増幅に使用)
+    if ! command -v sox > /dev/null 2>&1; then
+        echo "=== sox をインストール中 ==="
+        sudo apt-get install -y sox && echo "sox インストール完了" || echo "警告: sox インストール失敗"
+    else
+        echo "sox 既存: スキップ"
+    fi
+fi
+
+# .env ファイルが未作成なら空テンプレートを生成
+if [ ! -f $HOME/fastapi/.env ]; then
+    echo "# API Key 認証。キーを設定する場合は下の行を編集して有効にする" > $HOME/fastapi/.env
+    echo "# API_KEY=your_secret_key_here" >> $HOME/fastapi/.env
+    echo ".env テンプレート生成: $HOME/fastapi/.env"
+fi
+
+cat << 'APIEOF' > $HOME/fastapi/api.py
+from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, Request, Security, Form, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from fastapi.security import APIKeyHeader
+from fastapi.staticfiles import StaticFiles
+from starlette.background import BackgroundTask
+from pydantic import BaseModel
+import array
+import glob
+import os
+from pathlib import Path
+import queue as _queue
+import select
+import signal
+import socket
+import struct
+import subprocess
+import threading
+import time
+import asyncio
+import datetime
+try:
+    import serial as _serial
+    _HAS_SERIAL = True
+except ImportError:
+    _HAS_SERIAL = False
+
+# API Key 認証（環境変数 API_KEY が設定されている場合のみ有効）
+API_KEY = os.environ.get("API_KEY", "")
+API_VERSION = "2.03"
+
+# ホームディレクトリ — 実行ユーザーに依存しないよう Path.home() で取得
+_HOME = Path.home()
+_FASTAPI_DIR  = _HOME / "fastapi"
+_WEBFT8_DIR   = _HOME / "webft8_static" / "web"
+_CW_BRIDGE    = _HOME / "cw_bridge.py"
+_DIREWOLF_CONF = _HOME / "direwolf.conf"
+_CREATE_API_SH = _HOME / "create_api.sh"
+
+# ALSAデバイス設定 (環境変数 or POST /radio/audio_device で変更可)
+_alsa_capture_dev  = os.environ.get("ALSA_CAPTURE",  "plughw:CARD=CODEC,DEV=0")
+_alsa_playback_dev = os.environ.get("ALSA_PLAYBACK", "plughw:CARD=CODEC,DEV=0")
+_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+async def verify_key(key: str = Security(_api_key_header), api_key: str = Query(default=None)):
+    actual = key or api_key or ""
+    if API_KEY and actual != API_KEY:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+app = FastAPI(dependencies=[Depends(verify_key)])
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# webft8 static files (web/ サブディレクトリに index.html がある)
+_webft8_dir = str(_WEBFT8_DIR)
+if os.path.isdir(_webft8_dir):
+    app.mount("/ft8web", StaticFiles(directory=_webft8_dir, html=True), name="ft8web")
+
+rig_lock = threading.Lock()
+radio_cache = {
+    "freq": 0,
+    "mode": "",
+    "width": 0,
+    "signal": 0.0,
+    "tx": False,
+    "power": 0.0,
+    "sql": 0.0,
+    "bk_in": 0
+}
+
+current_model = None
+current_cat = None
+current_baud = None
+current_ptt = ""
+current_ptt_type = "RIG"
+poll_started = False
+poll_enabled = True
+tx_in_progress = False
+last_user_freq_change = 0
+last_user_mode_change = 0
+last_heartbeat = time.time()
+last_ptt_state = 0
+
+rigctld_process = None
+_rigctld_restarting = False
+
+_last_tx_debug: dict = {"status": "none", "aplay_rc": None, "aplay_err": "", "chunks": 0, "dev": ""}
+
+aprs_running = False
+aprs_thread = None
+aprs_last_heartbeat = 0
+aprs_freq = None
+aprs_interval = None
+normal_freq = None
+aprs_use_gps = True
+aprs_manual_lat = 0.0
+aprs_manual_lon = 0.0
+aprs_cfg = None
+
+tx_started = False
+tx_done = False
+tx_watch_thread = None
+tx_watch_running = False
+
+_ft8_tx_active = False
+
+latest_gps = {"lat": 0.0, "lon": 0.0}
+
+# ─── CW bridge subprocess 管理 ───
+_cw_bridge_proc = None
+_cw_bridge_lock = threading.Lock()
+_cw_bridge_port = ""
+
+# ─── ファイル原子書き込みヘルパー (電源即切り対策) ───
+def _atomic_write(path: str, content: str):
+    """temp ファイルへ書き込み → fsync → rename で原子的にファイルを更新する。
+    電源突然遮断時のファイル破損を防ぐ。"""
+    import tempfile
+    dir_path = os.path.dirname(os.path.abspath(path))
+    fd, tmp_path = tempfile.mkstemp(dir=dir_path, suffix=".tmp")
+    try:
+        with os.fdopen(fd, 'w') as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+        raise
+
+# ─── ffmpeg サブスクライバーパターン ───
+# メイン(SPK)とFT8が独立したキューを持ち、同一プロセスの出力をファンアウトする。
+# 異なるレート/フィルターは別 _FfmpegMgr インスタンスで管理する。
+
+class _FfmpegMgr:
+    """1つの ffmpeg プロセスを管理し、複数サブスクライバーへブロードキャストする。
+    購読者がゼロになると idle_stop_sec 秒後に ffmpeg を停止し ALSA を解放する。"""
+    def __init__(self, af: str = None, kill_direwolf: bool = False, idle_stop_sec: int = 5,
+                 low_latency: bool = False, use_arecord: bool = False):
+        self._af = af
+        self._kill_direwolf = kill_direwolf
+        self._low_latency = low_latency
+        self._use_arecord = use_arecord
+        self.proc = None
+        self._rate = None
+        self._device = None
+        self._lock = threading.Lock()
+        self._subs_lock = threading.Lock()
+        self._subs: dict = {}
+        self._idle_stop_sec = idle_stop_sec
+        self._idle_timer = None
+        self._mute_until = 0.0
+        self.capture_dev_override = ""  # "" = use global _alsa_capture_dev
+
+    def subscribe(self, maxsize: int = 32):
+        q = _queue.Queue(maxsize=maxsize)
+        sid = id(q)
+        with self._subs_lock:
+            if self._idle_timer:
+                self._idle_timer.cancel()
+                self._idle_timer = None
+            self._subs[sid] = q
+        return sid, q
+
+    def unsubscribe(self, sid):
+        with self._subs_lock:
+            self._subs.pop(sid, None)
+            if not self._subs and self._idle_stop_sec > 0:
+                t = threading.Timer(self._idle_stop_sec, self._idle_stop)
+                t.daemon = True
+                self._idle_timer = t
+                t.start()
+
+    def _idle_stop(self):
+        with self._subs_lock:
+            if self._subs:
+                return
+            self._idle_timer = None
+        self.stop()
+
+    def mute(self, sec: float):
+        self._mute_until = time.time() + sec
+
+    def stop(self):
+        with self._lock:
+            p = self.proc
+            if p and p.poll() is None:
+                try:
+                    os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+                    try:
+                        p.wait(timeout=0.5)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+                        p.wait(timeout=0.5)
+                except Exception:
+                    pass
+            self.proc = None
+            self._rate = None
+            self._device = None
+
+    def _active_capture_dev(self):
+        return self.capture_dev_override if self.capture_dev_override else _alsa_capture_dev
+
+    def ensure(self, rate: str):
+        with self._lock:
+            dev = self._active_capture_dev()
+            if (self.proc and self.proc.poll() is None
+                    and self._rate == rate
+                    and self._device == dev):
+                return self.proc
+            return self._start(rate)
+
+    def _start(self, rate: str):
+        dev = self._active_capture_dev()
+        old = self.proc
+        if old and old.poll() is None:
+            try:
+                os.killpg(os.getpgid(old.pid), signal.SIGTERM)
+                try:
+                    old.wait(timeout=0.5)
+                except subprocess.TimeoutExpired:
+                    os.killpg(os.getpgid(old.pid), signal.SIGKILL)
+                    old.wait(timeout=0.5)
+            except Exception:
+                pass
+        if self._kill_direwolf:
+            subprocess.run(["pkill", "-9", "direwolf"], capture_output=True)
+            time.sleep(0.05)
+        if self._use_arecord:
+            # arecord | sox パイプライン
+            # ffmpegより起動が速い (Pi Zero: ~0.2s vs ~1s)
+            # soxでvolume=8.0相当の音量増幅を維持
+            # 要: sudo apt-get install sox
+            import re as _re
+            m = _re.search(r'volume=(\d+(?:\.\d+)?)', self._af or '')
+            vol = m.group(1).rstrip('0').rstrip('.') if m else '1'
+            cmd_str = (f"arecord -D '{dev}' -f S16_LE -r {rate} -c 1 -t raw | "
+                       f"sox -t raw -r {rate} -e signed -b 16 -c 1 - "
+                       f"-t raw -r {rate} -e signed -b 16 -c 1 - vol {vol}")
+            proc = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, start_new_session=True)
+            self.proc = proc
+            self._rate = rate
+            self._device = dev
+            threading.Thread(target=self._reader, args=(proc,), daemon=True).start()
+            return proc
+        tqs = "64" if self._low_latency else "512"
+        cmd = [
+            "ffmpeg", "-f", "alsa", "-thread_queue_size", tqs,
+            "-ar", rate, "-i", dev, "-ac", "1",
+        ]
+        if self._af:
+            cmd += ["-af", self._af]
+        extra = ["-fflags", "+nobuffer"] if self._low_latency else []
+        cmd += extra + [
+            "-f", "s16le", "-acodec", "pcm_s16le",
+            "-nostdin", "-vn", "-sn", "-dn", "-map", "0:a",
+            "-flush_packets", "1", "-nostats", "pipe:1"
+        ]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                start_new_session=True)
+        self.proc = proc
+        self._rate = rate
+        self._device = dev
+        threading.Thread(target=self._reader, args=(proc,), daemon=True).start()
+        return proc
+
+    def _reader(self, proc):
+        fd = proc.stdout.fileno() if self._low_latency else None
+        chunk = 512 if self._low_latency else 4096
+        while proc.poll() is None:
+            try:
+                r, _, _ = select.select([proc.stdout], [], [], 0.1)
+                if r:
+                    data = os.read(fd, chunk) if fd is not None else proc.stdout.read(chunk)
+                    if not data:
+                        break
+                    with self._subs_lock:
+                        out = bytes(len(data)) if time.time() < self._mute_until else data
+                        for q in list(self._subs.values()):
+                            while q.full():
+                                try:
+                                    q.get_nowait()
+                                except _queue.Empty:
+                                    break
+                            try:
+                                q.put_nowait(out)
+                            except _queue.Full:
+                                pass
+            except Exception:
+                break
+
+# メイン音声: SPK用フィルター+音量ブースト、direwolf停止あり
+_mgr_rx  = _FfmpegMgr(af="highpass=f=300,lowpass=f=4000,volume=10.0", kill_direwolf=True)
+# FT8音声: arecord|sox パイプライン（ffmpegより起動が速い: ~0.2s vs ~1.5s）
+# 全二重失敗でarecordが死んでも ~200ms で復旧できる
+_mgr_sub = _FfmpegMgr(af="volume=8.0", kill_direwolf=False, idle_stop_sec=0, low_latency=True, use_arecord=True)
+
+KISS_HOST = "127.0.0.1"
+KISS_PORT = 8001
+
+
+class GPSData(BaseModel):
+    lat: float
+    lon: float
+
+
+class AprsConfig(BaseModel):
+    callsign: str
+    ssid: int
+    path: str
+    interval: int
+    freq: float
+    baud: int
+    use_gps: bool
+    manual_lat: float
+    manual_lon: float
+    symbol: str
+    comment: str = ""
+    destination: str
+    sound_device: str
+    rig_id: str
+    cat_device: str
+
+
+class AprsStart(BaseModel):
+    freq: float
+    interval: int
+
+
+def _ts() -> str:
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+def _rigctl_log(tag: str, cmd: str, raw: str):
+    ts = _ts()
+    # PTT変化は目立つよう [PTT] タグを追加
+    c = cmd.strip()
+    if c in ("T 0", "T 1"):
+        state = "ON" if c == "T 1" else "OFF"
+        print(f"[{ts}] *** [PTT {state}] {tag} cmd='{c}' -> '{raw[:60]}'", flush=True)
+    elif c == "t":
+        # PTT問い合わせは詳細ログ抑制（毎秒呼ばれるため）
+        pass
+    else:
+        print(f"[{ts}] [{tag}] '{c}' -> '{raw[:60]}'", flush=True)
+
+
+def rigctl_cmd(cmd: str) -> str:
+    with rig_lock:
+        s = None
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(2.0)
+            s.connect(("localhost", 4532))
+            s.sendall((cmd + "\n").encode())
+            data = s.recv(4096)
+            raw = data.decode(errors="replace").strip()
+            _rigctl_log("rigctl", cmd, raw)
+            return raw
+        except socket.timeout:
+            print(f"[{_ts()}] [rigctl] timeout: '{cmd}'", flush=True)
+            return ""
+        except Exception as e:
+            print(f"[{_ts()}] [rigctl] error '{cmd}': {e}", flush=True)
+            return ""
+        finally:
+            if s:
+                try:
+                    s.close()
+                except Exception:
+                    pass
+
+
+def rigctl_cmd_priority(cmd: str) -> str:
+    s = None
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(2.0)
+        s.connect(("localhost", 4532))
+        s.sendall((cmd + "\n").encode())
+        data = s.recv(4096)
+        raw = data.decode(errors="replace").strip()
+        _rigctl_log("rigctl_prio", cmd, raw)
+        return raw
+    except socket.timeout:
+        print(f"[{_ts()}] [rigctl_prio] timeout: '{cmd}'", flush=True)
+        return ""
+    except Exception as e:
+        print(f"[{_ts()}] [rigctl_prio] error '{cmd}': {e}", flush=True)
+        return ""
+    finally:
+        if s:
+            try:
+                s.close()
+            except Exception:
+                pass
+
+
+def rigctl_alive() -> bool:
+    try:
+        s = socket.socket()
+        s.settimeout(0.5)
+        s.connect(("localhost", 4532))
+        s.close()
+        return True
+    except Exception:
+        return False
+
+
+def _wait_usb_device(dev: str, timeout: float = 5.0) -> bool:
+    """Wait for /dev/{dev} to appear after USB re-enumeration."""
+    path = f"/dev/{dev}"
+    if os.path.exists(path):
+        return True
+    subprocess.run(["sudo", "udevadm", "trigger", "--action=add"], capture_output=True)
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        time.sleep(0.3)
+        if os.path.exists(path):
+            return True
+    return False
+
+
+def start_rigctld(model, cat, baud, ptt="", ptt_type="RTS"):
+    global rigctld_process, _rigctld_restarting
+    _rigctld_restarting = True
+    # 1. 追跡しているプロセス参照を graceful に停止
+    if rigctld_process and rigctld_process.poll() is None:
+        try:
+            rigctld_process.terminate()
+            rigctld_process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            rigctld_process.kill()
+            rigctld_process.wait(timeout=2)
+        except Exception:
+            pass
+    rigctld_process = None
+    # 2. 孤立プロセスを SIGTERM で掃討してから SIGKILL で確実に終了
+    subprocess.run(["pkill", "-TERM", "-f", "rigctld"], capture_output=True)
+    # 3. ポート 4532 が解放されるまで最大 5 秒待機
+    deadline = time.time() + 5.0
+    while time.time() < deadline:
+        try:
+            s = socket.socket()
+            s.settimeout(0.2)
+            s.connect(("localhost", 4532))
+            s.close()
+            time.sleep(0.2)  # まだ bind されている — 待機継続
+        except Exception:
+            break  # 接続拒否 = ポート解放済み
+    # 4. 残存プロセスを SIGKILL で強制終了
+    subprocess.run(["pkill", "-KILL", "-f", "rigctld"], capture_output=True)
+    time.sleep(0.2)
+    # 5. CATデバイスが存在するか確認。USB断線後の再列挙を待つ
+    if not _wait_usb_device(cat, timeout=5.0):
+        print(f"[{_ts()}] [rigctld] WARNING: /dev/{cat} not found after 5s", flush=True)
+    # 6. 新しい rigctld を起動（nice +10 で uvicorn より低優先度に設定）
+    cmd = ["nice", "-n", "10", "rigctld", "-m", str(model), "-r", f"/dev/{cat}", "-s", str(baud), "-t", "4532"]
+    if ptt and ptt.upper() != "NONE":
+        cmd += ["-p", f"/dev/{ptt}", "-P", ptt_type.upper()]
+    print(f"starting rigctld: {' '.join(cmd)}")
+    rigctld_process = subprocess.Popen(cmd, stderr=subprocess.PIPE)
+    time.sleep(1.5)
+    if rigctld_process.poll() is not None:
+        err = rigctld_process.stderr.read().decode(errors="replace")
+        print(f"rigctld exited early: {err}")
+    else:
+        print(f"rigctld running pid={rigctld_process.pid}")
+    _rigctld_restarting = False
+
+
+def poll_rig():
+    global poll_enabled, last_user_freq_change, last_user_mode_change
+    print("[poll_rig] waiting for rigctld...")
+    for _ in range(30):
+        if rigctl_alive():
+            break
+        time.sleep(0.5)
+    print("[poll_rig] rigctld ready, starting poll loop")
+    _timeout_streak = 0
+    while True:
+        try:
+            tx_raw = rigctl_cmd("t")
+            if tx_raw:
+                tx = int(tx_raw.split()[0]) if tx_raw.split()[0].isdigit() else 0
+                radio_cache["tx"] = bool(tx)
+                _timeout_streak = 0
+            else:
+                # timeout: keep last TX state so watchdog can fire if needed
+                _timeout_streak += 1
+                if _timeout_streak >= 2 and current_model and current_cat and not _rigctld_restarting:
+                    print(f"[{_ts()}] [poll_rig] {_timeout_streak} consecutive timeouts — restarting rigctld", flush=True)
+                    _timeout_streak = 0
+                    threading.Thread(
+                        target=lambda: start_rigctld(current_model, current_cat, current_baud,
+                                                     current_ptt, current_ptt_type),
+                        daemon=True
+                    ).start()
+                tx = int(radio_cache.get("tx", False))
+        except Exception:
+            tx = 0
+            radio_cache["tx"] = False
+            _timeout_streak = 0
+
+        if tx:
+            time.sleep(1.0)  # TX中はrigctld負荷を軽減
+            continue
+
+        if not poll_enabled:
+            time.sleep(0.2)
+            continue
+
+        try:
+            freq_raw = rigctl_cmd("f")
+            val = freq_raw.split()[0] if freq_raw else ""
+            if val.lstrip("-").isdigit() and time.time() - last_user_freq_change > 0.5:
+                radio_cache["freq"] = int(val)
+        except Exception:
+            pass
+
+        try:
+            mode_raw = rigctl_cmd("m")
+            parts = mode_raw.split() if mode_raw else []
+            if parts and time.time() - last_user_mode_change > 0.5:
+                radio_cache["mode"] = parts[0]
+                if len(parts) >= 2 and parts[1].lstrip("-").isdigit():
+                    radio_cache["width"] = int(parts[1])
+        except Exception:
+            pass
+
+        time.sleep(1.0)
+
+
+def poll_signal():
+    global poll_enabled
+    for _ in range(30):
+        if rigctl_alive():
+            break
+        time.sleep(0.5)
+    last_power = 0
+    last_sql = 0
+    while True:
+        if radio_cache.get("tx", False):
+            time.sleep(1.0)  # TX中はrigctld負荷を軽減
+            continue
+
+        try:
+            raw = rigctl_cmd("l STRENGTH")
+            val = raw.split()[0] if raw else ""
+            if val:
+                sig = float(val)
+                radio_cache["signal"] = max(sig, 0.0)
+        except Exception:
+            pass
+
+        if time.time() - last_power > 5:
+            try:
+                raw = rigctl_cmd("l RFPOWER")
+                val = raw.split()[0] if raw else ""
+                if val:
+                    radio_cache["power"] = float(val)
+            except Exception:
+                pass
+            last_power = time.time()
+
+        if time.time() - last_sql > 5:
+            try:
+                raw = rigctl_cmd("l SQL")
+                val = raw.split()[0] if raw else ""
+                if val:
+                    radio_cache["sql"] = float(val)
+            except Exception:
+                pass
+            last_sql = time.time()
+
+        time.sleep(1.0)
+
+
+def watchdog_heartbeat():
+    global last_heartbeat, last_ptt_state
+    while True:
+        if radio_cache.get("tx", False):
+            # APRS TX 中は direwolf が PTT を管理するので watchdog を抑制
+            if not tx_in_progress and time.time() - last_heartbeat > 5.0:
+                print(f"[{_ts()}] *** [PTT OFF] watchdog: heartbeat lost -> TX OFF", flush=True)
+                try:
+                    rigctl_cmd_priority("T 0")
+                except Exception:
+                    pass
+                radio_cache["tx"] = False
+                last_ptt_state = 0  # 次のハートビートでTXを再開できるようリセット
+        time.sleep(0.1)
+
+
+def _start_webft8_if_needed():
+    web_dir = str(_WEBFT8_DIR)
+    srv = os.path.join(web_dir, "server.py")
+    pem = os.path.join(web_dir, "server.pem")
+    if not (os.path.exists(srv) and os.path.exists(pem)):
+        return
+    r = subprocess.run(["pgrep", "-f", "python3 server.py"], capture_output=True)
+    if r.returncode == 0:
+        return
+    log = open("/tmp/webft8.log", "a")
+    subprocess.Popen(
+        ["python3", "server.py"],
+        cwd=web_dir,
+        stdout=log,
+        stderr=log,
+        start_new_session=True
+    )
+
+
+@app.on_event("startup")
+def startup_event():
+    threading.Thread(target=watchdog_heartbeat, daemon=True).start()
+    threading.Thread(target=_start_webft8_if_needed, daemon=True).start()
+
+
+@app.get("/devices")
+def list_devices():
+    usb = glob.glob("/dev/ttyUSB*")
+    acm = glob.glob("/dev/ttyACM*")
+    serial = sorted([os.path.basename(d) for d in usb + acm])
+    audio = []
+    try:
+        result = subprocess.run(["arecord", "-L"], capture_output=True, text=True)
+        lines = result.stdout.splitlines()
+        current_id = None
+        for line in lines:
+            if not line.strip():
+                continue
+            if not line.startswith(" "):
+                current_id = line.strip()
+            else:
+                if current_id:
+                    audio.append({"id": current_id, "label": f"{line.strip()} ({current_id})"})
+                    current_id = None
+    except Exception as e:
+        print(f"arecord error: {e}")
+    return {"serial": serial, "audio": audio}
+
+
+@app.get("/rigs")
+def list_rigs():
+    result = subprocess.run(["rigctl", "-l"], capture_output=True, text=True)
+    rigs = []
+    for line in result.stdout.splitlines():
+        parts = line.strip().split()
+        if len(parts) >= 3 and parts[0].isdigit():
+            rigs.append({"id": int(parts[0]), "name": f"{parts[1]} {parts[2]}"})
+    return {"rigs": rigs}
+
+
+@app.get("/radio/open")
+def open_radio(model: int, cat: str, baud: int = 38400, audio: str = "", ptt: str = "", ptt_type: str = "RTS"):
+    global current_model, current_cat, current_baud, current_ptt, current_ptt_type, poll_started
+    current_model = model
+    current_cat = cat
+    current_baud = baud
+    current_ptt = ptt
+    current_ptt_type = ptt_type
+    start_rigctld(model, cat, baud, ptt, ptt_type)
+    if not poll_started:
+        threading.Thread(target=poll_rig, daemon=True).start()
+        threading.Thread(target=poll_signal, daemon=True).start()
+        poll_started = True
+    return {"status": "ok"}
+
+
+@app.get("/radio/status")
+def radio_status():
+    return {**radio_cache, "tx_in_progress": tx_in_progress, "api_version": API_VERSION}
+
+
+@app.get("/radio/caps")
+def radio_caps():
+    modes = ["AM", "CW", "CWR", "DIGL", "DIGU", "FM", "LSB", "PKTFM", "PKTLSB", "PKTUSB", "USB"]
+    return {"modes": modes, "raw": ""}
+
+
+@app.get("/radio/modes")
+def list_modes():
+    return {"modes": ["LSB", "USB", "CW", "CWR", "AM", "FM", "DIGL", "DIGU", "PKTLSB", "PKTUSB", "PKTFM"]}
+
+
+def _setfreq_with_retry(f: int):
+    for attempt in range(4):
+        result = rigctl_cmd(f"F {f}")
+        if result is not None and "RPRT" in result:
+            return
+        time.sleep(1.0)
+
+@app.post("/radio/setfreq")
+def set_freq(f: int = Form(...)):
+    global last_user_freq_change
+    radio_cache["freq"] = f
+    last_user_freq_change = time.time()
+    threading.Thread(target=_setfreq_with_retry, args=(f,), daemon=True).start()
+    return {"status": "ok", "freq": f}
+
+
+@app.post("/radio/setmode")
+def set_mode(mode: str = Form(...), width: int = Form(...)):
+    global last_user_mode_change
+    radio_cache["mode"] = mode
+    radio_cache["width"] = width
+    last_user_mode_change = time.time()
+    threading.Thread(target=lambda: rigctl_cmd(f"M {mode} {width}"), daemon=True).start()
+    return {"status": "ok", "mode": mode, "width": width}
+
+
+@app.post("/radio/ptt")
+def ptt(state: int = Form(...)):
+    global last_ptt_state, last_heartbeat, _ft8_tx_active
+    if state == 0:
+        result = rigctl_cmd_priority("T 0")
+        if not result or "RPRT -1" in result:
+            # T 0 failed (timeout or RPRT -1 = IC-705 USB reset): wait and retry
+            print(f"[{_ts()}] *** [PTT OFF] T 0 failed ('{result}'), retrying in 1s...", flush=True)
+            time.sleep(1.0)
+            rigctl_cmd_priority("T 0")
+        radio_cache["tx"] = False
+        last_ptt_state = 0
+        _ft8_tx_active = False
+        # direwolf の自動再起動はしない
+        # audio RX が再接続すると /radio/audio が direwolf を停止して ffmpeg を起動するため
+        # ここで direwolf を再起動すると ffmpeg と ALSA デバイスが競合してしまう
+        # APRS 用の direwolf は /aprs_config・/aprs_stop が管理する
+        return {"status": "ok", "ptt": 0}
+    # ハートビート受信 — 即座に更新 (rigctlタイムアウトで遅延しないよう先頭で実施)
+    last_heartbeat = time.time()
+    if last_ptt_state == 1:
+        # 既にTX中: rigctlを再送せず即リターン (watchdog対策)
+        return {"status": "ok", "ptt": 1}
+    # TX開始 (初回のみ): direwolfをSIGKILLで停止
+    # ffmpegはaudio_tx開始時に停止する（audio RXストリームを早期に切断しない）
+    subprocess.run(["pkill", "-9", "direwolf"], capture_output=True)
+    result = rigctl_cmd_priority("T 1")
+    if not result:
+        # rigctld タイムアウト → 即座に再起動してクライアントにリトライを促す
+        if current_model and current_cat and not _rigctld_restarting:
+            print(f"[{_ts()}] [ptt] T 1 timeout — triggering rigctld restart", flush=True)
+            threading.Thread(
+                target=lambda: start_rigctld(current_model, current_cat, current_baud,
+                                             current_ptt, current_ptt_type),
+                daemon=True
+            ).start()
+        raise HTTPException(status_code=500, detail="rigctld timeout")
+    radio_cache["tx"] = True
+    last_ptt_state = 1
+    return {"status": "ok", "ptt": 1}
+
+
+@app.post("/radio/poll")
+def set_poll(state: int = Form(...)):
+    global poll_enabled
+    poll_enabled = bool(state)
+    return {"poll_enabled": poll_enabled}
+
+
+@app.post("/radio/ptt_heartbeat")
+def ptt_heartbeat():
+    # WiFi PTTモード専用: last_heartbeatだけ更新、rigctlは呼ばない
+    global last_heartbeat
+    last_heartbeat = time.time()
+    return {"status": "ok"}
+
+
+@app.post("/radio/setlevel")
+def set_level(name: str = Form(...), value: float = Form(...)):
+    radio_cache[name.lower()] = value
+    threading.Thread(target=lambda: rigctl_cmd(f"L {name.upper()} {value}"), daemon=True).start()
+    return {"status": "ok", "level": name, "value": value}
+
+
+@app.post("/radio/setbkin")
+def set_bk_in(state: int = Form(...)):
+    try:
+        # 1. Hamlib standard (works on some rigs)
+        raw1 = rigctl_cmd("U SBKIN " + str(state))
+        if raw1 is not None and "RPRT 0" in raw1:
+            radio_cache["bk_in"] = state
+            return {"ok": True, "bk_in": state, "raw": raw1}
+        # 2. FT-991A raw CAT: BK1; = semi break-in ON, BK0; = OFF
+        # B=\x42  K=\x4b  1=\x31 / 0=\x30  ;=\x3b
+        val_hex = "31" if state else "30"
+        raw2 = rigctl_cmd("w \\x42\\x4b\\x" + val_hex + "\\x3b")
+        ok = raw2 is not None
+        if ok:
+            radio_cache["bk_in"] = state
+        return {"ok": ok, "bk_in": state, "raw1": str(raw1), "raw2": str(raw2)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.get("/radio/getbkin")
+def get_bk_in():
+    # Try SBKIN first (semi break-in), fall back to FBKIN (full break-in)
+    val = 0
+    for func in ("SBKIN", "FBKIN"):
+        raw = rigctl_cmd(f"u {func}")
+        try:
+            v = raw.split()[0] if raw else ""
+            if v.lstrip("-").isdigit():
+                val = int(v)
+                break
+        except Exception:
+            pass
+    radio_cache["bk_in"] = val
+    return {"bk_in": val}
+
+
+@app.post("/radio/setpower")
+def set_power(value: float = Form(...)):
+    radio_cache["power"] = value
+    threading.Thread(target=lambda: rigctl_cmd(f"L RFPOWER {value}"), daemon=True).start()
+    return {"status": "ok", "power": value}
+
+
+@app.get("/radio/audio")
+def audio_stream(request: Request, background_tasks: BackgroundTasks):
+    from fastapi.responses import Response
+    rate = request.query_params.get("rate", "8000")
+    if not rate.isdigit():
+        rate = "8000"
+    t0 = time.time()
+    print(f"[audio_rx] connect rate={rate}")
+
+    _mgr_sub.stop()  # FT8用arecord|soxを停止してALSAを解放
+    # shellのSIGTERM後もarecordが残留することがあるため強制kill
+    subprocess.run(["pkill", "-9", "arecord"], capture_output=True)
+    time.sleep(0.15)  # ALSAデバイス解放を確実に待機
+    proc = _mgr_rx.ensure(rate)
+
+    # ffmpeg即死 = aplayとのALSA競合 or デバイス未解放の場合、待ってから再起動
+    if proc.poll() is not None:
+        print(f"[audio_rx] ffmpeg dead, waiting for aplay/arecord release...")
+        deadline = time.time() + 0.8
+        while time.time() < deadline:
+            busy = (subprocess.run(["pgrep", "-x", "aplay"],   capture_output=True).returncode == 0 or
+                    subprocess.run(["pgrep", "-x", "arecord"], capture_output=True).returncode == 0)
+            if not busy:
+                break
+            time.sleep(0.05)
+        proc = _mgr_rx._start(rate)
+        time.sleep(0.1)
+        if proc.poll() is not None:
+            err = ""
+            try:
+                err = proc.stderr.read(512).decode(errors="replace").strip()
+            except Exception:
+                pass
+            print(f"[audio_rx] ffmpeg dead after aplay-wait: {err}")
+            return Response(status_code=503, content=f"ffmpeg error: {err}")
+
+    sid, q = _mgr_rx.subscribe(maxsize=32)
+    print(f"[audio_rx] ready {time.time()-t0:.3f}s")
+
+    def stream():
+        try:
+            while True:
+                try:
+                    data = q.get(timeout=0.2)
+                    yield data
+                except _queue.Empty:
+                    if _mgr_rx.proc is not proc or proc.poll() is not None:
+                        break
+        except GeneratorExit:
+            pass
+
+    def cleanup():
+        _mgr_rx.unsubscribe(sid)
+        print("[audio_rx] client disconnected")
+
+    return StreamingResponse(stream(), media_type="application/octet-stream",
+                             background=BackgroundTask(cleanup))
+
+
+@app.get("/radio/audio_device")
+def get_audio_device():
+    return {"capture": _alsa_capture_dev, "playback": _alsa_playback_dev}
+
+@app.post("/radio/audio_device")
+async def set_audio_device(request: Request):
+    global _alsa_capture_dev, _alsa_playback_dev
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    capture = data.get("capture", "").strip()
+    playback = data.get("playback", "").strip()
+    if capture:
+        _alsa_capture_dev = capture
+    if playback:
+        _alsa_playback_dev = playback
+    # ffmpegは次回接続時に _ensure_ffmpeg() がデバイス変更を検知して自動再起動する
+    print(f"[audio_device] capture={_alsa_capture_dev} playback={_alsa_playback_dev}")
+    return {"capture": _alsa_capture_dev, "playback": _alsa_playback_dev}
+
+@app.post("/radio/audio_device_ft8")
+async def set_audio_device_ft8(request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    capture = data.get("capture", "").strip()
+    _mgr_sub.capture_dev_override = capture
+    _mgr_sub.stop()  # 次回接続時に新デバイスで再起動
+    print(f"[audio_device_ft8] capture_override={capture!r}")
+    return {"capture_ft8": capture}
+
+
+@app.post("/radio/audio_tx")
+async def audio_tx(request: Request, rate: int = 8000, ptt: int = 0):
+    global last_heartbeat, last_ptt_state, _ft8_tx_active
+    if _ft8_tx_active and ptt == 0:
+        print(f"[audio_tx] rejected (FT8 TX active): rate={rate}")
+        raise HTTPException(status_code=503, detail="TX in progress")
+    print(f"[audio_tx] connected rate={rate} ptt={ptt}")
+    loop = asyncio.get_running_loop()
+    if ptt:
+        # FT8 TX: _mgr_sub(ffmpeg capture)を維持したまま aplay を起動する。
+        # USBコーデックが全二重対応なら RX ffmpeg は TX 中も動作し続け、
+        # TX完了後に即座に audio_sub へ再接続できる（~130ms）。
+        # ffmpeg が ALSA 競合でクラッシュした場合は _ensure_sub_ready() が検出して再起動。
+        # 自己CQデコード防止: TX中の capture は _mgr_sub.mute() で無音化。
+        def _kill_procs_ft8():
+            subprocess.run(["pkill", "-9", "direwolf"], capture_output=True)
+            subprocess.run(["pkill", "-9", "aplay"],    capture_output=True)
+            # _mgr_sub は kill しない — 全二重スタンバイ維持
+            p = _mgr_rx.proc
+            _mgr_rx.proc = None
+            if p is not None:
+                try: p.kill()
+                except Exception: pass
+                try: p.wait(timeout=0.5)
+                except Exception: pass
+            time.sleep(0.1)
+        await loop.run_in_executor(None, _kill_procs_ft8)
+        # TX中の自己CQデコード防止: ffmpegが動作中のため capture 出力を無音化
+        _mgr_sub.mute(13.0)
+        _ft8_tx_active = True
+        result = await loop.run_in_executor(None, lambda: rigctl_cmd_priority("T 1"))
+        if not result:
+            _ft8_tx_active = False
+            raise HTTPException(status_code=500, detail="rigctld timeout")
+        radio_cache["tx"] = True
+        last_ptt_state = 1
+        last_heartbeat = time.time() + 60
+        await asyncio.sleep(0.5)
+        # aplay + plughw: 音声TXと同じ方式。plughwがレート変換を担当。
+        # ffmpegをaplayに変更することでキャプチャffmpegとのALSA競合を解消
+        proc = subprocess.Popen(
+            ["aplay", "-D", _alsa_playback_dev, "-f", "S16_LE", "-r", str(rate), "-c", "1"],
+            stdin=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0
+        )
+    else:
+        # 音声TX: aplayで即時再生 (plughwが8000Hz→32000Hzを内部変換)
+        # ffmpegはPi Zero上で起動に2〜3秒かかるためaplayを使う
+        # captureプロセスを停止してALSAデバイス競合を防ぐ
+        def _kill_voice():
+            subprocess.run(["pkill", "-9", "direwolf"], capture_output=True)
+            subprocess.run(["pkill", "-9", "aplay"],    capture_output=True)
+            subprocess.run(["pkill", "-9", "arecord"],  capture_output=True)
+            _mgr_sub.stop()
+            p = _mgr_rx.proc
+            _mgr_rx.proc = None
+            if p is not None:
+                try: p.kill()
+                except Exception: pass
+                try: p.wait(timeout=0.5)
+                except Exception: pass
+            time.sleep(0.3)
+        await loop.run_in_executor(None, _kill_voice)
+        _last_tx_debug["dev"] = _alsa_playback_dev
+        _last_tx_debug["status"] = "aplay_starting"
+        _last_tx_debug["chunks"] = 0
+        proc = subprocess.Popen(
+            ["aplay", "-D", _alsa_playback_dev, "-f", "S16_LE", "-r", str(rate), "-c", "1"],
+            stdin=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0
+        )
+        await asyncio.sleep(0.05)
+        if proc.poll() is not None:
+            err = proc.stderr.read(512).decode(errors="replace").strip() if proc.stderr else ""
+            _last_tx_debug["status"] = "aplay_died_immediately"
+            _last_tx_debug["aplay_rc"] = proc.returncode
+            _last_tx_debug["aplay_err"] = err
+            print(f"[audio_tx] aplay died immediately rc={proc.returncode} err={err!r}")
+        else:
+            _last_tx_debug["status"] = "aplay_running"
+    chunk_count = 0
+    try:
+        async for chunk in request.stream():
+            chunk_count += 1
+            if proc.poll() is not None:
+                err = proc.stderr.read(512).decode(errors="replace").strip() if proc.stderr else ""
+                _last_tx_debug["aplay_rc"] = proc.returncode
+                _last_tx_debug["aplay_err"] = err
+                _last_tx_debug["status"] = f"aplay_died_after_{chunk_count}_chunks"
+                print(f"[audio_tx] aplay died after {chunk_count} chunks rc={proc.returncode} err={err!r}")
+                if "No such device" in err:
+                    # USB audio codec disappeared — trigger re-enumeration and restart rigctld
+                    print(f"[{_ts()}] [audio_tx] USB audio lost — re-enumerating USB and restarting rigctld", flush=True)
+                    subprocess.run(["sudo", "udevadm", "trigger", "--action=add"], capture_output=True)
+                    if current_model and current_cat and not _rigctld_restarting:
+                        threading.Thread(
+                            target=lambda: start_rigctld(current_model, current_cat, current_baud,
+                                                         current_ptt, current_ptt_type),
+                            daemon=True
+                        ).start()
+                break
+            await loop.run_in_executor(None, proc.stdin.write, chunk)
+        if ptt == 0:
+            _last_tx_debug["chunks"] = chunk_count
+    except Exception as e:
+        print(f"[audio_tx] stream: {type(e).__name__}: {e}")
+    finally:
+        try:
+            proc.stdin.close()
+        except Exception:
+            pass
+        await loop.run_in_executor(None, proc.wait)
+        if ptt:
+            # TX完了後: ffmpegが生きていればmuteを解除して即座に再接続（~0ms）
+            # ALSA競合でクラッシュしていた場合のみ再起動（最大1.5s）
+            def _post_tx_restore():
+                _mgr_sub._mute_until = 0.0  # 即座にunmute
+                p = _mgr_sub.proc
+                if p is not None and p.poll() is None:
+                    print("[audio_tx] ffmpeg survived TX — instant standby")
+                    return
+                print("[audio_tx] ffmpeg died during TX — restarting")
+                for _ in range(10):
+                    proc = _mgr_sub.ensure("12000")
+                    time.sleep(0.15)
+                    if proc.poll() is None:
+                        return
+            loop.run_in_executor(None, _post_tx_restore)
+            await loop.run_in_executor(None, lambda: rigctl_cmd("T 0"))
+            radio_cache["tx"] = False
+            last_ptt_state = 0
+            last_heartbeat = time.time()
+            _ft8_tx_active = False
+        # APRS が動作中だった場合は direwolf を復旧
+        if aprs_running:
+            print("[audio_tx] restarting direwolf for APRS")
+            await loop.run_in_executor(None, lambda: subprocess.run(
+                ["sudo", "systemctl", "start", "direwolf"], capture_output=True))
+        ae = ""
+        try: ae = proc.stderr.read(512).decode(errors="replace").strip()
+        except: pass
+        print(f"[audio_tx] done rc={proc.returncode} err={ae!r}")
+    return {"status": "ok"}
+
+
+@app.get("/radio/audio_sub", dependencies=[])
+async def audio_sub(request: Request, background_tasks: BackgroundTasks):
+    """FT8/webft8 向け 12kHz PCM ストリーム。メイン音声と独立したプロセス+キューで動作。
+    クエリパラメータ api_key も受け付ける（WebView JS fetch 互換）。"""
+    from fastapi.responses import Response as FR
+    qkey = request.query_params.get("api_key", "")
+    hkey = request.headers.get("X-API-Key", "")
+    if API_KEY and qkey != API_KEY and hkey != API_KEY:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    rate = request.query_params.get("rate", "12000")
+    if not rate.isdigit():
+        rate = "12000"
+    t0 = time.time()
+    print(f"[audio_sub] connect rate={rate}")
+
+    _mgr_rx.stop()  # メイン用ffmpegを停止してALSAを解放
+    proc = _mgr_sub.ensure(rate)
+    if proc.poll() is not None:
+        print(f"[audio_sub] ffmpeg dead, restarting...")
+        deadline = time.time() + 0.6
+        while time.time() < deadline:
+            if subprocess.run(["pgrep", "-x", "aplay"], capture_output=True).returncode != 0:
+                break
+            time.sleep(0.05)
+        # ALSAデバイスリセットに最大1.5sかかるため150ms×10回リトライ
+        for attempt in range(10):
+            proc = _mgr_sub._start(rate)
+            time.sleep(0.15)
+            if proc.poll() is None:
+                break
+            print(f"[audio_sub] ffmpeg retry {attempt+1}/10")
+        if proc.poll() is not None:
+            err = ""
+            try: err = proc.stderr.read(512).decode(errors="replace").strip()
+            except Exception: pass
+            print(f"[audio_sub] ffmpeg dead after retry: {err}")
+            return FR(status_code=503, content=f"ffmpeg error: {err}")
+
+    sid, q = _mgr_sub.subscribe(maxsize=64)
+    print(f"[audio_sub] ready {time.time()-t0:.3f}s")
+
+    def stream():
+        try:
+            while True:
+                try:
+                    data = q.get(timeout=0.2)
+                    yield data
+                except _queue.Empty:
+                    if _mgr_sub.proc is not proc or proc.poll() is not None:
+                        break
+        except GeneratorExit:
+            pass
+
+    def cleanup():
+        _mgr_sub.unsubscribe(sid)
+        print("[audio_sub] client disconnected")
+
+    return StreamingResponse(stream(), media_type="application/octet-stream",
+                             background=BackgroundTask(cleanup))
+
+
+class FT8TxRequest(BaseModel):
+    msg: str
+    audio_freq: int = 1500
+    rate: int = 12000
+    is_ft4: bool = False
+
+
+@app.post("/radio/ft8_tx")
+async def ft8_tx(req: FT8TxRequest):
+    """FT8/FT4 メッセージを送信する。ft8_encode で PCM 生成 → aplay で送出。"""
+    global tx_in_progress
+    if tx_in_progress:
+        raise HTTPException(status_code=409, detail="TX in progress")
+    tx_in_progress = True
+    loop = asyncio.get_running_loop()
+    try:
+        cmd = ["/usr/local/bin/ft8_encode", req.msg,
+               str(req.audio_freq), str(req.rate)]
+        if req.is_ft4:
+            cmd.append("--ft4")
+
+        result = await loop.run_in_executor(
+            None,
+            lambda: subprocess.run(cmd, capture_output=True, timeout=10)
+        )
+        if result.returncode != 0:
+            err = result.stderr.decode(errors="replace").strip()
+            raise HTTPException(status_code=500, detail=f"ft8_encode: {err}")
+
+        pcm_data = result.stdout
+        if not pcm_data:
+            raise HTTPException(status_code=500, detail="ft8_encode produced no output")
+
+        def _play():
+            subprocess.run(["pkill", "-9", "aplay"], capture_output=True)
+            time.sleep(0.1)
+            rigctl_cmd("T 1")
+            time.sleep(0.5)
+            proc = subprocess.Popen(
+                ["aplay", "-D", _alsa_playback_dev,
+                 "-f", "S16_LE", "-r", str(req.rate), "-c", "1"],
+                stdin=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            proc.stdin.write(pcm_data)
+            proc.stdin.close()
+            proc.wait(timeout=20)
+            rigctl_cmd("T 0")
+
+        await loop.run_in_executor(None, _play)
+        return {"status": "ok", "msg": req.msg, "is_ft4": req.is_ft4}
+    except Exception as e:
+        rigctl_cmd("T 0")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        tx_in_progress = False
+
+
+# ---------- CW send_morse (Hamlib rigctld b コマンド) ----------
+
+_morse_sock: "Optional[socket.socket]" = None  # type: ignore
+_morse_lock = threading.Lock()
+_morse_sending = False
+_morse_stop_event = threading.Event()
+
+
+def _abort_morse():
+    """実行中の send_morse を中断する（待機を即座に解除して PTT OFF）"""
+    global _morse_sock, _morse_sending
+    _morse_stop_event.set()
+    with _morse_lock:
+        s = _morse_sock
+        _morse_sock = None
+    if s:
+        try:
+            s.close()
+        except Exception:
+            pass
+    # \stop_morse: hamlib が内部キーヤーのバッファをクリアする (FT-991 等の New CAT では KY; を送出)
+    # T 0 より先に呼んで CW を確実に止める
+    try:
+        rigctl_cmd_priority("\\stop_morse")
+    except Exception:
+        pass
+    _morse_sending = False
+
+
+@app.post("/cw/send_morse")
+def cw_send_morse(text: str = Form(...), wpm: int = Form(default=20)):
+    """テキストを Hamlib send_morse (rigctld b コマンド) で CW 送信する。
+    b コマンドは IC-7300 内部キーヤーへのキューで即時返答するため、
+    送信推定時間だけ待機してから PTT OFF する。"""
+    global _morse_sock, _morse_sending
+    text = text.strip().upper()
+    if not text:
+        raise HTTPException(status_code=400, detail="empty text")
+    _abort_morse()
+    _morse_stop_event.clear()
+    _morse_sending = True
+
+    # 送信推定時間を計算 (PARIS 標準: dit = 1200/wpm ms)
+    # 1文字平均 13 dit (エレメント+符号間) + 語間スペースは +4 dit
+    n_chars = sum(1 for c in text if c != ' ')
+    n_spaces = text.count(' ')
+    est_dits = n_chars * 13 + n_spaces * 4 + 5
+    est_sec = est_dits * 1200.0 / max(5, min(60, wpm)) / 1000 + 1.5
+
+    def worker():
+        global _morse_sock, _morse_sending
+        sock = None
+        try:
+            rigctl_cmd(f"K {max(5, min(60, wpm))}")
+            # IC-7300 内部キーヤーは PTT を自動管理するため T 1 は不要
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(30.0)
+            sock.connect(("localhost", 4532))
+            with _morse_lock:
+                _morse_sock = sock
+            sock.sendall(f"b {text}\n".encode())
+            try:
+                sock.recv(4096)
+            except Exception:
+                pass
+            # IC-7300 が TX を開始するまで少し待ってから PTT ポーリング開始
+            time.sleep(0.5)
+            print(f"[{_ts()}] [morse] polling PTT, deadline={est_sec+5.0:.1f}s (wpm={wpm} chars={n_chars})", flush=True)
+            deadline = time.time() + est_sec + 5.0
+            while time.time() < deadline and not _morse_stop_event.is_set():
+                ptt_raw = rigctl_cmd_priority("t")
+                if ptt_raw and ptt_raw.strip().split("\n")[0].strip() == "0":
+                    print(f"[{_ts()}] [morse] TX ended (PTT=0)", flush=True)
+                    break
+                _morse_stop_event.wait(timeout=0.5)
+        except Exception as e:
+            print(f"[{_ts()}] [morse] error: {e}", flush=True)
+        finally:
+            with _morse_lock:
+                if _morse_sock is sock:
+                    _morse_sock = None
+            if sock:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+            try:
+                rigctl_cmd_priority("\\stop_morse")
+            except Exception:
+                pass
+            rigctl_cmd_priority("T 0")
+            _morse_sending = False
+
+    threading.Thread(target=worker, daemon=True).start()
+    return {"status": "ok"}
+
+
+@app.post("/cw/stop_morse")
+def cw_stop_morse():
+    """CW 送信を中断して PTT を解除する"""
+    _abort_morse()   # \stop_morse + socket close 済み
+    rigctl_cmd_priority("T 0")
+    return {"status": "stopped"}
+
+
+@app.get("/cw/morse_status")
+def cw_morse_status():
+    """send_morse が実行中かどうかを返す"""
+    return {"sending": _morse_sending}
+
+
+# ---------- CW USB中継 (cw_bridge.py subprocess 経由) ----------
+
+@app.get("/cw/open")
+def cw_open(port: str = "ttyACM0", delay_ms: int = 0):
+    """cw_bridge.py を起動。タイムスタンプ変換はcw_bridge側で実施するためdelay_msは無視。"""
+    global _cw_bridge_proc, _cw_bridge_port
+    dev = f"/dev/{port}" if not port.startswith("/dev/") else port
+    with _cw_bridge_lock:
+        if _cw_bridge_proc and _cw_bridge_proc.poll() is None:
+            _cw_bridge_proc.terminate()
+            try:
+                _cw_bridge_proc.wait(timeout=2)
+            except Exception:
+                _cw_bridge_proc.kill()
+        # 追跡外の既存プロセス(手動起動・前セッション残留)も kill してポート競合を防ぐ
+        try:
+            subprocess.run(["pkill", "-f", "cw_bridge.py"], timeout=3)
+            time.sleep(0.5)
+        except Exception:
+            pass
+        try:
+            venv_py = str(_FASTAPI_DIR / "bin/python3")
+            _cw_bridge_proc = subprocess.Popen([venv_py, str(_CW_BRIDGE), dev])
+            _cw_bridge_port = dev
+            print(f"[cw] bridge started pid={_cw_bridge_proc.pid} dev={dev}")
+            return {"status": "ok", "port": dev}
+        except Exception as e:
+            print(f"[cw] bridge start failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/cw/close")
+def cw_close():
+    """cw_bridge.py を停止する"""
+    global _cw_bridge_proc, _cw_bridge_port
+    with _cw_bridge_lock:
+        if _cw_bridge_proc and _cw_bridge_proc.poll() is None:
+            _cw_bridge_proc.terminate()
+            try:
+                _cw_bridge_proc.wait(timeout=2)
+            except Exception:
+                _cw_bridge_proc.kill()
+        try:
+            subprocess.run(["pkill", "-f", "cw_bridge.py"], timeout=3)
+        except Exception:
+            pass
+        _cw_bridge_proc = None
+        _cw_bridge_port = ""
+    return {"status": "ok"}
+
+
+@app.get("/cw/status")
+def cw_status():
+    """cw_bridge.py の稼働状況と M5ATOM Server SYNC結果を返す"""
+    with _cw_bridge_lock:
+        running = bool(_cw_bridge_proc and _cw_bridge_proc.poll() is None)
+    synced = False
+    offset_ms = 0
+    max_late_ms = 0
+    if running:
+        try:
+            import json as _json
+            with open("/tmp/cw_bridge_status.json") as _f:
+                _st = _json.load(_f)
+            if time.time() - _st.get("t", 0) < 15:
+                synced = bool(_st.get("synced", False))
+                offset_ms = float(_st.get("offset_ms", 0))
+                max_late_ms = int(_st.get("max_late_ms", 0))
+        except Exception:
+            pass
+    return {"connected": running, "synced": synced, "offset_ms": offset_ms, "max_late_ms": max_late_ms}
+
+
+@app.post("/cw/key")
+def cw_key(is_on: bool = Form(...)):
+    """後方互換スタブ: UDP切替後は使用されない"""
+    return {"status": "no_device"}
+
+
+@app.get("/cw/time")
+def cw_time():
+    return {"ms": int(time.time() * 1000)}
+
+
+@app.get("/time")
+def get_time():
+    """Pi の現在 Unix 時刻 (ms) を返す。Android 側クロックオフセット補正用。"""
+    return {"ms": int(time.time() * 1000)}
+
+
+@app.post("/admin/set_time")
+async def admin_set_time(request: Request):
+    """時刻を標準時間に同期する。
+    1. NTP に接続できる場合: ntpdate / chronyc でインターネット標準時間と同期（最高精度）
+    2. NTP 不可の場合: Android が送信した時刻（Android は通信網経由で NTP 同期済み）で代替
+    FT8 デコードに必要な ±1 秒以内の精度を確保する。"""
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    android_ms = data.get("ms", 0)
+    pi_ms_before = int(time.time() * 1000)
+
+    # ── 方法 1: chronyc makestep (chrony インストール済みの場合) ──
+    r = subprocess.run(["sudo", "-n", "chronyc", "makestep"], capture_output=True, timeout=8)
+    if r.returncode == 0:
+        drift_ms = pi_ms_before - int(time.time() * 1000)
+        print(f"[{_ts()}] [set_time] NTP(chrony) ok drift≈{drift_ms:+d}ms", flush=True)
+        return {"ok": True, "source": "ntp_chrony", "drift_ms": drift_ms}
+
+    # ── 方法 2: ntpdate (ntpdate インストール済みの場合) ──
+    for srv in ["pool.ntp.org", "ntp.nict.jp"]:
+        r = subprocess.run(["sudo", "-n", "ntpdate", "-s", srv], capture_output=True, timeout=8)
+        if r.returncode == 0:
+            drift_ms = pi_ms_before - int(time.time() * 1000)
+            print(f"[{_ts()}] [set_time] NTP(ntpdate/{srv}) ok drift≈{drift_ms:+d}ms", flush=True)
+            return {"ok": True, "source": f"ntp_ntpdate/{srv}", "drift_ms": drift_ms}
+
+    # ── 方法 3: timedatectl set-ntp true で即時同期要求 ──
+    r = subprocess.run(["sudo", "-n", "timedatectl", "set-ntp", "true"], capture_output=True, timeout=5)
+    if r.returncode == 0:
+        time.sleep(2)
+        drift_ms = pi_ms_before - int(time.time() * 1000)
+        print(f"[{_ts()}] [set_time] NTP(timedatectl) requested drift≈{drift_ms:+d}ms", flush=True)
+        return {"ok": True, "source": "ntp_timedatectl", "drift_ms": drift_ms}
+
+    # ── 方法 4: フォールバック — Android 端末の時刻で設定 ──
+    # date -s "@timestamp" 形式は常に UTC で解釈されるためタイムゾーン問題を回避できる
+    if not android_ms:
+        return {"ok": False, "source": "none", "drift_ms": 0}
+    ts_sec = android_ms // 1000
+    drift_ms = android_ms - pi_ms_before
+    r = subprocess.run(["sudo", "-n", "date", "-s", f"@{ts_sec}"], capture_output=True, timeout=5)
+    ok = r.returncode == 0
+    import datetime as _dt
+    date_str = _dt.datetime.fromtimestamp(ts_sec, tz=_dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    print(f"[{_ts()}] [set_time] Android fallback drift={drift_ms:+d}ms set={date_str} ok={ok}", flush=True)
+    return {"ok": ok, "source": "android", "drift_ms": drift_ms}
+
+
+# ---------- APRS ----------
+
+def encode_ax25_addr(callsign: str, ssid: int, last: bool) -> bytes:
+    call = callsign.upper().ljust(6)[:6]
+    addr = bytearray()
+    for c in call:
+        addr.append(ord(c) << 1)
+    ssid_byte = 0x60 | ((ssid & 0x0F) << 1)
+    if last:
+        ssid_byte |= 0x01
+    addr.append(ssid_byte)
+    return bytes(addr)
+
+
+def build_ax25_ui_frame(src_call, src_ssid, dest_call, dest_ssid, path, info):
+    addrs = bytearray()
+    addrs += encode_ax25_addr(dest_call, dest_ssid, last=False)
+    last_src = (len(path) == 0)
+    addrs += encode_ax25_addr(src_call, src_ssid, last=last_src)
+    for i, p in enumerate(path):
+        call, ssid = (p.split("-", 1)[0], int(p.split("-", 1)[1])) if "-" in p else (p, 0)
+        addrs += encode_ax25_addr(call, ssid, last=(i == len(path) - 1))
+    frame = bytearray()
+    frame += addrs
+    frame.append(0x03)
+    frame.append(0xF0)
+    frame += info.encode("ascii")
+    return bytes(frame)
+
+
+def kiss_wrap(ax25_frame: bytes) -> bytes:
+    FEND, FESC, TFEND, TFESC = 0xC0, 0xDB, 0xDC, 0xDD
+    out = bytearray([FEND, 0x00])
+    for b in ax25_frame:
+        if b == FEND:
+            out.extend([FESC, TFEND])
+        elif b == FESC:
+            out.extend([FESC, TFESC])
+        else:
+            out.append(b)
+    out.append(FEND)
+    return bytes(out)
+
+
+def _wait_direwolf_kiss_ready(timeout: float = 15.0) -> bool:
+    """KISS ポート (8001) が LISTEN になるまで最大 timeout 秒待つ (Pi Zero は Hamlib 初期化で ~10s かかる)"""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            s = socket.socket()
+            s.settimeout(0.5)
+            s.connect((KISS_HOST, KISS_PORT))
+            s.close()
+            return True
+        except OSError:
+            time.sleep(0.3)
+    return False
+
+
+def send_kiss(frame: bytes):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    s.connect((KISS_HOST, KISS_PORT))
+    s.sendall(frame)
+    s.close()
+
+
+def aprs_lat(lat):
+    deg = int(lat)
+    return f"{deg:02d}{(lat - deg) * 60:05.2f}N"
+
+
+def aprs_lon(lon):
+    deg = int(lon)
+    return f"{deg:03d}{(lon - deg) * 60:05.2f}E"
+
+
+def wait_tx_complete(timeout=5.0):
+    global tx_started, tx_done
+    tx_started = False
+    tx_done = False
+    start = time.time()
+    while time.time() - start < timeout:
+        if tx_started:
+            break
+        time.sleep(0.05)
+    if not tx_started:
+        return False
+    while time.time() - start < timeout:
+        if tx_done:
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def watch_direwolf_tx():
+    global tx_watch_running, tx_started, tx_done
+    tx_watch_running = True
+    proc = subprocess.Popen(
+        ["journalctl", "-u", "direwolf", "-f", "-n", "0"],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
+    for line in proc.stdout:
+        if not tx_watch_running:
+            break
+        lu = line.upper()
+        if any(k in lu for k in ("PTT ON", "PTT KEY", "TRANSMIT", "SENDING PACKET", "AUDIO: TRANSMIT", "CHANNEL 0")):
+            tx_started = True
+        if any(k in lu for k in ("PTT OFF", "TX COMPLETE", "AUDIO: PTT OFF")):
+            tx_done = True
+
+
+def aprs_loop():
+    global aprs_running, tx_in_progress, aprs_last_heartbeat, normal_freq, last_user_freq_change
+    try:
+        while aprs_running:
+            if tx_in_progress:
+                time.sleep(0.1)
+                continue
+            # Don't start APRS TX while radio is keyed by CW TX or voice PTT
+            if radio_cache.get("tx", False):
+                time.sleep(0.5)
+                continue
+            loop_start = time.time()
+            if time.time() - aprs_last_heartbeat > 15:
+                aprs_running = False
+                break
+            cur = rigctl_cmd_priority("f")
+            try:
+                read_freq = int(cur.split()[0])
+                aprs_freq_hz = int(aprs_freq * 1_000_000)
+                if abs(read_freq - aprs_freq_hz) > 100:
+                    normal_freq = read_freq  # save home freq before switching to APRS
+                if normal_freq is None:
+                    normal_freq = 0  # already on APRS freq at start: no home freq to restore
+            except Exception:
+                time.sleep(1)
+                continue
+            try:
+                mode_raw = rigctl_cmd("m")
+                mode = mode_raw.split()[0].upper() if mode_raw else ""
+            except Exception:
+                mode = ""
+            if "FM" not in mode:
+                time.sleep(1)
+                continue
+            if aprs_use_gps and (latest_gps["lat"] != 0.0 or latest_gps["lon"] != 0.0):
+                lat = latest_gps["lat"]
+                lon = latest_gps["lon"]
+            else:
+                lat = aprs_manual_lat
+                lon = aprs_manual_lon
+            print(f"[APRS] TX lat={lat:.5f} lon={lon:.5f} (gps={aprs_use_gps} latest={latest_gps})")
+            tx_in_progress = True
+            aprs_last_heartbeat = time.time()
+            rigctl_cmd_priority(f"F {int(aprs_freq * 1_000_000)}")
+            time.sleep(0.25)
+            sym = (aprs_cfg.symbol or ">") if aprs_cfg else ">"
+            comment = (getattr(aprs_cfg, "comment", "") or "").encode("ascii", errors="ignore").decode("ascii")
+            info = f"!{aprs_lat(lat)}/{aprs_lon(lon)}{sym}{comment}"
+            _path_str = aprs_cfg.path or ""
+            _path = _path_str.split(",") if _path_str and _path_str.upper() not in ("NONE", "DIRECT") else []
+            ax25 = build_ax25_ui_frame(
+                src_call=aprs_cfg.callsign, src_ssid=aprs_cfg.ssid,
+                dest_call=aprs_cfg.destination or "APDW18", dest_ssid=0,
+                path=_path, info=info
+            )
+            try:
+                send_kiss(kiss_wrap(ax25))
+            except Exception as kiss_err:
+                print(f"[APRS] KISS send failed (direwolf not running?): {kiss_err}")
+                if normal_freq:
+                    rigctl_cmd_priority(f"F {normal_freq}")
+                    radio_cache["freq"] = normal_freq
+                    last_user_freq_change = time.time()
+                tx_in_progress = False
+                # direwolf KISS ポートが応答するまで待つ（再起動が必要なら実施）
+                if not _wait_direwolf_kiss_ready(2.0):
+                    print("[APRS] restarting direwolf (KISS port not ready)")
+                    subprocess.run(["sudo", "systemctl", "restart", "direwolf"],
+                                   capture_output=True, timeout=10)
+                    _wait_direwolf_kiss_ready(15.0)
+                else:
+                    time.sleep(2)
+                continue
+            time.sleep(0.15)
+            if wait_tx_complete(timeout=5.0):
+                print("[APRS] TX complete")
+            else:
+                print("[APRS] TX timeout")
+            time.sleep(0.15)
+            if normal_freq:
+                rigctl_cmd_priority(f"F {normal_freq}")
+                radio_cache["freq"] = normal_freq
+                last_user_freq_change = time.time()
+                time.sleep(0.15)
+            tx_in_progress = False
+            elapsed = time.time() - loop_start
+            # 細切れ sleep で aprs_running=False に素早く反応する
+            wait_end = time.time() + max(0, aprs_interval - elapsed)
+            while time.time() < wait_end and aprs_running:
+                time.sleep(0.5)
+    except Exception as e:
+        print(f"[APRS] thread crashed: {e}")
+    finally:
+        tx_in_progress = False
+        aprs_running = False
+
+
+@app.post("/aprs_config")
+def update_aprs_config(cfg: AprsConfig):
+    global aprs_use_gps, aprs_manual_lat, aprs_manual_lon, aprs_cfg
+    cat_device = cfg.cat_device
+    if not cat_device.startswith("/dev/"):
+        cat_device = f"/dev/{cat_device}"
+    modem = 1200 if cfg.baud == 1200 else 9600
+    conf = (f"ADEVICE null {cfg.sound_device}\nCHANNEL 0\n"
+            f"MYCALL {cfg.callsign}-{cfg.ssid}\nMODEM {modem}\n")
+    if modem == 9600:
+        conf += "ARATE 48000\n"
+    # PTT RIG 2 = Hamlib NET rigctl (rigctld プロトコルで localhost:4532 に接続)
+    # PTT RIG {rig_id} localhost は FT-991A バックエンドが生 CAT を送信してしまい PTT 失敗
+    conf += (f"KISSPORT 8001\nAGWPORT 8050\nPTT RIG 2 localhost:4532\n")
+    _atomic_write(str(_DIREWOLF_CONF), conf)
+    # direwolf 再起動はバックグラウンドで実行（KISS ポート待機は aprs_loop が行う）
+    threading.Thread(
+        target=lambda: subprocess.run(["sudo", "systemctl", "restart", "direwolf"]),
+        daemon=True
+    ).start()
+    aprs_use_gps = cfg.use_gps
+    aprs_manual_lat = cfg.manual_lat
+    aprs_manual_lon = cfg.manual_lon
+    aprs_cfg = cfg
+    return {"status": "ok"}
+
+
+@app.post("/aprs_start")
+def aprs_start(cfg: AprsStart):
+    global aprs_running, aprs_thread, aprs_freq, aprs_interval, aprs_last_heartbeat
+    global tx_watch_thread, tx_watch_running
+    if aprs_cfg is None:
+        return {"error": "APRS config not set"}
+    # 既存ループを停止フラグだけ立てて即座に返す
+    aprs_running = False
+    tx_watch_running = False
+    aprs_freq = cfg.freq
+    aprs_interval = cfg.interval
+    aprs_last_heartbeat = time.time()
+
+    def _start_worker():
+        global aprs_running, aprs_thread, tx_watch_thread, tx_watch_running
+        # 古いスレッドが終了するまで最大 3s 待つ（2スレッド起動防止）
+        old = aprs_thread
+        if old and old.is_alive():
+            old.join(timeout=3.0)
+        # KISS ポートが開くまで待つ（Pi Zero は Hamlib 初期化で ~10s かかる）
+        if not _wait_direwolf_kiss_ready(20.0):
+            if subprocess.run(["pgrep", "-x", "direwolf"], capture_output=True).returncode != 0:
+                print("[aprs_start] direwolf not running, starting")
+                subprocess.run(["sudo", "systemctl", "start", "direwolf"],
+                               capture_output=True, timeout=10)
+                _wait_direwolf_kiss_ready(15.0)
+            else:
+                print("[aprs_start] KISS port not ready after 20s, proceeding anyway")
+        aprs_running = True
+        aprs_thread = threading.Thread(target=aprs_loop, daemon=True)
+        aprs_thread.start()
+        tx_watch_running = True
+        tx_watch_thread = threading.Thread(target=watch_direwolf_tx, daemon=True)
+        tx_watch_thread.start()
+
+    threading.Thread(target=_start_worker, daemon=True).start()
+    return {"status": "starting"}
+
+
+@app.post("/aprs_stop")
+def aprs_stop():
+    global aprs_running, poll_enabled, tx_watch_running, last_ptt_state
+    poll_enabled = True
+    aprs_running = False
+    tx_watch_running = False
+    subprocess.run(["pkill", "-9", "direwolf"], capture_output=True)
+    rigctl_cmd_priority("T 0")
+    radio_cache["tx"] = False
+    last_ptt_state = 0
+    return {"status": "stopped"}
+
+
+@app.post("/aprs_heartbeat")
+def aprs_heartbeat():
+    global aprs_last_heartbeat
+    aprs_last_heartbeat = time.time()
+    return {"status": "ok"}
+
+
+@app.post("/gps")
+def update_gps(data: GPSData):
+    global latest_gps
+    latest_gps = {"lat": data.lat, "lon": data.lon}
+    return {"status": "ok"}
+
+
+@app.get("/gps")
+def get_gps():
+    return latest_gps
+
+
+@app.post("/admin/update")
+async def admin_update(request: Request):
+    """api.py をアップデートしてサービスを再起動する"""
+    content = await request.body()
+    if not content:
+        raise HTTPException(status_code=400, detail="Empty body")
+    # Python 構文チェック
+    try:
+        compile(content.decode("utf-8"), "<api.py>", "exec")
+    except SyntaxError as e:
+        raise HTTPException(status_code=422, detail=f"Syntax error: {e}")
+    api_path = _FASTAPI_DIR / "api.py"
+    bak_path = _FASTAPI_DIR / "api.py.bak_update"
+    try:
+        if api_path.exists():
+            import shutil
+            shutil.copy2(api_path, bak_path)
+        api_path.write_bytes(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Write failed: {e}")
+    def _restart():
+        import time as _time
+        _time.sleep(0.5)
+        # 方法1: sudo -n systemctl (NOPASSWD 設定済みの場合) — 各サービスを個別に試行
+        r = subprocess.run(
+            ["sudo", "-n", "systemctl", "restart", "fastapi"],
+            capture_output=True, timeout=10
+        )
+        if r.returncode == 0:
+            # fastapi-audio が存在すれば再起動 (失敗しても無視)
+            subprocess.run(["sudo", "-n", "systemctl", "restart", "fastapi-audio"],
+                           capture_output=True, timeout=10)
+            return
+        # 方法2: sudo 不可 → nohup スクリプト + SIGTERM
+        # systemd が Restart= で再起動するケースと手動起動のケースを両立するため
+        # 「uvicorn が起動していなければ起動する」チェックを入れて2重起動を防ぐ
+        _fd = str(_FASTAPI_DIR)
+        restart_sh = (
+            "#!/bin/bash\n"
+            "sleep 2\n"
+            "pkill -TERM -f 'uvicorn api' 2>/dev/null || true\n"
+            "sleep 1\n"
+            "pkill -9 -f 'uvicorn api' 2>/dev/null || true\n"
+            "sleep 3\n"
+            # systemd が既に再起動していれば何もしない
+            "if pgrep -f 'uvicorn api' >/dev/null 2>&1; then\n"
+            "  exit 0\n"
+            "fi\n"
+            f"cd {_fd}\n"
+            f"{_fd}/bin/uvicorn api:app --host 0.0.0.0 --port 8000 "
+            ">>/tmp/uvicorn_restart.log 2>&1\n"
+        )
+        sh = "/tmp/_fastapi_restart.sh"
+        with open(sh, "w") as _f:
+            _f.write(restart_sh)
+        os.chmod(sh, 0o755)
+        subprocess.Popen(
+            ["nohup", "bash", sh],
+            stdout=open("/tmp/uvicorn_restart.log", "w"),
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        # 現プロセスも SIGTERM で終了 (systemd Restart=on-failure があれば自動再起動)
+        _time.sleep(0.5)
+        os.kill(os.getpid(), signal.SIGTERM)
+    threading.Thread(target=_restart, daemon=True).start()
+    return {"status": "ok", "message": "restarting"}
+
+
+@app.post("/admin/update_cw_bridge")
+async def admin_update_cw_bridge(request: Request):
+    """cw_bridge.py をアップデートして再起動する"""
+    content = await request.body()
+    if not content:
+        raise HTTPException(status_code=400, detail="Empty body")
+    try:
+        compile(content.decode("utf-8"), "<cw_bridge.py>", "exec")
+    except SyntaxError as e:
+        raise HTTPException(status_code=422, detail=f"Syntax error: {e}")
+    bridge_path = _CW_BRIDGE
+    bak_path = _HOME / "cw_bridge.py.bak"
+    try:
+        if bridge_path.exists():
+            import shutil
+            shutil.copy2(bridge_path, bak_path)
+        bridge_path.write_bytes(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Write failed: {e}")
+    # cw_bridge プロセスを再起動
+    global _cw_bridge_proc, _cw_bridge_port
+    with _cw_bridge_lock:
+        saved_port = _cw_bridge_port
+        if _cw_bridge_proc and _cw_bridge_proc.poll() is None:
+            _cw_bridge_proc.terminate()
+            try:
+                _cw_bridge_proc.wait(timeout=2)
+            except Exception:
+                _cw_bridge_proc.kill()
+        try:
+            subprocess.run(["pkill", "-f", "cw_bridge.py"], timeout=3)
+            time.sleep(0.5)
+        except Exception:
+            pass
+        _cw_bridge_proc = None
+        if saved_port:
+            try:
+                venv_py = str(_FASTAPI_DIR / "bin/python3")
+                _cw_bridge_proc = subprocess.Popen([venv_py, str(_CW_BRIDGE), saved_port])
+                _cw_bridge_port = saved_port
+            except Exception as e:
+                return {"status": "updated", "restart": f"failed: {e}"}
+    return {"status": "ok", "message": "cw_bridge updated and restarted"}
+
+
+@app.post("/admin/update_webft8")
+async def admin_update_webft8(request: Request):
+    """webft8 の server.py をアップデートして systemd サービスを再起動する"""
+    content = await request.body()
+    if not content:
+        raise HTTPException(status_code=400, detail="Empty body")
+    try:
+        compile(content.decode("utf-8"), "<server.py>", "exec")
+    except SyntaxError as e:
+        raise HTTPException(status_code=422, detail=f"Syntax error: {e}")
+    server_path = _WEBFT8_DIR / "server.py"
+    bak_path = _WEBFT8_DIR / "server.py.bak"
+    try:
+        if server_path.exists():
+            import shutil
+            shutil.copy2(server_path, bak_path)
+        server_path.write_bytes(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Write failed: {e}")
+    try:
+        subprocess.run(["sudo", "systemctl", "restart", "webft8"], timeout=10)
+    except Exception as e:
+        return {"status": "updated", "restart": f"failed: {e}"}
+    return {"status": "ok", "message": "webft8 server.py updated and restarted"}
+
+
+@app.post("/admin/setup")
+async def admin_setup(request: Request):
+    """create_api.sh を受け取りホームディレクトリに保存してバックグラウンド実行する"""
+    content = await request.body()
+    if not content:
+        raise HTTPException(status_code=400, detail="Empty body")
+    script_path = _CREATE_API_SH
+    try:
+        script_path.write_bytes(content)
+        script_path.chmod(0o755)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Write failed: {e}")
+    log_path = "/tmp/create_api.log"
+    subprocess.Popen(
+        ["bash", str(script_path)],
+        stdout=open(log_path, "w"),
+        stderr=subprocess.STDOUT,
+        cwd=str(_HOME),
+        start_new_session=True,
+    )
+    return {"status": "ok", "message": f"setup running in background, log: {log_path}"}
+
+
+@app.get("/debug/tx")
+def debug_tx():
+    """直近の audio_tx (ptt=0) の結果を返す — aplay が起動できたか/失敗理由を確認するためのデバッグ用"""
+    return _last_tx_debug
+
+
+@app.post("/debug/test_tx")
+async def debug_test_tx(_: None = Depends(verify_key)):
+    """Android を介さず Pi 単体で PTT + 700Hz トーン 2 秒再生。Pi→無線機の音声パスを確認するためのデバッグ用"""
+    loop = asyncio.get_running_loop()
+
+    def _play():
+        import math, struct
+        subprocess.run(["pkill", "-9", "aplay"],   capture_output=True)
+        subprocess.run(["pkill", "-9", "ffmpeg"],  capture_output=True)
+        time.sleep(0.3)
+
+        rate, freq, dur = 8000, 700, 2
+        samples = rate * dur
+        data = bytearray()
+        for i in range(samples):
+            v = int(32767 * 0.8 * math.sin(2 * math.pi * freq * i / rate))
+            data += struct.pack('<h', v)
+
+        ptt_ok = bool(rigctl_cmd_priority("T 1"))
+        time.sleep(0.3)
+
+        proc = subprocess.Popen(
+            ["aplay", "-D", _alsa_playback_dev, "-f", "S16_LE", "-r", str(rate), "-c", "1"],
+            stdin=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        proc.stdin.write(bytes(data))
+        proc.stdin.close()
+        try:
+            rc = proc.wait(timeout=6)
+            err = proc.stderr.read(512).decode(errors="replace").strip()
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            rc, err = -1, "timeout"
+
+        rigctl_cmd_priority("T 0")
+        return {"ptt_ok": ptt_ok, "aplay_rc": rc, "aplay_err": err,
+                "dev": _alsa_playback_dev, "note": "700Hz 2sec tone sent"}
+
+    return await loop.run_in_executor(None, _play)
+
+
+@app.get("/admin/setup_log")
+async def admin_setup_log(lines: int = 60):
+    """create_api.sh の実行ログ末尾を返す"""
+    log_path = Path("/tmp/create_api.log")
+    if not log_path.exists():
+        return {"log": "(no log yet)"}
+    text = log_path.read_text(errors="replace")
+    tail = "\n".join(text.splitlines()[-lines:])
+    running = Path("/proc").exists() and any(
+        "create_api" in Path(f"/proc/{p}/cmdline").read_text(errors="replace")
+        for p in os.listdir("/proc") if p.isdigit()
+        if Path(f"/proc/{p}/cmdline").exists()
+    )
+    return {"running": running, "log": tail}
+APIEOF
+
+# ─── webft8 静的ファイルを jl1nie/webft8 docs/ から取得 ───
+echo "=== webft8 ファイルをダウンロード中 (jl1nie.github.io/webft8) ==="
+BASE="https://raw.githubusercontent.com/jl1nie/webft8/main/docs"
+WEB="$HOME/webft8_static/web"
+mkdir -p "$WEB"
+# 旧ファイル（誤ったファイル名）を削除
+rm -rf "$WEB/webft8"
+rm -f "$WEB/webft8.js" "$WEB/webft8_bg.wasm" "$WEB/recorder.js"
+
+# 全ファイルを WEB/ ルートに取得
+for f in \
+    ft8_web.js \
+    ft8_web_bg.wasm \
+    app.js \
+    sw.js \
+    decode-worker.js \
+    waterfall.js \
+    audio-capture.js \
+    audio-output.js \
+    audio-processor.js \
+    ft8-period.js \
+    qso.js \
+    cat.js \
+    gps-nmea.js \
+    qso-log.js \
+    ble-transport.js \
+    manifest.json \
+    rig-profiles.json \
+    icon-192.png \
+    icon-512.png \
+    index.html; do
+    wget -q -O "$WEB/$f" "$BASE/$f" \
+        && echo "$f OK" || echo "警告: $f ダウンロード失敗"
+done
+
+ls -la "$WEB/"
+
+# ─── server.py を Python 3.12 対応版に上書き（ssl.wrap_socket 廃止対応）───
+cat << 'SRVEOF' > $HOME/webft8_static/web/server.py
+#!/usr/bin/env python3
+import http.server
+import os
+import ssl
+import urllib.request
+
+def _load_api_key():
+    try:
+        env_path = os.path.join(os.path.expanduser("~"), "fastapi", ".env")
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith('API_KEY=') and not line.startswith('#'):
+                    return line.split('=', 1)[1].strip()
+    except Exception:
+        pass
+    return ''
+
+_API_KEY = _load_api_key()
+
+class WebFt8Handler(http.server.SimpleHTTPRequestHandler):
+    def end_headers(self):
+        self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
+        self.send_header('Cross-Origin-Embedder-Policy', 'require-corp')
+        super().end_headers()
+
+    def guess_type(self, path):
+        if str(path).endswith('.wasm'):
+            return 'application/wasm'
+        return super().guess_type(path)
+
+    def do_GET(self):
+        if self.path.startswith('/audio_sub'):
+            qs = self.path[len('/audio_sub'):]
+            url = 'http://127.0.0.1:8000/radio/audio_sub?rate=12000'
+            if qs.startswith('?'):
+                url += '&' + qs[1:]
+            req = None
+            try:
+                req_obj = urllib.request.Request(url)
+                if _API_KEY:
+                    req_obj.add_header('X-API-Key', _API_KEY)
+                req = urllib.request.urlopen(req_obj, timeout=None)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/octet-stream')
+                self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
+                self.send_header('Cross-Origin-Embedder-Policy', 'require-corp')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                while True:
+                    chunk = req.read(4096)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    self.wfile.flush()
+            except Exception as e:
+                try:
+                    self.send_error(503, str(e))
+                except Exception:
+                    pass
+            finally:
+                if req:
+                    try:
+                        req.close()
+                    except Exception:
+                        pass
+        else:
+            super().do_GET()
+
+    def do_POST(self):
+        if self.path.startswith('/audio_tx'):
+            qs = self.path[len('/audio_tx'):]
+            target = 'http://127.0.0.1:8000/radio/audio_tx?rate=12000&ptt=1'
+            if qs.startswith('?'):
+                target += '&' + qs[1:]
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length) if length else b''
+            try:
+                req_obj = urllib.request.Request(target, data=body, method='POST')
+                req_obj.add_header('Content-Type', 'application/octet-stream')
+                if _API_KEY:
+                    req_obj.add_header('X-API-Key', _API_KEY)
+                resp = urllib.request.urlopen(req_obj, timeout=60)
+                resp_body = resp.read()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(resp_body)))
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(resp_body)
+            except Exception as e:
+                try:
+                    self.send_error(503, str(e))
+                except Exception:
+                    pass
+        else:
+            self.send_response(405)
+            self.send_header('Allow', 'GET, POST')
+            self.end_headers()
+
+    def log_message(self, format, *args):
+        pass
+
+httpd = http.server.ThreadingHTTPServer(('0.0.0.0', 8443), WebFt8Handler)
+ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+ctx.load_cert_chain('./server.pem')
+httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
+httpd.serve_forever()
+SRVEOF
+
+# ─── webft8 HTTPS 用 自己署名証明書を生成（なければ）───
+cd $HOME/webft8_static/web
+if [ ! -f server.pem ]; then
+    if command -v openssl > /dev/null 2>&1; then
+        openssl req -x509 -newkey rsa:2048 -keyout server.pem -out server.pem \
+            -days 3650 -nodes -subj "/CN=raspberrypi" 2>/dev/null \
+            && echo "server.pem 生成完了" || echo "警告: openssl 証明書生成失敗"
+    else
+        echo "警告: openssl が見つからない — server.pem は手動で生成してください"
+    fi
+else
+    echo "server.pem 既存: スキップ"
+fi
+cd $HOME
+
+# ─── webft8 HTTPS サーバーを起動 ───
+echo "=== webft8 サーバーを起動中 (port 8443) ==="
+# 旧プロセスを停止
+pkill -f "python3 server.py" 2>/dev/null || true
+pkill -f "python3 $HOME/webft8_static" 2>/dev/null || true
+sleep 1
+
+if $_HAS_SUDO; then
+    # systemd サービスとして登録・起動
+    sudo tee /etc/systemd/system/webft8.service << WEBFT8SVC
+[Unit]
+Description=webft8 HTTPS Server
+After=network.target
+
+[Service]
+User=$(whoami)
+WorkingDirectory=$HOME/webft8_static/web
+ExecStart=/usr/bin/python3 server.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+WEBFT8SVC
+    sudo systemctl daemon-reload
+    sudo systemctl enable webft8
+    sudo systemctl restart webft8
+    echo "webft8.service 登録・起動完了 (port 8443)"
+else
+    # sudo なし: nohup で直接起動
+    cd $HOME/webft8_static/web
+    nohup python3 server.py >> /tmp/webft8.log 2>&1 &
+    echo "webft8 を nohup で起動 (pid=$!, log=/tmp/webft8.log)"
+    cd $HOME
+fi
+
+# ─── cw_bridge.py: 独立 UDP→Serial CW ブリッジ (タイムスタンプ変換方式) ───
+cat << 'CWBEOF' > $HOME/cw_bridge.py
+#!/usr/bin/env python3
+"""M5ATOM RemoteKeyer CW ブリッジ  v2.03
+
+シリアルモード (M5ATOMLite / 旧バージョン互換):
+    python3 cw_bridge.py /dev/ttyUSBx
+    python3 cw_bridge.py --mode serial /dev/ttyUSBx
+
+USB-NCMモード (M5ATOMS3Lite):
+    python3 cw_bridge.py --mode ncm [SERVER_NCM_IP]
+    python3 cw_bridge.py --mode ncm               # デフォルト: 192.168.7.1
+
+USB-NCM モードについて:
+    ATOM S3 Lite サーバーが USB-NCM デバイスとして Pi に接続されます。
+    Pi が USB ホストとなり、DHCP で 192.168.7.2 を取得します。
+    cw_bridge は UDP でサーバー (192.168.7.1:8888) と直接通信します。
+    シリアル通信は不要です。
+"""
+import argparse
+import json
+import os
+import socket
+import threading
+import time
+import sys
+
+UDP_CLIENT_PORT = 8889   # iOS/Android/クライアントアプリ向けポート
+UDP_SERVER_PORT = 8888   # M5 Server への UDP ポート (WiFi・NCM 共通)
+BAUD            = 115200
+PING_INTERVAL   = 5.0
+STATUS_FILE     = "/tmp/cw_bridge_status.json"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ユーティリティ
+# ─────────────────────────────────────────────────────────────────────────────
+def write_status(synced: bool, offset_ms: float = 0, max_late_ms: float = 0):
+    tmp = STATUS_FILE + ".tmp"
+    try:
+        with open(tmp, 'w') as f:
+            json.dump({"synced": synced, "offset_ms": offset_ms,
+                       "max_late_ms": max_late_ms, "t": time.time()}, f)
+        os.replace(tmp, STATUS_FILE)
+    except Exception:
+        pass
+
+# ─────────────────────────────────────────────────────────────────────────────
+# USB-NCM モード
+# ─────────────────────────────────────────────────────────────────────────────
+def run_ncm(server_ncm_ip: str):
+    """ATOM S3 Lite サーバーと UDP で直接通信する UDP リレー。
+    クライアント (iOS/Android) → Pi:8889 → Server NCM:8888 → Pi → クライアント
+    Server が SYNC・PONG を UDP で処理するため Pi での変換は不要。"""
+
+    print(f"[cw_bridge] NCM モード起動: Server={server_ncm_ip}:{UDP_SERVER_PORT}", flush=True)
+
+    # クライアント向けソケット (iOS/Android アプリから受信)
+    client_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        client_sock.bind(("0.0.0.0", UDP_CLIENT_PORT))
+    except Exception as e:
+        print(f"[cw_bridge] bind 失敗: {e}", flush=True)
+        sys.exit(1)
+    client_sock.settimeout(0.05)
+
+    # サーバー向けソケット (NCM インタフェース経由で ATOM S3 Lite と通信)
+    server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    server_sock.settimeout(0.05)
+
+    last_client_addr = [None]
+    addr_lock = threading.Lock()
+    active = [True]
+
+    # Server → Client 転送スレッド
+    def server_to_client():
+        while active[0]:
+            try:
+                data, _ = server_sock.recvfrom(64)
+                with addr_lock:
+                    ca = last_client_addr[0]
+                if ca:
+                    client_sock.sendto(data, ca)
+                    if data and data[0] == 0xFE:
+                        print("[cw_bridge] PONG → Client", flush=True)
+                    elif len(data) == 9 and data[0] == 0xE1:
+                        print("[cw_bridge] SYNC resp → Client", flush=True)
+            except socket.timeout:
+                pass
+            except Exception as e:
+                if active[0]:
+                    print(f"[cw_bridge] server_to_client エラー: {e}", flush=True)
+
+    t = threading.Thread(target=server_to_client, daemon=True)
+    t.start()
+
+    print(f"[cw_bridge] UDP :{UDP_CLIENT_PORT} → {server_ncm_ip}:{UDP_SERVER_PORT}", flush=True)
+    write_status(True, 0)
+
+    # Client → Server 転送メインループ
+    while True:
+        try:
+            data, addr = client_sock.recvfrom(64)
+        except socket.timeout:
+            continue
+        except Exception as e:
+            print(f"[cw_bridge] recv エラー: {e}", flush=True)
+            break
+
+        with addr_lock:
+            last_client_addr[0] = addr
+
+        try:
+            server_sock.sendto(data, (server_ncm_ip, UDP_SERVER_PORT))
+        except Exception as e:
+            print(f"[cw_bridge] server 送信エラー: {e}", flush=True)
+            continue
+
+        # ログ
+        if len(data) == 5 and data[0] == 0xE0:
+            print(f"[cw_bridge] SYNC req → Server", flush=True)
+        elif len(data) == 10 and data[0] in (0x00, 0x01):
+            print(f"[cw_bridge] KEY {'ON' if data[0]==0x01 else 'OFF'} → Server", flush=True)
+        elif len(data) == 1 and data[0] == 0xFF:
+            print(f"[cw_bridge] PING → Server", flush=True)
+
+    active[0] = False
+    client_sock.close()
+    server_sock.close()
+    print("[cw_bridge] NCM 停止", flush=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# シリアルモード (M5ATOMLite / 旧バージョン互換)
+# ─────────────────────────────────────────────────────────────────────────────
+def run_serial(dev: str):
+    """シリアル経由で ATOM Lite サーバーと通信するブリッジ。
+    元の実装と同一の動作。"""
+    try:
+        import serial as pyserial
+    except ImportError:
+        print("[cw_bridge] pyserial が見つかりません: pip install pyserial", flush=True)
+        sys.exit(1)
+
+    print(f"[cw_bridge] シリアルモード起動: {dev}", flush=True)
+    try:
+        ser = pyserial.Serial()
+        ser.port      = dev
+        ser.baudrate  = BAUD
+        ser.bytesize  = pyserial.EIGHTBITS
+        ser.parity    = pyserial.PARITY_NONE
+        ser.stopbits  = pyserial.STOPBITS_ONE
+        ser.timeout   = 0.5
+        ser.dtr       = False
+        ser.rts       = False
+        ser.open()
+        time.sleep(0.1)
+        ser.reset_input_buffer()
+        print("[cw_bridge] シリアル OK", flush=True)
+    except Exception as e:
+        print(f"[cw_bridge] シリアルオープン失敗: {e}", flush=True)
+        sys.exit(1)
+
+    write_lock  = threading.Lock()
+    max_late_ms = [0]
+    _server_offset_ms = [None]
+
+    def _write_status_local(synced):
+        write_status(synced, _server_offset_ms[0] or 0, max_late_ms[0])
+
+    def _sync_clock():
+        req = bytes([0xE0, 0x00, 0x00, 0x00, 0x00])
+        try:
+            with write_lock:
+                ser.reset_input_buffer()
+                t_send = time.time()
+                ser.write(req); ser.flush()
+            resp  = ser.read(9)
+            t_recv = time.time()
+            if len(resp) == 9 and resp[0] == 0xE1:
+                server_ms  = int.from_bytes(resp[5:9], 'big')
+                rtt_ms     = (t_recv - t_send) * 1000
+                midpoint   = server_ms - rtt_ms / 2
+                pi_mid_ms  = (t_send + t_recv) / 2 * 1000
+                _server_offset_ms[0] = midpoint - pi_mid_ms
+                print(f"[cw_bridge] SYNC ok server_ms={server_ms} rtt={rtt_ms:.1f}ms "
+                      f"offset={_server_offset_ms[0]:.0f}ms", flush=True)
+                return True
+            print(f"[cw_bridge] SYNC 応答不正 len={len(resp)}", flush=True)
+            return False
+        except Exception as e:
+            print(f"[cw_bridge] SYNC エラー: {e}", flush=True)
+            return False
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        sock.bind(("0.0.0.0", UDP_CLIENT_PORT))
+    except Exception as e:
+        print(f"[cw_bridge] bind 失敗: {e}", flush=True)
+        sys.exit(1)
+    sock.settimeout(0.01)
+    print(f"[cw_bridge] UDP :{UDP_CLIENT_PORT} リッスン中", flush=True)
+
+    for _ in range(3):
+        if _sync_clock(): break
+        time.sleep(0.5)
+
+    def ping_loop():
+        while True:
+            time.sleep(PING_INTERVAL)
+            ok = _sync_clock()
+            _write_status_local(ok)
+
+    threading.Thread(target=ping_loop, daemon=True).start()
+
+    GUARD_MS = 20
+    print(f"[cw_bridge] UDP :{UDP_CLIENT_PORT} → {dev}", flush=True)
+
+    while True:
+        try:
+            data, addr = sock.recvfrom(16)
+        except socket.timeout:
+            continue
+        except Exception as e:
+            print(f"[cw_bridge] recv エラー: {e}", flush=True)
+            break
+
+        if len(data) == 5 and data[0] == 0xE0:
+            if _server_offset_ms[0] is not None:
+                pi_now_ms    = int(time.time() * 1000)
+                server_now   = int(pi_now_ms + _server_offset_ms[0]) & 0xFFFFFFFF
+                resp = bytes([0xE1]) + data[1:5] + server_now.to_bytes(4, 'big')
+                sock.sendto(resp, addr)
+                print(f"[cw_bridge] SYNC tunnel server_now_ms={server_now}", flush=True)
+
+        elif len(data) == 10 and data[0] in (0x00, 0x01):
+            trx_byte       = data[1] if data[1] in (0x01, 0x02) else 0x01
+            android_fire   = int.from_bytes(data[2:10], 'big')
+            if android_fire > 1 and _server_offset_ms[0] is not None:
+                pi_now_ms  = int(time.time() * 1000)
+                server_now = int(pi_now_ms + _server_offset_ms[0])
+                if android_fire <= 0xFFFFFFFF:
+                    server_fire = android_fire
+                    mode_str    = "M5ms"
+                else:
+                    server_fire = int(android_fire + _server_offset_ms[0])
+                    mode_str    = "Ams"
+                if server_fire < server_now + GUARD_MS:
+                    late = server_now - server_fire
+                    if late > 0 and late > max_late_ms[0]: max_late_ms[0] = late
+                    server_fire = server_now + GUARD_MS
+                print(f"[cw_bridge] KEY {'ON' if data[0]==0x01 else 'OFF'} "
+                      f"{mode_str}={android_fire}", flush=True)
+                pkt = bytes([data[0], trx_byte]) + server_fire.to_bytes(8, 'big')
+            else:
+                pkt = bytes([data[0], trx_byte]) + bytes(7) + b'\x01'
+            with write_lock:
+                try:
+                    ser.write(pkt)
+                except Exception as e:
+                    print(f"[cw_bridge] write エラー: {e}", flush=True)
+
+    sock.close(); ser.close()
+    print("[cw_bridge] シリアル停止", flush=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# エントリーポイント
+# ─────────────────────────────────────────────────────────────────────────────
+def main():
+    parser = argparse.ArgumentParser(description="RemoteKeyer CW ブリッジ")
+    parser.add_argument("--mode", choices=["serial", "ncm"], default=None,
+                        help="動作モード: serial (デフォルト) / ncm")
+    parser.add_argument("arg", nargs="?", default=None,
+                        help="シリアルモード: デバイスパス (/dev/ttyUSBx)\n"
+                             "NCM モード: Server NCM IP (省略時: 192.168.7.1)")
+    args = parser.parse_args()
+
+    # モード自動判定: 引数が /dev/ で始まればシリアル, それ以外は NCM
+    if args.mode is None:
+        if args.arg and args.arg.startswith("/dev/"):
+            args.mode = "serial"
+        else:
+            args.mode = "ncm"
+
+    if args.mode == "ncm":
+        server_ip = args.arg if args.arg and not args.arg.startswith("/dev/") else "192.168.7.1"
+        run_ncm(server_ip)
+    else:
+        dev = args.arg or "/dev/ttyUSB0"
+        run_serial(dev)
+
+if __name__ == "__main__":
+    main()
+CWBEOF
+chmod +x $HOME/cw_bridge.py
+echo "cw_bridge.py 生成完了"
+
+echo "=== fastapi を再起動中 ==="
+if $_HAS_SUDO; then
+    sudo systemctl restart fastapi fastapi-audio && echo "systemd restart 完了" \
+        || echo "警告: systemd restart 失敗"
+else
+    # sudo なし: uvicorn を pkill + nohup で再起動
+    pkill -TERM -f 'uvicorn api' 2>/dev/null || true
+    sleep 2
+    cd $HOME/fastapi
+    nohup $HOME/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 8000 \
+        >> /tmp/uvicorn_restart.log 2>&1 &
+    echo "uvicorn を nohup で起動 (pid=$!)"
+fi
+echo ""
+echo "=== 完了 ==="
+echo "ログ確認:"
+echo "  cat /tmp/create_api.log"
+echo "  cat /tmp/webft8.log"
+echo "  cat /tmp/uvicorn_restart.log"

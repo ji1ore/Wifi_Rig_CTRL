@@ -3,6 +3,9 @@
 # api.py の生成は create_api.sh が担当
 set -e
 
+_USER=$(whoami)
+_HOME=$HOME
+
 # ── パッケージインストール ─────────────────────────────────────
 sudo apt update -y
 sudo apt install -y \
@@ -53,7 +56,7 @@ sudo make install-conf
 cd ~
 
 # ── Direwolf 初期設定ファイル（APRS設定前のプレースホルダー）─
-cat << 'EOF' > $HOME/direwolf.conf
+cat << 'EOF' > "${_HOME}/direwolf.conf"
 ADEVICE null plughw:CARD=CODEC,DEV=0
 CHANNEL 0
 MYCALL NOCALL
@@ -70,11 +73,11 @@ Description=FastAPI Radio Control Service
 After=network.target
 
 [Service]
-User=$(whoami)
-Group=$(whoami)
-WorkingDirectory=$HOME/fastapi
-EnvironmentFile=-$HOME/fastapi/.env
-ExecStart=$HOME/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 8000
+User=${_USER}
+Group=${_USER}
+WorkingDirectory=${_HOME}/fastapi
+EnvironmentFile=-${_HOME}/fastapi/.env
+ExecStart=${_HOME}/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 8000
 Restart=always
 
 [Install]
@@ -89,10 +92,10 @@ Description=FastAPI Audio Streaming Service
 After=network.target sound.target
 
 [Service]
-User=$(whoami)
-WorkingDirectory=$HOME/fastapi
-EnvironmentFile=-$HOME/fastapi/.env
-ExecStart=$HOME/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 50000
+User=${_USER}
+WorkingDirectory=${_HOME}/fastapi
+EnvironmentFile=-${_HOME}/fastapi/.env
+ExecStart=${_HOME}/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 50000
 Restart=always
 KillMode=control-group
 
@@ -101,10 +104,10 @@ WantedBy=multi-user.target
 EOF
 
 # .env テンプレート生成
-if [ ! -f $HOME/fastapi/.env ]; then
-    mkdir -p $HOME/fastapi
-    echo "# API Key 認証。キーを設定する場合は下の行を編集して有効にする" > $HOME/fastapi/.env
-    echo "# API_KEY=your_secret_key_here" >> $HOME/fastapi/.env
+if [ ! -f "${_HOME}/fastapi/.env" ]; then
+    mkdir -p "${_HOME}/fastapi"
+    echo "# API Key 認証。キーを設定する場合は下の行を編集して有効にする" > "${_HOME}/fastapi/.env"
+    echo "# API_KEY=your_secret_key_here" >> "${_HOME}/fastapi/.env"
 fi
 
 # direwolf: APRS用 KISS TNC
@@ -114,9 +117,9 @@ Description=Direwolf KISS TNC
 After=sound.target network.target
 
 [Service]
-User=$(whoami)
-WorkingDirectory=$HOME
-ExecStart=/usr/local/bin/direwolf -c $HOME/direwolf.conf -t 0
+User=${_USER}
+WorkingDirectory=${_HOME}
+ExecStart=/usr/local/bin/direwolf -c ${_HOME}/direwolf.conf -t 0
 Restart=always
 
 [Install]
@@ -127,28 +130,28 @@ sudo systemctl daemon-reload
 sudo systemctl enable direwolf fastapi fastapi-audio
 
 # ── sudoers (api.pyからsystemctlを実行するために必要) ─────────
-cat << 'EOF' | sudo tee /etc/sudoers.d/fastapi
-$(whoami) ALL=NOPASSWD: /usr/bin/systemctl stop fastapi-audio.service
-$(whoami) ALL=NOPASSWD: /usr/bin/systemctl start fastapi-audio.service
-$(whoami) ALL=NOPASSWD: /usr/bin/systemctl restart direwolf.service
-EOF
-sudo chmod 440 /etc/sudoers.d/fastapi
+printf '%s\n' \
+    "${_USER} ALL=NOPASSWD: /usr/bin/systemctl stop fastapi-audio.service" \
+    "${_USER} ALL=NOPASSWD: /usr/bin/systemctl start fastapi-audio.service" \
+    "${_USER} ALL=NOPASSWD: /usr/bin/systemctl restart direwolf.service" \
+    | sudo tee /etc/sudoers.d/fastapi > /dev/null
+sudo chmod 0440 /etc/sudoers.d/fastapi
 
 # ── ラズパイ電源即切り対策 ────────────────────────────────────
 # 1. systemd journal を永続化 (再起動後もログ参照可能)
 sudo sed -i 's/#Storage=auto/Storage=persistent/' /etc/systemd/journald.conf || true
 sudo systemctl restart systemd-journald
 
-# 2. piユーザーがUSBシリアルデバイスにアクセスできるよう dialout グループに追加
-sudo usermod -aG dialout $(whoami)
+# 2. USBシリアルデバイスにアクセスできるよう dialout グループに追加
+sudo usermod -aG dialout "${_USER}"
 
-# 3. piユーザーがUSBオーディオデバイスに直接アクセスできるよう audio グループに追加
+# 3. USBオーディオデバイスに直接アクセスできるよう audio グループに追加
 #    (plughw:CARD=CODEC,DEV=0 への aplay/arecord アクセスに必要)
-sudo usermod -aG audio $(whoami)
+sudo usermod -aG audio "${_USER}"
 
-# 4. piユーザーが journalctl で direwolf ログを読めるよう systemd-journal グループに追加
+# 4. journalctl で direwolf ログを読めるよう systemd-journal グループに追加
 #    (APRS TX完了検出の watch_direwolf_tx() に必要)
-sudo usermod -aG systemd-journal $(whoami)
+sudo usermod -aG systemd-journal "${_USER}"
 
 # 5. USBオーディオ(IC-705) PCM出力を0dBに設定 (TX音声変調レベル確保)
 #    デフォルト84% = -20dB ではラジオが変調されない

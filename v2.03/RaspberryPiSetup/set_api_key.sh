@@ -5,7 +5,7 @@
 #   bash set_api_key.sh mykey123  # 引数で直接指定
 #   bash set_api_key.sh ""        # キーを空にして認証無効化
 
-ENV_FILE=$HOME/fastapi/.env
+ENV_FILE=/home/pi/fastapi/.env
 
 # .env ファイルが存在しない場合は作成
 if [ ! -f "$ENV_FILE" ]; then
@@ -58,7 +58,7 @@ for SVC in fastapi fastapi-audio; do
     DROP_FILE="${DROP_DIR}/env.conf"
     if [ ! -f "$DROP_FILE" ]; then
         sudo mkdir -p "$DROP_DIR"
-        printf '[Service]\nEnvironmentFile=-$HOME/fastapi/.env\n' | sudo tee "$DROP_FILE" > /dev/null
+        printf '[Service]\nEnvironmentFile=-/home/pi/fastapi/.env\n' | sudo tee "$DROP_FILE" > /dev/null
         echo "drop-in 追加: $DROP_FILE"
     fi
 done

@@ -124,6 +124,13 @@ bash ~/set_api_key.sh ""   # 無効化
 【推奨】アプリの「Update Pi」ボタンで更新
   v2.03 以降が動作中であれば、ボタン一発で最新 api.py に更新されます。
 
+【GitHub から再取得】スクリプトを最新版に更新してから api.py を再生成
+  Pi に SSH でログイン後:
+  wget -O ~/create_api.sh https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.05/RaspberryPiSetup/create_api.sh
+  wget -O ~/set_api_key.sh https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.05/RaspberryPiSetup/set_api_key.sh
+  chmod +x ~/create_api.sh ~/set_api_key.sh
+  bash ~/create_api.sh
+
 【手動】scp で直接転送
   scp api.py <ユーザー名>@raspizero:~/fastapi/api.py
   ssh <ユーザー名>@raspizero "sudo systemctl restart fastapi"

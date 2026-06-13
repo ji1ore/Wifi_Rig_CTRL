@@ -1964,7 +1964,7 @@ async def admin_update_webft8(request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Write failed: {e}")
     try:
-        subprocess.run(["sudo", "systemctl", "restart", "webft8"], timeout=10)
+        subprocess.run(["sudo", "-n", "systemctl", "restart", "webft8"], timeout=10)
     except Exception as e:
         return {"status": "updated", "restart": f"failed: {e}"}
     return {"status": "ok", "message": "webft8 server.py updated and restarted"}

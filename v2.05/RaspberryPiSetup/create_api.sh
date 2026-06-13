@@ -26,14 +26,14 @@ if $_HAS_SUDO; then
 
     # fastapi.service に EnvironmentFile + Restart=always を追加
     sudo mkdir -p /etc/systemd/system/fastapi.service.d/
-    cat << 'ENVEOF' | sudo tee /etc/systemd/system/fastapi.service.d/env.conf
+    cat << ENVEOF | sudo tee /etc/systemd/system/fastapi.service.d/env.conf
 [Service]
 EnvironmentFile=-$HOME/fastapi/.env
 Restart=always
 RestartSec=3
 ENVEOF
     sudo mkdir -p /etc/systemd/system/fastapi-audio.service.d/
-    cat << 'ENVEOF2' | sudo tee /etc/systemd/system/fastapi-audio.service.d/env.conf
+    cat << ENVEOF2 | sudo tee /etc/systemd/system/fastapi-audio.service.d/env.conf
 [Service]
 EnvironmentFile=-$HOME/fastapi/.env
 Restart=always
@@ -65,7 +65,6 @@ if [ ! -f $HOME/fastapi/.env ]; then
     echo ".env テンプレート生成: $HOME/fastapi/.env"
 fi
 
-cat << 'APIEOF' > $HOME/fastapi/api.py
 cat << 'APIEOF' > $HOME/fastapi/api.py
 from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, Request, Security, Form, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -2025,6 +2024,8 @@ async def admin_setup_log(lines: int = 60):
         if Path(f"/proc/{p}/cmdline").exists()
     )
     return {"running": running, "log": tail}
+APIEOF
+echo "api.py 生成完了"
 # ─── webft8 静的ファイルを jl1nie/webft8 docs/ から取得 ───
 echo "=== webft8 ファイルをダウンロード中 (jl1nie.github.io/webft8) ==="
 BASE="https://raw.githubusercontent.com/jl1nie/webft8/main/docs"

@@ -75,12 +75,38 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.04）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.05）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v2.02）。
+アプリを v1.30 より公開しています（最新版：v2.05）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
+
+●v2.05 の変更点（v2.04 との比較）
+【修正・改善】
+・CW 送信が途中で切れる問題を修正
+  - set_morse_code_speed（K コマンド）を削除
+    rigctld を 2 秒以上ブロックしていた原因を除去
+  - IC-7300 / IC-705 内部キーヤーは PTT を自動管理するため CAT PTT 制御は不要と判明
+
+・CW TX 終了方式の選択機能を追加
+  - 時間予測モード（デフォルト）: IC-7300 / IC-705 内部キーヤー向け
+  - PTT ポーリングモード: FT-991 等 CAT PTT 対応リグ向け
+  - CW TX パネルの「TX end: PTT poll」スイッチで切替
+
+・CW TX 開始遅延を短縮（600ms → 100ms）
+
+・S メーター表示修正
+  - IC-705 接続時に常時 S9 になっていた問題を修正
+
+・Update Pi ボタン強化
+  - v2.03 以降が動作中の Pi であればボタン一発で更新完了
+  - Pi のユーザー名（pi / pizero 等）に依存しない実装に変更
+
+【FastAPI 更新（Update Pi ボタンで更新）】
+・CW TX 終了方式の選択をサポート（ptt_poll パラメータ）
+・BK-IN 状態を 15 秒ごとに自動ポーリング
+・パス設定の汎用化（ユーザー名不問）
 
 ●v2.04 の変更点（v2.03 との比較）
 【修正・改善】
@@ -187,9 +213,9 @@ USB CW中継を使う場合:
 
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.04/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.05/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v2.04_debug.apk をダウンロード
+  1. Wifi_RIG_CTRL_v2.05.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
@@ -197,15 +223,17 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.04/M5CoreHamCAT_Android
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.04/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.05/RaspberryPiSetup
 
-v2.01 からのアップグレード時は Raspberry Pi 側の create_api.sh を再実行してください。
-  bash ~/create_api.sh
+v2.03 以降からのアップグレード: アプリの「Update Pi」ボタンで自動更新
+v2.02 以前からのアップグレード: 初回のみ手動 scp が必要
+  scp api.py <ユーザー名>@raspizero:~/fastapi/api.py
+  ssh <ユーザー名>@raspizero "sudo systemctl restart fastapi"
 
 ●外出先からの接続（WireGuard VPN）
 モバイル回線など自宅外から接続する場合は WireGuard のセットアップが必要です。
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 （v1.40 からの変更なし）
 
-2026/6/6
+2026/6/14
 以上。

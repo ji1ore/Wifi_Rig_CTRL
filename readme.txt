@@ -75,12 +75,39 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.02）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.04）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
 アプリを v1.30 より公開しています（最新版：v2.02）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
+
+●v2.04 の変更点（v2.03 との比較）
+【修正・改善】
+・CW モード時の BK-IN 表示が常に OFF になっていた問題を修正
+  - FastAPI の poll_signal() に SBKIN / FBKIN ポーリングを追加（15 秒間隔）
+  - TX 中はポーリングをスキップ（IC-7300 リレー音対策）
+  - セミブレークイン（SBKIN）→ フルブレークイン（FBKIN）の順で自動判別
+
+・Update Pi ボタンの信頼性を向上
+  - create_api.sh 完了後の api.py 再送信にリトライを追加（最大 5 回 × 5 秒）
+  - 再送信失敗時にエラーを表示（従来は無視されていた）
+  - 成功時のステータスメッセージを修正
+
+【FastAPI 更新（Update Pi ボタンまたは create_api.sh 再実行）】
+・poll_signal() に CW モード BK-IN 自動ポーリング追加
+
+●v2.03 の変更点（v2.02 との比較）
+【新機能】
+・FT8/FT4 デコード機能（webft8 ベース）
+・マルチプロファイル対応
+
+【改善・修正】
+・Sync Time ボタン追加・SSL 証明書ピンニング・ALSA デバイス分離
+
+【FastAPI 更新（要 create_api.sh 再実行）】
+・webft8 HTTPS サーバー・時刻同期 API 改善・ホームディレクトリ汎用化
+・API バージョン 2.03
 
 ●v2.02 の変更点（v2.01 との比較）
 【新機能】
@@ -160,9 +187,9 @@ USB CW中継を使う場合:
 
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.04/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v2.02_debug.apk をダウンロード
+  1. Wifi_RIG_CTRL_v2.04_debug.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
@@ -170,7 +197,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/M5CoreHamCAT_Android
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.04/RaspberryPiSetup
 
 v2.01 からのアップグレード時は Raspberry Pi 側の create_api.sh を再実行してください。
   bash ~/create_api.sh

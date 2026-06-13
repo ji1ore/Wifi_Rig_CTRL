@@ -113,11 +113,39 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.02)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.04)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.02)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v2.04 (compared to v2.03)
+
+Bug fixes & improvements:
+- Fixed BK-IN status always showing OFF in CW mode
+  - Added SBKIN / FBKIN polling in FastAPI poll_signal() (15-second interval)
+  - Polling skipped during TX (IC-7300 PA relay protection)
+  - Auto-detects semi break-in (SBKIN) then full break-in (FBKIN)
+
+- Improved Update Pi button reliability
+  - Added retry logic for api.py resend after create_api.sh (up to 5 x 5s)
+  - Resend failure now reported to user (was silently ignored before)
+  - Fixed misleading success message
+
+FastAPI update (Update Pi button or re-run create_api.sh):
+- Added CW-mode BK-IN auto-polling to poll_signal()
+
+● What's New in v2.03 (compared to v2.02)
+
+New features:
+- FT8/FT4 decode (webft8-based), multi-profile support
+
+Improvements:
+- Sync Time button, SSL cert pinning, ALSA device separation
+
+FastAPI (re-run create_api.sh):
+- webft8 HTTPS server, improved time sync, home directory generalized
+- API version 2.03
 
 ● What's New in v2.02 (compared to v2.01)
 

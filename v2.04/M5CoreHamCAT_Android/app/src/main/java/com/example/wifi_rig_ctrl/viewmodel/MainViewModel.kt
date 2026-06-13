@@ -1376,7 +1376,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             cwRxDecoder = decoder
             cwTxKeyDecoder.onCharDecoded = { c, _ -> appendCwTxChar(c) }
 
-            audio.audioSampleListener = { samples -> decoder.processSamples(samples) }
+            // VPNバースト保護: リアルタイムより速くサンプルが届く場合は蓄積超過を追跡し
+            // 2秒を超えた分はデコードをスキップして団子化を防ぐ
+            val cwBurstState = longArrayOf(0L, 0L)  // [0]=前回壁時計ms, [1]=超過ms
+            audio.audioSampleListener = { samples ->
+                val now = System.currentTimeMillis()
+                val chunkAudioMs = samples.size * 1000L / rate.toLong()
+                val elapsed = if (cwBurstState[0] == 0L) chunkAudioMs else now - cwBurstState[0]
+                cwBurstState[0] = now
+                cwBurstState[1] = maxOf(0L, cwBurstState[1] + chunkAudioMs - elapsed)
+                if (cwBurstState[1] <= 2000L) {
+                    decoder.processSamples(samples)
+                }
+            }
 
             // Auto-start SPK if not already running
             if (spkEnabled.value != true && txEnabled.value != true) {

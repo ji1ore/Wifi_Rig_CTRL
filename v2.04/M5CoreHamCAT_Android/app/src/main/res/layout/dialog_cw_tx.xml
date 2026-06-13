@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="#1C1C1C">
+
+    <!-- Title + WPM -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="4dp">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="CW TX"
+            android:textColor="#DDDDDD"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/tvCwWpmLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="20 WPM"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:minWidth="60dp"
+            android:gravity="end" />
+    </LinearLayout>
+    <SeekBar
+        android:id="@+id/seekCwWpm"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="40"
+        android:progress="10"
+        android:layout_marginBottom="4dp" />
+
+    <!-- Paddle swap -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="10dp">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="Swap paddles (L↔R)"
+            android:textColor="#AAAAAA"
+            android:textSize="13sp" />
+        <Switch
+            android:id="@+id/switchPaddleSwap"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
+
+    <!-- Row 1: CQ | CALL K -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:layout_marginBottom="6dp">
+        <Button
+            android:id="@+id/btnCwCq"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="match_parent"
+            android:text="CQ"
+            android:textSize="13sp"
+            android:backgroundTint="#1A3A5C"
+            android:textColor="#DDDDDD"
+            android:layout_marginEnd="4dp" />
+        <Button
+            android:id="@+id/btnCwCall"
+            android:layout_width="0dp"
+            android:layout_weight="2"
+            android:layout_height="match_parent"
+            android:text="CALL K"
+            android:textSize="12sp"
+            android:backgroundTint="#1A3A5C"
+            android:textColor="#DDDDDD"
+            android:layout_marginStart="4dp" />
+    </LinearLayout>
+
+    <!-- Row 2: AGN | UR 5NN5NN BK -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:layout_marginBottom="6dp">
+        <Button
+            android:id="@+id/btnCwAgn"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="match_parent"
+            android:text="AGN"
+            android:textSize="13sp"
+            android:backgroundTint="#1A3A5C"
+            android:textColor="#DDDDDD"
+            android:layout_marginEnd="4dp" />
+        <Button
+            android:id="@+id/btnCwUr"
+            android:layout_width="0dp"
+            android:layout_weight="3"
+            android:layout_height="match_parent"
+            android:text="UR 5NN5NN BK"
+            android:textSize="12sp"
+            android:backgroundTint="#1A3A5C"
+            android:textColor="#DDDDDD"
+            android:layout_marginStart="4dp" />
+    </LinearLayout>
+
+    <!-- Row 3: TUTU 73 .. (full width) -->
+    <Button
+        android:id="@+id/btnCwTu"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:text="TUTU 73 .."
+        android:textSize="13sp"
+        android:backgroundTint="#1A3A5C"
+        android:textColor="#DDDDDD"
+        android:layout_marginBottom="10dp" />
+
+    <!-- Free text + SEND -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="8dp">
+        <EditText
+            android:id="@+id/etCwFreeText"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:hint="Free text (A-Z 0-9 / ?)"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#606060"
+            android:backgroundTint="#444444"
+            android:inputType="textVisiblePassword|textCapCharacters|textNoSuggestions"
+            android:singleLine="true"
+            android:padding="8dp"
+            android:layout_marginEnd="6dp" />
+        <Button
+            android:id="@+id/btnCwSend"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="SEND"
+            android:textSize="13sp"
+            android:backgroundTint="#1A5C2A"
+            android:textColor="#DDDDDD" />
+    </LinearLayout>
+
+    <!-- STOP button (shown only when sending) -->
+    <Button
+        android:id="@+id/btnCwSheetStop"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="■  STOP"
+        android:textSize="14sp"
+        android:backgroundTint="#7A1A1A"
+        android:textColor="#FFFFFF"
+        android:visibility="gone" />
+
+</LinearLayout>

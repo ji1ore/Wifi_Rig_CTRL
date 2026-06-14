@@ -23,13 +23,7 @@ if $_HAS_SUDO; then
     # sox インストール (arecord|sox パイプラインで音量増幅に使用) — 依存パッケージは早めに確保
     if ! command -v sox > /dev/null 2>&1; then
         echo "=== sox をインストール中 ==="
-        _i=0
-        while [ $_i -lt 12 ] && ! sudo flock -n /var/lib/dpkg/lock-frontend true 2>/dev/null; do
-            echo "apt ロック待機中... (${_i}/12, 5秒毎)"
-            sleep 5
-            _i=$((_i+1))
-        done
-        sudo apt-get install -y sox && echo "sox インストール完了" || echo "警告: sox インストール失敗"
+        sudo apt-get -o DPkg::Lock::Timeout=120 install -y sox && echo "sox インストール完了" || echo "警告: sox インストール失敗"
     else
         echo "sox 既存: スキップ"
     fi

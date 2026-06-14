@@ -2197,14 +2197,14 @@ sleep 1
 
 if $_HAS_SUDO; then
     # systemd サービスとして登録・起動
-    sudo tee /etc/systemd/system/webft8.service << 'WEBFT8SVC'
+    sudo tee /etc/systemd/system/webft8.service << WEBFT8SVC
 [Unit]
 Description=webft8 HTTPS Server
 After=network.target
 
 [Service]
-User=pi
-WorkingDirectory=$HOME/webft8_static/web
+User=$(whoami)
+WorkingDirectory=%h/webft8_static/web
 ExecStart=/usr/bin/python3 server.py
 Restart=on-failure
 

@@ -64,17 +64,17 @@ EOF
 
 # ── systemd サービスファイル ──────────────────────────────────
 # fastapi: メインAPI (CAT制御・APRS制御) port 8000
-cat << 'EOF' | sudo tee /etc/systemd/system/fastapi.service
+cat << EOF | sudo tee /etc/systemd/system/fastapi.service
 [Unit]
 Description=FastAPI Radio Control Service
 After=network.target
 
 [Service]
-User=pi
-Group=pi
-WorkingDirectory=$HOME/fastapi
-EnvironmentFile=-$HOME/fastapi/.env
-ExecStart=$HOME/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 8000
+User=$(whoami)
+Group=$(whoami)
+WorkingDirectory=%h/fastapi
+EnvironmentFile=-%h/fastapi/.env
+ExecStart=%h/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 8000
 Restart=always
 
 [Install]
@@ -83,16 +83,16 @@ EOF
 
 # fastapi-audio: 音声ストリーミング専用 port 50000
 # APRSビーコン送信中は自動的にstop/startされ、USBオーディオを排他制御する
-cat << 'EOF' | sudo tee /etc/systemd/system/fastapi-audio.service
+cat << EOF | sudo tee /etc/systemd/system/fastapi-audio.service
 [Unit]
 Description=FastAPI Audio Streaming Service
 After=network.target sound.target
 
 [Service]
-User=pi
-WorkingDirectory=$HOME/fastapi
-EnvironmentFile=-$HOME/fastapi/.env
-ExecStart=$HOME/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 50000
+User=$(whoami)
+WorkingDirectory=%h/fastapi
+EnvironmentFile=-%h/fastapi/.env
+ExecStart=%h/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 50000
 Restart=always
 KillMode=control-group
 
@@ -108,15 +108,15 @@ if [ ! -f $HOME/fastapi/.env ]; then
 fi
 
 # direwolf: APRS用 KISS TNC
-cat << 'EOF' | sudo tee /etc/systemd/system/direwolf.service
+cat << EOF | sudo tee /etc/systemd/system/direwolf.service
 [Unit]
 Description=Direwolf KISS TNC
 After=sound.target network.target
 
 [Service]
-User=pi
-WorkingDirectory=/home/pi
-ExecStart=/usr/local/bin/direwolf -c $HOME/direwolf.conf -t 0
+User=$(whoami)
+WorkingDirectory=%h
+ExecStart=/usr/local/bin/direwolf -c %h/direwolf.conf -t 0
 Restart=always
 
 [Install]
@@ -127,10 +127,11 @@ sudo systemctl daemon-reload
 sudo systemctl enable direwolf fastapi fastapi-audio
 
 # ── sudoers (api.pyからsystemctlを実行するために必要) ─────────
-cat << 'EOF' | sudo tee /etc/sudoers.d/fastapi
-pi ALL=NOPASSWD: /usr/bin/systemctl stop fastapi-audio.service
-pi ALL=NOPASSWD: /usr/bin/systemctl start fastapi-audio.service
-pi ALL=NOPASSWD: /usr/bin/systemctl restart direwolf.service
+ME=$(whoami)
+cat << EOF | sudo tee /etc/sudoers.d/fastapi
+$ME ALL=NOPASSWD: /usr/bin/systemctl stop fastapi-audio.service
+$ME ALL=NOPASSWD: /usr/bin/systemctl start fastapi-audio.service
+$ME ALL=NOPASSWD: /usr/bin/systemctl restart direwolf.service
 EOF
 sudo chmod 440 /etc/sudoers.d/fastapi
 
@@ -139,16 +140,16 @@ sudo chmod 440 /etc/sudoers.d/fastapi
 sudo sed -i 's/#Storage=auto/Storage=persistent/' /etc/systemd/journald.conf || true
 sudo systemctl restart systemd-journald
 
-# 2. piユーザーがUSBシリアルデバイスにアクセスできるよう dialout グループに追加
-sudo usermod -aG dialout pi
+# 2. USBシリアルデバイスにアクセスできるよう dialout グループに追加
+sudo usermod -aG dialout "$ME"
 
-# 3. piユーザーがUSBオーディオデバイスに直接アクセスできるよう audio グループに追加
+# 3. USBオーディオデバイスに直接アクセスできるよう audio グループに追加
 #    (plughw:CARD=CODEC,DEV=0 への aplay/arecord アクセスに必要)
-sudo usermod -aG audio pi
+sudo usermod -aG audio "$ME"
 
-# 4. piユーザーが journalctl で direwolf ログを読めるよう systemd-journal グループに追加
+# 4. journalctl で direwolf ログを読めるよう systemd-journal グループに追加
 #    (APRS TX完了検出の watch_direwolf_tx() に必要)
-sudo usermod -aG systemd-journal pi
+sudo usermod -aG systemd-journal "$ME"
 
 # 5. USBオーディオ(IC-705) PCM出力を0dBに設定 (TX音声変調レベル確保)
 #    デフォルト84% = -20dB ではラジオが変調されない

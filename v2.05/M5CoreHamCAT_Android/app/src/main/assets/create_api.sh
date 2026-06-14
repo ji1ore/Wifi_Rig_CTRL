@@ -24,6 +24,27 @@ if $_HAS_SUDO; then
         echo "古い sudoers ファイル削除: /etc/sudoers.d/fastapi"
     fi
 
+    # 古いセットアップで $HOME/pi がリテラルのまま書かれた壊れたサービスファイルを修正
+    _CURRENT_USER=$(whoami)
+    for _svc in /etc/systemd/system/fastapi.service /etc/systemd/system/fastapi-audio.service /etc/systemd/system/webft8.service /etc/systemd/system/direwolf.service; do
+        if [ -f "$_svc" ]; then
+            _fixed=false
+            if sudo grep -qF '$HOME' "$_svc" 2>/dev/null; then
+                sudo sed -i 's|WorkingDirectory=\$HOME|WorkingDirectory=%h|g; s|EnvironmentFile=-\$HOME|EnvironmentFile=-%h|g; s|ExecStart=\$HOME|ExecStart=%h|g; s|ExecStart=\(.*\) -c \$HOME/|\1 -c %h/|g' "$_svc"
+                _fixed=true
+            fi
+            if sudo grep -qF '/home/pi' "$_svc" 2>/dev/null; then
+                sudo sed -i "s|WorkingDirectory=/home/pi|WorkingDirectory=%h|g; s|-c /home/pi/|-c %h/|g" "$_svc"
+                _fixed=true
+            fi
+            if sudo grep -q '^User=pi\b\|^Group=pi\b' "$_svc" 2>/dev/null; then
+                sudo sed -i "s|^User=pi\b|User=$_CURRENT_USER|g; s|^Group=pi\b|Group=$_CURRENT_USER|g" "$_svc"
+                _fixed=true
+            fi
+            $_fixed && echo "サービスファイル修正: $_svc"
+        fi
+    done
+
     # pi ユーザーが sudo なしで systemctl restart できるよう NOPASSWD 設定
     echo "$(whoami) ALL=(ALL) NOPASSWD: /bin/systemctl restart fastapi, /bin/systemctl restart fastapi-audio, /bin/systemctl restart webft8, /bin/systemctl restart direwolf, /bin/systemctl start direwolf, /bin/systemctl stop direwolf" \
         | sudo tee /etc/sudoers.d/fastapi-restart > /dev/null
@@ -2236,7 +2257,7 @@ After=network.target
 
 [Service]
 User=$(whoami)
-WorkingDirectory=$HOME/webft8_static/web
+WorkingDirectory=%h/webft8_static/web
 ExecStart=/usr/bin/python3 server.py
 Restart=on-failure
 

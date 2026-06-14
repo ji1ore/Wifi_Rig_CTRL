@@ -5,7 +5,9 @@
 #   bash set_api_key.sh mykey123  # 引数で直接指定
 #   bash set_api_key.sh ""        # キーを空にして認証無効化
 
-ENV_FILE=/home/pi/fastapi/.env
+ME=${SUDO_USER:-$(whoami)}
+ME_HOME=$(getent passwd "$ME" | cut -d: -f6)
+ENV_FILE="$ME_HOME/fastapi/.env"
 
 # .env ファイルが存在しない場合は作成
 if [ ! -f "$ENV_FILE" ]; then
@@ -30,14 +32,12 @@ fi
 
 # .env に API_KEY を書き込む（既存行を置換、なければ追記）
 if grep -qE '^#?API_KEY=' "$ENV_FILE" 2>/dev/null; then
-    # 既存行（コメントも含む）を置換
     if [ -n "$NEW_KEY" ]; then
         sed -i "s|^#\?API_KEY=.*|API_KEY=$NEW_KEY|" "$ENV_FILE"
     else
         sed -i "s|^#\?API_KEY=.*|# API_KEY=|" "$ENV_FILE"
     fi
 else
-    # 行がなければ追記
     if [ -n "$NEW_KEY" ]; then
         echo "API_KEY=$NEW_KEY" >> "$ENV_FILE"
     else
@@ -58,7 +58,7 @@ for SVC in fastapi fastapi-audio; do
     DROP_FILE="${DROP_DIR}/env.conf"
     if [ ! -f "$DROP_FILE" ]; then
         sudo mkdir -p "$DROP_DIR"
-        printf '[Service]\nEnvironmentFile=-/home/pi/fastapi/.env\n' | sudo tee "$DROP_FILE" > /dev/null
+        printf "[Service]\nEnvironmentFile=-%s/fastapi/.env\n" "$ME_HOME" | sudo tee "$DROP_FILE" > /dev/null
         echo "drop-in 追加: $DROP_FILE"
     fi
 done

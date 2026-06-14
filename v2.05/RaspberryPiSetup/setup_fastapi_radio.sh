@@ -1,63 +1,88 @@
 #!/bin/bash
-# Wifi_Rig_CTRL Raspberry Pi 環境セットアップ（初回のみ実行）
-# api.py の生成は create_api.sh が担当
-set -e
+# Wifi_Rig_CTRL Raspberry Pi 環境セットアップ
+# 初回・再実行どちらも安全（べき等）
+# 実行方法: sudo bash setup_fastapi_radio.sh
+# ※ set -e は使わない — 一部ステップの失敗で全体が止まらないよう
 
-# sudo で実行された場合でも元のユーザーを取得する
 ME=${SUDO_USER:-$(whoami)}
+if [ "$ME" = "root" ]; then
+    echo "ERROR: sudo 経由で実行してください: sudo bash setup_fastapi_radio.sh"
+    exit 1
+fi
 ME_HOME=$(getent passwd "$ME" | cut -d: -f6)
+
+echo "=== Wifi_Rig_CTRL セットアップ開始 (ユーザー: $ME, HOME: $ME_HOME) ==="
 
 # ── パッケージインストール ─────────────────────────────────────
 sudo apt update -y
 sudo apt install -y \
     build-essential libtool libusb-1.0-0-dev libncurses5-dev \
     git autoconf automake pkg-config \
-    ffmpeg alsa-utils \
+    ffmpeg alsa-utils sox \
     python3-pip python3-venv \
-    cmake libasound2-dev
+    cmake libasound2-dev \
+    openssl wget
 
 # ── USB シリアルドライバー（FTDI / CH340）─────────────────────
-# FTDI FT232R (M5ATOM Lite 等) が /dev/ttyUSB* に現れるよう確保
 sudo modprobe ftdi_sio 2>/dev/null || true
 sudo modprobe ch341   2>/dev/null || true
-if ! grep -q "ftdi_sio" /etc/modules; then
-    echo "ftdi_sio" | sudo tee -a /etc/modules
-fi
-if ! grep -q "ch341" /etc/modules; then
-    echo "ch341" | sudo tee -a /etc/modules
-fi
+grep -q "ftdi_sio" /etc/modules || echo "ftdi_sio" | sudo tee -a /etc/modules
+grep -q "ch341"    /etc/modules || echo "ch341"    | sudo tee -a /etc/modules
 
-# ── Hamlib ビルド・インストール ───────────────────────────────
-wget https://github.com/Hamlib/Hamlib/releases/download/4.7.1/hamlib-4.7.1.tar.gz
-tar xvf hamlib-4.7.1.tar.gz
-cd hamlib-4.7.1
-./configure --prefix=/usr/local
-make -j4
-sudo make install
-echo "/usr/local/lib" | sudo tee /etc/ld.so.conf.d/hamlib.conf
-sudo ldconfig
-cd ~
-rigctl --version
+# ── Hamlib ビルド・インストール（未インストールの場合のみ）────
+if ! command -v rigctl > /dev/null 2>&1 || ! rigctl --version 2>/dev/null | grep -q "4\.7"; then
+    echo "=== Hamlib をビルド中 ==="
+    cd "$ME_HOME"
+    wget -q https://github.com/Hamlib/Hamlib/releases/download/4.7.1/hamlib-4.7.1.tar.gz
+    tar xf hamlib-4.7.1.tar.gz
+    cd hamlib-4.7.1
+    ./configure --prefix=/usr/local
+    make -j4
+    sudo make install
+    echo "/usr/local/lib" | sudo tee /etc/ld.so.conf.d/hamlib.conf
+    sudo ldconfig
+    cd "$ME_HOME"
+    rm -rf hamlib-4.7.1 hamlib-4.7.1.tar.gz
+    echo "Hamlib インストール完了: $(rigctl --version 2>&1 | head -1)"
+else
+    echo "Hamlib 既存: スキップ ($(rigctl --version 2>&1 | head -1))"
+fi
 
 # ── Python venv + FastAPI ─────────────────────────────────────
-sudo -u "$ME" python3 -m venv "$ME_HOME/fastapi"
-source "$ME_HOME/fastapi/bin/activate"
-pip install fastapi uvicorn python-multipart pyserial
-deactivate
+if [ ! -f "$ME_HOME/fastapi/bin/uvicorn" ]; then
+    echo "=== Python venv を作成中 ==="
+    sudo -u "$ME" python3 -m venv "$ME_HOME/fastapi"
+    sudo -u "$ME" "$ME_HOME/fastapi/bin/pip" install --quiet fastapi uvicorn python-multipart pyserial
+    echo "venv 作成完了: $ME_HOME/fastapi"
+else
+    echo "Python venv 既存: パッケージ更新のみ"
+    sudo -u "$ME" "$ME_HOME/fastapi/bin/pip" install --quiet --upgrade fastapi uvicorn python-multipart pyserial
+fi
 
-# ── Direwolf ビルド・インストール ─────────────────────────────
-cd ~
-git clone https://www.github.com/wb2osz/direwolf
-cd direwolf
-mkdir build && cd build
-cmake ..
-make -j4
-sudo make install
-sudo make install-conf
-cd ~
+# ── Direwolf ビルド・インストール（未インストールの場合のみ）─
+if ! command -v direwolf > /dev/null 2>&1; then
+    echo "=== Direwolf をビルド中 ==="
+    cd "$ME_HOME"
+    if [ -d direwolf ]; then
+        echo "既存の direwolf ディレクトリを削除して再クローン"
+        rm -rf direwolf
+    fi
+    git clone https://www.github.com/wb2osz/direwolf
+    cd direwolf
+    mkdir -p build && cd build
+    cmake ..
+    make -j4
+    sudo make install
+    sudo make install-conf
+    cd "$ME_HOME"
+    echo "Direwolf インストール完了"
+else
+    echo "Direwolf 既存: スキップ ($(direwolf --version 2>&1 | head -1))"
+fi
 
-# ── Direwolf 初期設定ファイル（APRS設定前のプレースホルダー）─
-cat << 'EOF' > "$ME_HOME/direwolf.conf"
+# ── Direwolf 初期設定ファイル（なければ生成）─────────────────
+if [ ! -f "$ME_HOME/direwolf.conf" ]; then
+    cat << 'EOF' > "$ME_HOME/direwolf.conf"
 ADEVICE null plughw:CARD=CODEC,DEV=0
 CHANNEL 0
 MYCALL NOCALL
@@ -65,10 +90,21 @@ MODEM 1200
 KISSPORT 8001
 AGWPORT 8050
 EOF
+    echo "direwolf.conf 生成完了"
+fi
+
+# ── .env テンプレート生成（なければ）────────────────────────
+if [ ! -f "$ME_HOME/fastapi/.env" ]; then
+    mkdir -p "$ME_HOME/fastapi"
+    echo "# API Key 認証。設定する場合は下の行を有効にする" > "$ME_HOME/fastapi/.env"
+    echo "# API_KEY=your_secret_key_here"                  >> "$ME_HOME/fastapi/.env"
+    echo ".env 生成完了"
+fi
 
 # ── systemd サービスファイル ──────────────────────────────────
-# fastapi: メインAPI (CAT制御・APRS制御) port 8000
-cat << EOF | sudo tee /etc/systemd/system/fastapi.service
+echo "=== systemd サービスファイルを更新中 ==="
+
+sudo tee /etc/systemd/system/fastapi.service > /dev/null << EOF
 [Unit]
 Description=FastAPI Radio Control Service
 After=network.target
@@ -80,14 +116,13 @@ WorkingDirectory=$ME_HOME/fastapi
 EnvironmentFile=-$ME_HOME/fastapi/.env
 ExecStart=$ME_HOME/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 8000
 Restart=always
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# fastapi-audio: 音声ストリーミング専用 port 50000
-# APRSビーコン送信中は自動的にstop/startされ、USBオーディオを排他制御する
-cat << EOF | sudo tee /etc/systemd/system/fastapi-audio.service
+sudo tee /etc/systemd/system/fastapi-audio.service > /dev/null << EOF
 [Unit]
 Description=FastAPI Audio Streaming Service
 After=network.target sound.target
@@ -98,21 +133,14 @@ WorkingDirectory=$ME_HOME/fastapi
 EnvironmentFile=-$ME_HOME/fastapi/.env
 ExecStart=$ME_HOME/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 50000
 Restart=always
+RestartSec=3
 KillMode=control-group
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# .env テンプレート生成
-if [ ! -f "$ME_HOME/fastapi/.env" ]; then
-    mkdir -p "$ME_HOME/fastapi"
-    echo "# API Key 認証。キーを設定する場合は下の行を編集して有効にする" > "$ME_HOME/fastapi/.env"
-    echo "# API_KEY=your_secret_key_here" >> "$ME_HOME/fastapi/.env"
-fi
-
-# direwolf: APRS用 KISS TNC
-cat << EOF | sudo tee /etc/systemd/system/direwolf.service
+sudo tee /etc/systemd/system/direwolf.service > /dev/null << EOF
 [Unit]
 Description=Direwolf KISS TNC
 After=sound.target network.target
@@ -129,53 +157,73 @@ EOF
 
 sudo systemctl daemon-reload
 sudo systemctl enable direwolf fastapi fastapi-audio
+echo "サービスファイル更新完了"
 
-# ── sudoers (api.pyからsystemctlを実行するために必要) ─────────
-cat << EOF | sudo tee /etc/sudoers.d/fastapi
-$ME ALL=NOPASSWD: /usr/bin/systemctl stop fastapi-audio.service
-$ME ALL=NOPASSWD: /usr/bin/systemctl start fastapi-audio.service
-$ME ALL=NOPASSWD: /usr/bin/systemctl restart direwolf.service
-EOF
-sudo chmod 440 /etc/sudoers.d/fastapi
+# ── sudoers ──────────────────────────────────────────────────
+echo "$ME ALL=(ALL) NOPASSWD: /bin/systemctl restart fastapi, /bin/systemctl restart fastapi-audio, /bin/systemctl restart webft8, /bin/systemctl restart direwolf, /bin/systemctl start direwolf, /bin/systemctl stop direwolf" \
+    | sudo tee /etc/sudoers.d/fastapi-restart > /dev/null
+sudo chmod 0440 /etc/sudoers.d/fastapi-restart
+echo "sudoers 設定完了"
 
-# ── ラズパイ電源即切り対策 ────────────────────────────────────
-# 1. systemd journal を永続化 (再起動後もログ参照可能)
-sudo sed -i 's/#Storage=auto/Storage=persistent/' /etc/systemd/journald.conf || true
+# ── システム設定 ───────────────────────────────────────────────
+sudo sed -i 's/#Storage=auto/Storage=persistent/' /etc/systemd/journald.conf 2>/dev/null || true
 sudo systemctl restart systemd-journald
-
-# 2. USBシリアルデバイスにアクセスできるよう dialout グループに追加
-sudo usermod -aG dialout "$ME"
-
-# 3. USBオーディオデバイスに直接アクセスできるよう audio グループに追加
-#    (plughw:CARD=CODEC,DEV=0 への aplay/arecord アクセスに必要)
-sudo usermod -aG audio "$ME"
-
-# 4. journalctl で direwolf ログを読めるよう systemd-journal グループに追加
-#    (APRS TX完了検出の watch_direwolf_tx() に必要)
-sudo usermod -aG systemd-journal "$ME"
-
-# 5. USBオーディオ(IC-705) PCM出力を0dBに設定 (TX音声変調レベル確保)
-#    デフォルト84% = -20dB ではラジオが変調されない
+sudo usermod -aG dialout,audio,systemd-journal "$ME"
 amixer -c CODEC sset 'PCM' 100% 2>/dev/null || true
 sudo alsactl store 2>/dev/null || true
+echo "システム設定完了"
 
-# 6. ext4 ジャーナリング確認 (デフォルトで有効、追加設定不要)
-# fsync() を使う _atomic_write() で重要ファイルの整合性を保証
-
-echo "電源保護設定完了"
-
-# ── api.py 生成（create_api.sh を実行）────────────────────────
+# ── api.py・webft8 セットアップ（create_api.sh を root で実行）─
 echo ""
-echo "環境セットアップ完了。api.py を生成します..."
-sudo -u "$ME" bash "$ME_HOME/create_api.sh"
+echo "=== api.py・webft8 セットアップ開始 ==="
+export SUDO_USER="$ME"
+bash "$ME_HOME/create_api.sh"
 
-# ── サービス起動（enable だけでは再起動まで起動しないため即時起動）──────
-sudo systemctl start direwolf || true
-sudo systemctl start fastapi fastapi-audio || true
+# root で作成したファイルのオーナーを $ME に戻す
+chown "$ME":"$ME" "$ME_HOME/fastapi/api.py"     2>/dev/null || true
+chown "$ME":"$ME" "$ME_HOME/cw_bridge.py"       2>/dev/null || true
+chown -R "$ME":"$ME" "$ME_HOME/webft8_static/"  2>/dev/null || true
+
+# ── UpdatePi 相当: 最新版ファイルを適用 ──────────────────────
+# create_api.sh は埋め込み旧版 api.py を書き込む。
+# UpdatePi と同等になるよう、スクリプトと同じディレクトリの最新版で上書きする。
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+echo ""
+echo "=== 最新版ファイルを適用中 ==="
+
+if [ -f "$SCRIPT_DIR/api.py" ]; then
+    cp "$SCRIPT_DIR/api.py" "$ME_HOME/fastapi/api.py"
+    chown "$ME":"$ME" "$ME_HOME/fastapi/api.py"
+    echo "api.py         : 最新版を適用"
+fi
+
+if [ -f "$SCRIPT_DIR/server_webft8.py" ]; then
+    cp "$SCRIPT_DIR/server_webft8.py" "$ME_HOME/webft8_static/web/server.py"
+    chown "$ME":"$ME" "$ME_HOME/webft8_static/web/server.py"
+    echo "server.py      : 最新版を適用"
+fi
+
+if [ -f "$SCRIPT_DIR/cw_bridge.py" ]; then
+    cp "$SCRIPT_DIR/cw_bridge.py" "$ME_HOME/cw_bridge.py"
+    chown "$ME":"$ME" "$ME_HOME/cw_bridge.py"
+    echo "cw_bridge.py   : 最新版を適用"
+fi
+
+# ── サービス起動 ──────────────────────────────────────────────
+echo ""
+echo "=== サービスを起動中 ==="
+sudo systemctl restart fastapi fastapi-audio || true
+sudo systemctl restart direwolf || true
+sudo systemctl restart webft8   || true
 
 echo ""
-echo "セットアップ完了。サービス状態確認:"
-echo "  sudo systemctl status fastapi fastapi-audio direwolf"
+echo "=== セットアップ完了 ==="
 echo ""
-echo "注意: グループ変更 (audio, dialout, systemd-journal) はログアウト/再ログイン後に有効。"
-echo "  sudo reboot  # 推奨: 再起動で全設定を反映"
+echo "サービス状態確認:"
+sudo systemctl is-active fastapi       && echo "  fastapi       : OK" || echo "  fastapi       : NG"
+sudo systemctl is-active fastapi-audio && echo "  fastapi-audio : OK" || echo "  fastapi-audio : NG"
+sudo systemctl is-active webft8        && echo "  webft8        : OK" || echo "  webft8        : NG"
+sudo systemctl is-active direwolf      && echo "  direwolf      : OK" || echo "  direwolf      : NG"
+echo ""
+echo "注意: グループ変更は再ログイン後に有効。"
+echo "  sudo reboot  # 推奨"

@@ -35,10 +35,19 @@ Android スマートフォンから Raspberry Pi 経由でアマチュア無線�
 - Pi のユーザー名に依存しない実装に変更（`pi`、`pizero`、その他すべて対応）
 - `Path(__file__).resolve()` でスクリプト自身のパスを動的取得
 
+### FT8 デジタルモード対応
+
+- webft8（jl1nie/webft8）ベースの FT8/FT4 受信デコード・送信に対応
+- Pi の HTTPS サーバー（ポート 8443）を WebView で表示
+- 初回接続時に SSL 証明書確認ダイアログ →「常に信頼する」で以降省略
+- Clock Sync ボタンで Pi の時刻を自動補正（FT8 デコードに必要）
+- FT8 TX は webft8 UI から操作（Pi 側に ft8_encode が必要）
+
 ### Update Pi ボタン強化
 
 - v2.03 以降が動作中の Pi であれば「Update Pi」ボタン一発で更新完了
 - 複数ユーザー名へのフォールバック書き込みに対応
+- 「Update webFT8」ボタンで webft8 サーバー（server.py）を単独更新可能
 
 ## APK インストール手順
 

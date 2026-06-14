@@ -2263,10 +2263,11 @@ Description=webft8 HTTPS Server
 After=network.target
 
 [Service]
-User=$(whoami)
-WorkingDirectory=%h/webft8_static/web
+User=$ME
+WorkingDirectory=$ME_HOME/webft8_static/web
 ExecStart=/usr/bin/python3 server.py
 Restart=on-failure
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target

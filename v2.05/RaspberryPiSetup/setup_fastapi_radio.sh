@@ -5,6 +5,7 @@ set -e
 
 # sudo で実行された場合でも元のユーザーを取得する
 ME=${SUDO_USER:-$(whoami)}
+ME_HOME=$(getent passwd "$ME" | cut -d: -f6)
 
 # ── パッケージインストール ─────────────────────────────────────
 sudo apt update -y
@@ -39,8 +40,8 @@ cd ~
 rigctl --version
 
 # ── Python venv + FastAPI ─────────────────────────────────────
-python3 -m venv ~/fastapi
-source ~/fastapi/bin/activate
+sudo -u "$ME" python3 -m venv "$ME_HOME/fastapi"
+source "$ME_HOME/fastapi/bin/activate"
 pip install fastapi uvicorn python-multipart pyserial
 deactivate
 
@@ -75,9 +76,9 @@ After=network.target
 [Service]
 User=$ME
 Group=$ME
-WorkingDirectory=%h/fastapi
-EnvironmentFile=-%h/fastapi/.env
-ExecStart=%h/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 8000
+WorkingDirectory=$ME_HOME/fastapi
+EnvironmentFile=-$ME_HOME/fastapi/.env
+ExecStart=$ME_HOME/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 8000
 Restart=always
 
 [Install]
@@ -93,9 +94,9 @@ After=network.target sound.target
 
 [Service]
 User=$ME
-WorkingDirectory=%h/fastapi
-EnvironmentFile=-%h/fastapi/.env
-ExecStart=%h/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 50000
+WorkingDirectory=$ME_HOME/fastapi
+EnvironmentFile=-$ME_HOME/fastapi/.env
+ExecStart=$ME_HOME/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 50000
 Restart=always
 KillMode=control-group
 
@@ -104,10 +105,10 @@ WantedBy=multi-user.target
 EOF
 
 # .env テンプレート生成
-if [ ! -f $HOME/fastapi/.env ]; then
-    mkdir -p $HOME/fastapi
-    echo "# API Key 認証。キーを設定する場合は下の行を編集して有効にする" > $HOME/fastapi/.env
-    echo "# API_KEY=your_secret_key_here" >> $HOME/fastapi/.env
+if [ ! -f "$ME_HOME/fastapi/.env" ]; then
+    mkdir -p "$ME_HOME/fastapi"
+    echo "# API Key 認証。キーを設定する場合は下の行を編集して有効にする" > "$ME_HOME/fastapi/.env"
+    echo "# API_KEY=your_secret_key_here" >> "$ME_HOME/fastapi/.env"
 fi
 
 # direwolf: APRS用 KISS TNC
@@ -118,8 +119,8 @@ After=sound.target network.target
 
 [Service]
 User=$ME
-WorkingDirectory=%h
-ExecStart=/usr/local/bin/direwolf -c %h/direwolf.conf -t 0
+WorkingDirectory=$ME_HOME
+ExecStart=/usr/local/bin/direwolf -c $ME_HOME/direwolf.conf -t 0
 Restart=always
 
 [Install]
@@ -166,7 +167,7 @@ echo "電源保護設定完了"
 # ── api.py 生成（create_api.sh を実行）────────────────────────
 echo ""
 echo "環境セットアップ完了。api.py を生成します..."
-bash ~/create_api.sh
+bash "$ME_HOME/create_api.sh"
 
 # ── サービス起動（enable だけでは再起動まで起動しないため即時起動）──────
 sudo systemctl start direwolf || true

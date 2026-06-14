@@ -57,7 +57,7 @@ sudo make install-conf
 cd ~
 
 # ── Direwolf 初期設定ファイル（APRS設定前のプレースホルダー）─
-cat << 'EOF' > $HOME/direwolf.conf
+cat << 'EOF' > "$ME_HOME/direwolf.conf"
 ADEVICE null plughw:CARD=CODEC,DEV=0
 CHANNEL 0
 MYCALL NOCALL
@@ -167,7 +167,7 @@ echo "電源保護設定完了"
 # ── api.py 生成（create_api.sh を実行）────────────────────────
 echo ""
 echo "環境セットアップ完了。api.py を生成します..."
-bash "$ME_HOME/create_api.sh"
+sudo -u "$ME" bash "$ME_HOME/create_api.sh"
 
 # ── サービス起動（enable だけでは再起動まで起動しないため即時起動）──────
 sudo systemctl start direwolf || true

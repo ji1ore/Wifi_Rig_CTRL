@@ -1,9 +1,11 @@
 #!/bin/bash
 # api.py を完全に再作成する
 # set -e は使わない — sudo が不要なステップが sudo 失敗で止まらないよう
+ME=${SUDO_USER:-$(whoami)}
+ME_HOME=$(getent passwd "$ME" | cut -d: -f6)
 
-if [ -f $HOME/fastapi/api.py ]; then
-    cp $HOME/fastapi/api.py $HOME/fastapi/api.py.bak2
+if [ -f $ME_HOME/fastapi/api.py ]; then
+    cp $ME_HOME/fastapi/api.py $ME_HOME/fastapi/api.py.bak2
     echo "バックアップ: api.py.bak2"
 fi
 
@@ -14,7 +16,7 @@ if sudo -n true 2>/dev/null; then
     echo "=== sudo 利用可能: システム設定を実施 ==="
 else
     echo "=== sudo パスワードが必要なためシステム設定をスキップ ==="
-    echo "=== 初回のみ SSH で実行: sudo bash $HOME/create_api.sh ==="
+    echo "=== 初回のみ SSH で実行: sudo bash $ME_HOME/create_api.sh ==="
 fi
 
 if $_HAS_SUDO; then
@@ -24,17 +26,21 @@ if $_HAS_SUDO; then
         echo "古い sudoers ファイル削除: /etc/sudoers.d/fastapi"
     fi
 
-    # 古いセットアップで $HOME/pi がリテラルのまま書かれた壊れたサービスファイルを修正
+    # 古いセットアップで $HOME や /home/pi がリテラルのまま書かれた壊れたサービスファイルを修正
     _CURRENT_USER=$(whoami)
     for _svc in /etc/systemd/system/fastapi.service /etc/systemd/system/fastapi-audio.service /etc/systemd/system/webft8.service /etc/systemd/system/direwolf.service; do
         if [ -f "$_svc" ]; then
             _fixed=false
             if sudo grep -qF '$HOME' "$_svc" 2>/dev/null; then
-                sudo sed -i 's|WorkingDirectory=\$HOME|WorkingDirectory=%h|g; s|EnvironmentFile=-\$HOME|EnvironmentFile=-%h|g; s|ExecStart=\$HOME|ExecStart=%h|g; s|ExecStart=\(.*\) -c \$HOME/|\1 -c %h/|g' "$_svc"
+                sudo sed -i "s|WorkingDirectory=\\\$HOME|WorkingDirectory=$ME_HOME|g; s|EnvironmentFile=-\\\$HOME|EnvironmentFile=-$ME_HOME|g; s|ExecStart=\\\$HOME|ExecStart=$ME_HOME|g; s|-c \\\$HOME/|-c $ME_HOME/|g" "$_svc"
                 _fixed=true
             fi
             if sudo grep -qF '/home/pi' "$_svc" 2>/dev/null; then
-                sudo sed -i "s|WorkingDirectory=/home/pi|WorkingDirectory=%h|g; s|-c /home/pi/|-c %h/|g" "$_svc"
+                sudo sed -i "s|WorkingDirectory=/home/pi|WorkingDirectory=$ME_HOME|g; s|-c /home/pi/|-c $ME_HOME/|g; s|ExecStart=/home/pi|ExecStart=$ME_HOME|g" "$_svc"
+                _fixed=true
+            fi
+            if sudo grep -qF '%h' "$_svc" 2>/dev/null; then
+                sudo sed -i "s|WorkingDirectory=%h|WorkingDirectory=$ME_HOME|g; s|EnvironmentFile=-%h|EnvironmentFile=-$ME_HOME|g; s|ExecStart=%h|ExecStart=$ME_HOME|g; s|-c %h/|-c $ME_HOME/|g" "$_svc"
                 _fixed=true
             fi
             if sudo grep -qE '^User=(pi|root)$|^Group=(pi|root)$' "$_svc" 2>/dev/null; then
@@ -55,14 +61,14 @@ if $_HAS_SUDO; then
     sudo mkdir -p /etc/systemd/system/fastapi.service.d/
     cat << ENVEOF | sudo tee /etc/systemd/system/fastapi.service.d/env.conf
 [Service]
-EnvironmentFile=-$HOME/fastapi/.env
+EnvironmentFile=-$ME_HOME/fastapi/.env
 Restart=always
 RestartSec=3
 ENVEOF
     sudo mkdir -p /etc/systemd/system/fastapi-audio.service.d/
     cat << ENVEOF2 | sudo tee /etc/systemd/system/fastapi-audio.service.d/env.conf
 [Service]
-EnvironmentFile=-$HOME/fastapi/.env
+EnvironmentFile=-$ME_HOME/fastapi/.env
 Restart=always
 RestartSec=3
 ENVEOF2
@@ -79,6 +85,12 @@ DROPINEOF
     # sox インストール (arecord|sox パイプラインで音量増幅に使用)
     if ! command -v sox > /dev/null 2>&1; then
         echo "=== sox をインストール中 ==="
+        _i=0
+        while [ $_i -lt 12 ] && ! sudo flock -n /var/lib/dpkg/lock-frontend true 2>/dev/null; do
+            echo "apt ロック待機中... (${_i}/12, 5秒毎)"
+            sleep 5
+            _i=$((_i+1))
+        done
         sudo apt-get install -y sox && echo "sox インストール完了" || echo "警告: sox インストール失敗"
     else
         echo "sox 既存: スキップ"
@@ -86,13 +98,13 @@ DROPINEOF
 fi
 
 # .env ファイルが未作成なら空テンプレートを生成
-if [ ! -f $HOME/fastapi/.env ]; then
-    echo "# API Key 認証。キーを設定する場合は下の行を編集して有効にする" > $HOME/fastapi/.env
-    echo "# API_KEY=your_secret_key_here" >> $HOME/fastapi/.env
-    echo ".env テンプレート生成: $HOME/fastapi/.env"
+if [ ! -f $ME_HOME/fastapi/.env ]; then
+    echo "# API Key 認証。キーを設定する場合は下の行を編集して有効にする" > $ME_HOME/fastapi/.env
+    echo "# API_KEY=your_secret_key_here" >> $ME_HOME/fastapi/.env
+    echo ".env テンプレート生成: $ME_HOME/fastapi/.env"
 fi
 
-cat << 'APIEOF' > $HOME/fastapi/api.py
+cat << 'APIEOF' > $ME_HOME/fastapi/api.py
 from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, Request, Security, Form, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -2080,7 +2092,7 @@ APIEOF
 # ─── webft8 静的ファイルを jl1nie/webft8 docs/ から取得 ───
 echo "=== webft8 ファイルをダウンロード中 (jl1nie.github.io/webft8) ==="
 BASE="https://raw.githubusercontent.com/jl1nie/webft8/main/docs"
-WEB="$HOME/webft8_static/web"
+WEB="$ME_HOME/webft8_static/web"
 mkdir -p "$WEB"
 # 旧ファイル（誤ったファイル名）を削除
 rm -rf "$WEB/webft8"
@@ -2115,7 +2127,7 @@ done
 ls -la "$WEB/"
 
 # ─── server.py を Python 3.12 対応版に上書き（ssl.wrap_socket 廃止対応）───
-cat << 'SRVEOF' > $HOME/webft8_static/web/server.py
+cat << 'SRVEOF' > $ME_HOME/webft8_static/web/server.py
 #!/usr/bin/env python3
 import http.server
 import os
@@ -2227,7 +2239,7 @@ httpd.serve_forever()
 SRVEOF
 
 # ─── webft8 HTTPS 用 自己署名証明書を生成（なければ）───
-cd $HOME/webft8_static/web
+cd $ME_HOME/webft8_static/web
 if [ ! -f server.pem ]; then
     if command -v openssl > /dev/null 2>&1; then
         openssl req -x509 -newkey rsa:2048 -keyout server.pem -out server.pem \
@@ -2239,13 +2251,13 @@ if [ ! -f server.pem ]; then
 else
     echo "server.pem 既存: スキップ"
 fi
-cd $HOME
+cd $ME_HOME
 
 # ─── webft8 HTTPS サーバーを起動 ───
 echo "=== webft8 サーバーを起動中 (port 8443) ==="
 # 旧プロセスを停止
 pkill -f "python3 server.py" 2>/dev/null || true
-pkill -f "python3 $HOME/webft8_static" 2>/dev/null || true
+pkill -f "python3 $ME_HOME/webft8_static" 2>/dev/null || true
 sleep 1
 
 if $_HAS_SUDO; then
@@ -2270,14 +2282,14 @@ WEBFT8SVC
     echo "webft8.service 登録・起動完了 (port 8443)"
 else
     # sudo なし: nohup で直接起動
-    cd $HOME/webft8_static/web
+    cd $ME_HOME/webft8_static/web
     nohup python3 server.py >> /tmp/webft8.log 2>&1 &
     echo "webft8 を nohup で起動 (pid=$!, log=/tmp/webft8.log)"
-    cd $HOME
+    cd $ME_HOME
 fi
 
 # ─── cw_bridge.py: 独立 UDP→Serial CW ブリッジ (タイムスタンプ変換方式) ───
-cat << 'CWBEOF' > $HOME/cw_bridge.py
+cat << 'CWBEOF' > $ME_HOME/cw_bridge.py
 #!/usr/bin/env python3
 """M5ATOM RemoteKeyer CW ブリッジ  v2.03
 
@@ -2570,7 +2582,7 @@ def main():
 if __name__ == "__main__":
     main()
 CWBEOF
-chmod +x $HOME/cw_bridge.py
+chmod +x $ME_HOME/cw_bridge.py
 echo "cw_bridge.py 生成完了"
 
 echo "=== fastapi を再起動中 ==="
@@ -2581,8 +2593,8 @@ else
     # sudo なし: uvicorn を pkill + nohup で再起動
     pkill -TERM -f 'uvicorn api' 2>/dev/null || true
     sleep 2
-    cd $HOME/fastapi
-    nohup $HOME/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 8000 \
+    cd $ME_HOME/fastapi
+    nohup $ME_HOME/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 8000 \
         >> /tmp/uvicorn_restart.log 2>&1 &
     echo "uvicorn を nohup で起動 (pid=$!)"
 fi

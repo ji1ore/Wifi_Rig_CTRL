@@ -37,8 +37,8 @@ if $_HAS_SUDO; then
                 sudo sed -i "s|WorkingDirectory=/home/pi|WorkingDirectory=%h|g; s|-c /home/pi/|-c %h/|g" "$_svc"
                 _fixed=true
             fi
-            if sudo grep -q '^User=pi\b\|^Group=pi\b' "$_svc" 2>/dev/null; then
-                sudo sed -i "s|^User=pi\b|User=$_CURRENT_USER|g; s|^Group=pi\b|Group=$_CURRENT_USER|g" "$_svc"
+            if sudo grep -qE '^User=(pi|root)$|^Group=(pi|root)$' "$_svc" 2>/dev/null; then
+                sudo sed -i "s|^User=pi$|User=$_CURRENT_USER|g; s|^User=root$|User=$_CURRENT_USER|g; s|^Group=pi$|Group=$_CURRENT_USER|g; s|^Group=root$|Group=$_CURRENT_USER|g" "$_svc"
                 _fixed=true
             fi
             $_fixed && echo "サービスファイル修正: $_svc"

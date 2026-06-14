@@ -3,6 +3,9 @@
 # api.py の生成は create_api.sh が担当
 set -e
 
+# sudo で実行された場合でも元のユーザーを取得する
+ME=${SUDO_USER:-$(whoami)}
+
 # ── パッケージインストール ─────────────────────────────────────
 sudo apt update -y
 sudo apt install -y \
@@ -70,8 +73,8 @@ Description=FastAPI Radio Control Service
 After=network.target
 
 [Service]
-User=$(whoami)
-Group=$(whoami)
+User=$ME
+Group=$ME
 WorkingDirectory=%h/fastapi
 EnvironmentFile=-%h/fastapi/.env
 ExecStart=%h/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 8000
@@ -89,7 +92,7 @@ Description=FastAPI Audio Streaming Service
 After=network.target sound.target
 
 [Service]
-User=$(whoami)
+User=$ME
 WorkingDirectory=%h/fastapi
 EnvironmentFile=-%h/fastapi/.env
 ExecStart=%h/fastapi/bin/uvicorn api:app --host 0.0.0.0 --port 50000
@@ -114,7 +117,7 @@ Description=Direwolf KISS TNC
 After=sound.target network.target
 
 [Service]
-User=$(whoami)
+User=$ME
 WorkingDirectory=%h
 ExecStart=/usr/local/bin/direwolf -c %h/direwolf.conf -t 0
 Restart=always
@@ -127,7 +130,6 @@ sudo systemctl daemon-reload
 sudo systemctl enable direwolf fastapi fastapi-audio
 
 # ── sudoers (api.pyからsystemctlを実行するために必要) ─────────
-ME=$(whoami)
 cat << EOF | sudo tee /etc/sudoers.d/fastapi
 $ME ALL=NOPASSWD: /usr/bin/systemctl stop fastapi-audio.service
 $ME ALL=NOPASSWD: /usr/bin/systemctl start fastapi-audio.service

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import http.server
+import os
 import ssl
 import urllib.request
 
 def _load_api_key():
     try:
-        with open('/home/pi/fastapi/.env') as f:
+        env_path = os.path.join(os.path.expanduser("~"), "fastapi", ".env")
+        with open(env_path) as f:
             for line in f:
                 line = line.strip()
                 if line.startswith('API_KEY=') and not line.startswith('#'):

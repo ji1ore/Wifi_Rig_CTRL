@@ -18,8 +18,35 @@ else
 fi
 
 if $_HAS_SUDO; then
+    # 古いセットアップで $(whoami) がリテラルのまま書かれた壊れた sudoers ファイルを削除
+    if [ -f /etc/sudoers.d/fastapi ] && sudo grep -qF '$(whoami)' /etc/sudoers.d/fastapi 2>/dev/null; then
+        sudo rm -f /etc/sudoers.d/fastapi
+        echo "古い sudoers ファイル削除: /etc/sudoers.d/fastapi"
+    fi
+
+    # 古いセットアップで $HOME/pi がリテラルのまま書かれた壊れたサービスファイルを修正
+    _CURRENT_USER=$(whoami)
+    for _svc in /etc/systemd/system/fastapi.service /etc/systemd/system/fastapi-audio.service /etc/systemd/system/webft8.service /etc/systemd/system/direwolf.service; do
+        if [ -f "$_svc" ]; then
+            _fixed=false
+            if sudo grep -qF '$HOME' "$_svc" 2>/dev/null; then
+                sudo sed -i 's|WorkingDirectory=\$HOME|WorkingDirectory=%h|g; s|EnvironmentFile=-\$HOME|EnvironmentFile=-%h|g; s|ExecStart=\$HOME|ExecStart=%h|g; s|ExecStart=\(.*\) -c \$HOME/|\1 -c %h/|g' "$_svc"
+                _fixed=true
+            fi
+            if sudo grep -qF '/home/pi' "$_svc" 2>/dev/null; then
+                sudo sed -i "s|WorkingDirectory=/home/pi|WorkingDirectory=%h|g; s|-c /home/pi/|-c %h/|g" "$_svc"
+                _fixed=true
+            fi
+            if sudo grep -qE '^User=(pi|root)$|^Group=(pi|root)$' "$_svc" 2>/dev/null; then
+                sudo sed -i "s|^User=pi$|User=$_CURRENT_USER|g; s|^User=root$|User=$_CURRENT_USER|g; s|^Group=pi$|Group=$_CURRENT_USER|g; s|^Group=root$|Group=$_CURRENT_USER|g" "$_svc"
+                _fixed=true
+            fi
+            $_fixed && echo "サービスファイル修正: $_svc"
+        fi
+    done
+
     # pi ユーザーが sudo なしで systemctl restart できるよう NOPASSWD 設定
-    echo "pi ALL=(ALL) NOPASSWD: /bin/systemctl restart fastapi, /bin/systemctl restart fastapi-audio, /bin/systemctl restart webft8, /bin/systemctl restart direwolf, /bin/systemctl start direwolf, /bin/systemctl stop direwolf" \
+    echo "$(whoami) ALL=(ALL) NOPASSWD: /bin/systemctl restart fastapi, /bin/systemctl restart fastapi-audio, /bin/systemctl restart webft8, /bin/systemctl restart direwolf, /bin/systemctl start direwolf, /bin/systemctl stop direwolf" \
         | sudo tee /etc/sudoers.d/fastapi-restart > /dev/null
     sudo chmod 0440 /etc/sudoers.d/fastapi-restart
     echo "NOPASSWD 設定完了"
@@ -97,6 +124,14 @@ except ImportError:
 API_KEY = os.environ.get("API_KEY", "")
 API_VERSION = "2.03"
 
+# ホームディレクトリ — 実行ユーザーに依存しないよう Path.home() で取得
+_HOME = Path.home()
+_FASTAPI_DIR  = _HOME / "fastapi"
+_WEBFT8_DIR   = _HOME / "webft8_static" / "web"
+_CW_BRIDGE    = _HOME / "cw_bridge.py"
+_DIREWOLF_CONF = _HOME / "direwolf.conf"
+_CREATE_API_SH = _HOME / "create_api.sh"
+
 # ALSAデバイス設定 (環境変数 or POST /radio/audio_device で変更可)
 _alsa_capture_dev  = os.environ.get("ALSA_CAPTURE",  "plughw:CARD=CODEC,DEV=0")
 _alsa_playback_dev = os.environ.get("ALSA_PLAYBACK", "plughw:CARD=CODEC,DEV=0")
@@ -116,14 +151,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 動的パス（ユーザー名に依存しない）
-_HOME_DIR = Path(__file__).resolve().parent.parent  # /home/<user>
-_FASTAPI_DIR = Path(__file__).resolve().parent       # /home/<user>/fastapi
-_VENV_PY = str(_FASTAPI_DIR / "bin" / "python3")
-_CW_BRIDGE_PY = str(_HOME_DIR / "cw_bridge.py")
-
 # webft8 static files (web/ サブディレクトリに index.html がある)
-_webft8_dir = str(_HOME_DIR / "webft8_static" / "web")
+_webft8_dir = str(_WEBFT8_DIR)
 if os.path.isdir(_webft8_dir):
     app.mount("/ft8web", StaticFiles(directory=_webft8_dir, html=True), name="ft8web")
 
@@ -613,6 +642,7 @@ def poll_signal():
         time.sleep(0.5)
     last_power = 0
     last_sql = 0
+    last_bkin = 0
     while True:
         if radio_cache.get("tx", False):
             time.sleep(1.0)  # TX中はrigctld負荷を軽減
@@ -622,8 +652,7 @@ def poll_signal():
             raw = rigctl_cmd("l STRENGTH")
             val = raw.split()[0] if raw else ""
             if val:
-                sig = float(val)
-                radio_cache["signal"] = sig
+                radio_cache["signal"] = float(val)
         except Exception:
             pass
 
@@ -647,6 +676,23 @@ def poll_signal():
                 pass
             last_sql = time.time()
 
+        # CWモード時のみBK-IN状態を取得（15秒間隔、TX中はスキップ済みで安全）
+        # SBKIN(セミブレークイン)→FBKIN(フルブレークイン)の順で試みる
+        if (radio_cache.get("mode", "").upper() in ("CW", "CWR")
+                and time.time() - last_bkin > 15):
+            try:
+                bkin_val = 0
+                for func in ("SBKIN", "FBKIN"):
+                    raw = rigctl_cmd(f"u {func}")
+                    v = raw.split()[0] if raw else ""
+                    if v.lstrip("-").isdigit():
+                        bkin_val = int(v)
+                        break
+                radio_cache["bk_in"] = bkin_val
+            except Exception:
+                pass
+            last_bkin = time.time()
+
         time.sleep(1.0)
 
 
@@ -667,7 +713,7 @@ def watchdog_heartbeat():
 
 
 def _start_webft8_if_needed():
-    web_dir = str(_HOME_DIR / "webft8_static" / "web")
+    web_dir = str(_WEBFT8_DIR)
     srv = os.path.join(web_dir, "server.py")
     pem = os.path.join(web_dir, "server.pem")
     if not (os.path.exists(srv) and os.path.exists(pem)):
@@ -1300,8 +1346,8 @@ def cw_send_morse(text: str = Form(...), wpm: int = Form(default=20)):
         global _morse_sock, _morse_sending
         sock = None
         try:
+            rigctl_cmd(f"K {max(5, min(60, wpm))}")
             # IC-7300 内部キーヤーは PTT を自動管理するため T 1 は不要
-            # K (set_morse_code_speed) は IC-7300 では rigctld を 2秒以上ブロックするため使用しない
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(30.0)
             sock.connect(("localhost", 4532))
@@ -1312,13 +1358,16 @@ def cw_send_morse(text: str = Form(...), wpm: int = Form(default=20)):
                 sock.recv(4096)
             except Exception:
                 pass
-            # IC-7300内部キーヤーはget_ptt(t)で送信状態を反映しないため時間ベースで待機
-            print(f"[{_ts()}] [morse] waiting {est_sec:.1f}s (wpm={wpm} chars={n_chars})", flush=True)
-            _morse_stop_event.wait(timeout=est_sec)
-            if _morse_stop_event.is_set():
-                print(f"[{_ts()}] [morse] TX stopped by user", flush=True)
-            else:
-                print(f"[{_ts()}] [morse] TX complete (estimated)", flush=True)
+            # IC-7300 が TX を開始するまで少し待ってから PTT ポーリング開始
+            time.sleep(0.5)
+            print(f"[{_ts()}] [morse] polling PTT, deadline={est_sec+5.0:.1f}s (wpm={wpm} chars={n_chars})", flush=True)
+            deadline = time.time() + est_sec + 5.0
+            while time.time() < deadline and not _morse_stop_event.is_set():
+                ptt_raw = rigctl_cmd_priority("t")
+                if ptt_raw and ptt_raw.strip().split("\n")[0].strip() == "0":
+                    print(f"[{_ts()}] [morse] TX ended (PTT=0)", flush=True)
+                    break
+                _morse_stop_event.wait(timeout=0.5)
         except Exception as e:
             print(f"[{_ts()}] [morse] error: {e}", flush=True)
         finally:
@@ -1334,8 +1383,7 @@ def cw_send_morse(text: str = Form(...), wpm: int = Form(default=20)):
                 rigctl_cmd_priority("\\stop_morse")
             except Exception:
                 pass
-            # 内部キーヤー使用時は T 1 を送っていないため T 0 不要
-            # (IC-705/IC-7300 は内部キーヤー完了後に自動でRXへ戻る)
+            rigctl_cmd_priority("T 0")
             _morse_sending = False
 
     threading.Thread(target=worker, daemon=True).start()
@@ -1377,7 +1425,8 @@ def cw_open(port: str = "ttyACM0", delay_ms: int = 0):
         except Exception:
             pass
         try:
-            _cw_bridge_proc = subprocess.Popen([_VENV_PY, _CW_BRIDGE_PY, dev])
+            venv_py = str(_FASTAPI_DIR / "bin/python3")
+            _cw_bridge_proc = subprocess.Popen([venv_py, str(_CW_BRIDGE), dev])
             _cw_bridge_port = dev
             print(f"[cw] bridge started pid={_cw_bridge_proc.pid} dev={dev}")
             return {"status": "ok", "port": dev}
@@ -1718,7 +1767,7 @@ def update_aprs_config(cfg: AprsConfig):
     # PTT RIG 2 = Hamlib NET rigctl (rigctld プロトコルで localhost:4532 に接続)
     # PTT RIG {rig_id} localhost は FT-991A バックエンドが生 CAT を送信してしまい PTT 失敗
     conf += (f"KISSPORT 8001\nAGWPORT 8050\nPTT RIG 2 localhost:4532\n")
-    _atomic_write(str(_HOME_DIR / "direwolf.conf"), conf)
+    _atomic_write(str(_DIREWOLF_CONF), conf)
     # direwolf 再起動はバックグラウンドで実行（KISS ポート待機は aprs_loop が行う）
     threading.Thread(
         target=lambda: subprocess.run(["sudo", "systemctl", "restart", "direwolf"]),
@@ -1813,8 +1862,8 @@ async def admin_update(request: Request):
         compile(content.decode("utf-8"), "<api.py>", "exec")
     except SyntaxError as e:
         raise HTTPException(status_code=422, detail=f"Syntax error: {e}")
-    api_path = Path(__file__).resolve()
-    bak_path = api_path.with_suffix(".py.bak_update")
+    api_path = _FASTAPI_DIR / "api.py"
+    bak_path = _FASTAPI_DIR / "api.py.bak_update"
     try:
         if api_path.exists():
             import shutil
@@ -1838,6 +1887,7 @@ async def admin_update(request: Request):
         # 方法2: sudo 不可 → nohup スクリプト + SIGTERM
         # systemd が Restart= で再起動するケースと手動起動のケースを両立するため
         # 「uvicorn が起動していなければ起動する」チェックを入れて2重起動を防ぐ
+        _fd = str(_FASTAPI_DIR)
         restart_sh = (
             "#!/bin/bash\n"
             "sleep 2\n"
@@ -1849,8 +1899,8 @@ async def admin_update(request: Request):
             "if pgrep -f 'uvicorn api' >/dev/null 2>&1; then\n"
             "  exit 0\n"
             "fi\n"
-            f"cd {_FASTAPI_DIR}\n"
-            f"{_VENV_PY.replace('python3','uvicorn')} api:app --host 0.0.0.0 --port 8000 "
+            f"cd {_fd}\n"
+            f"{_fd}/bin/uvicorn api:app --host 0.0.0.0 --port 8000 "
             ">>/tmp/uvicorn_restart.log 2>&1\n"
         )
         sh = "/tmp/_fastapi_restart.sh"
@@ -1880,8 +1930,8 @@ async def admin_update_cw_bridge(request: Request):
         compile(content.decode("utf-8"), "<cw_bridge.py>", "exec")
     except SyntaxError as e:
         raise HTTPException(status_code=422, detail=f"Syntax error: {e}")
-    bridge_path = Path(_CW_BRIDGE_PY)
-    bak_path = Path(_CW_BRIDGE_PY + ".bak")
+    bridge_path = _CW_BRIDGE
+    bak_path = _HOME / "cw_bridge.py.bak"
     try:
         if bridge_path.exists():
             import shutil
@@ -1907,7 +1957,8 @@ async def admin_update_cw_bridge(request: Request):
         _cw_bridge_proc = None
         if saved_port:
             try:
-                _cw_bridge_proc = subprocess.Popen([_VENV_PY, _CW_BRIDGE_PY, saved_port])
+                venv_py = str(_FASTAPI_DIR / "bin/python3")
+                _cw_bridge_proc = subprocess.Popen([venv_py, str(_CW_BRIDGE), saved_port])
                 _cw_bridge_port = saved_port
             except Exception as e:
                 return {"status": "updated", "restart": f"failed: {e}"}
@@ -1924,8 +1975,8 @@ async def admin_update_webft8(request: Request):
         compile(content.decode("utf-8"), "<server.py>", "exec")
     except SyntaxError as e:
         raise HTTPException(status_code=422, detail=f"Syntax error: {e}")
-    server_path = _HOME_DIR / "webft8_static" / "web" / "server.py"
-    bak_path = _HOME_DIR / "webft8_static" / "web" / "server.py.bak"
+    server_path = _WEBFT8_DIR / "server.py"
+    bak_path = _WEBFT8_DIR / "server.py.bak"
     try:
         if server_path.exists():
             import shutil
@@ -1942,11 +1993,11 @@ async def admin_update_webft8(request: Request):
 
 @app.post("/admin/setup")
 async def admin_setup(request: Request):
-    """create_api.sh を受け取り /home/pi/create_api.sh に保存してバックグラウンド実行する"""
+    """create_api.sh を受け取りホームディレクトリに保存してバックグラウンド実行する"""
     content = await request.body()
     if not content:
         raise HTTPException(status_code=400, detail="Empty body")
-    script_path = _HOME_DIR / "create_api.sh"
+    script_path = _CREATE_API_SH
     try:
         script_path.write_bytes(content)
         script_path.chmod(0o755)
@@ -1957,7 +2008,7 @@ async def admin_setup(request: Request):
         ["bash", str(script_path)],
         stdout=open(log_path, "w"),
         stderr=subprocess.STDOUT,
-        cwd=str(_HOME_DIR),
+        cwd=str(_HOME),
         start_new_session=True,
     )
     return {"status": "ok", "message": f"setup running in background, log: {log_path}"}
@@ -2025,7 +2076,7 @@ async def admin_setup_log(lines: int = 60):
     )
     return {"running": running, "log": tail}
 APIEOF
-echo "api.py 生成完了"
+
 # ─── webft8 静的ファイルを jl1nie/webft8 docs/ から取得 ───
 echo "=== webft8 ファイルをダウンロード中 (jl1nie.github.io/webft8) ==="
 BASE="https://raw.githubusercontent.com/jl1nie/webft8/main/docs"
@@ -2067,12 +2118,14 @@ ls -la "$WEB/"
 cat << 'SRVEOF' > $HOME/webft8_static/web/server.py
 #!/usr/bin/env python3
 import http.server
+import os
 import ssl
 import urllib.request
 
 def _load_api_key():
     try:
-        with open('$HOME/fastapi/.env') as f:
+        env_path = os.path.join(os.path.expanduser("~"), "fastapi", ".env")
+        with open(env_path) as f:
             for line in f:
                 line = line.strip()
                 if line.startswith('API_KEY=') and not line.startswith('#'):
@@ -2186,7 +2239,7 @@ if [ ! -f server.pem ]; then
 else
     echo "server.pem 既存: スキップ"
 fi
-cd /home/pi
+cd $HOME
 
 # ─── webft8 HTTPS サーバーを起動 ───
 echo "=== webft8 サーバーを起動中 (port 8443) ==="
@@ -2220,130 +2273,226 @@ else
     cd $HOME/webft8_static/web
     nohup python3 server.py >> /tmp/webft8.log 2>&1 &
     echo "webft8 を nohup で起動 (pid=$!, log=/tmp/webft8.log)"
-    cd /home/pi
+    cd $HOME
 fi
 
 # ─── cw_bridge.py: 独立 UDP→Serial CW ブリッジ (タイムスタンプ変換方式) ───
 cat << 'CWBEOF' > $HOME/cw_bridge.py
 #!/usr/bin/env python3
-"""M5ATOM Server USB中継モード向け CW UDP→Serial ブリッジ
-Usage: python3 cw_bridge.py /dev/ttyUSBx
+"""M5ATOM RemoteKeyer CW ブリッジ  v2.03
 
-Android が各パケットに currentTimeMillis()+buffer_ms を埋め込む。
-Pi は SYNC プロトコルで Server の millis() オフセットを取得し、
-Android タイムスタンプを Server millis() に変換して即時転送する。
-Server 側が GPIO 発火タイミングをスケジューリングするため VPN ジッターを吸収できる。"""
+シリアルモード (M5ATOMLite / 旧バージョン互換):
+    python3 cw_bridge.py /dev/ttyUSBx
+    python3 cw_bridge.py --mode serial /dev/ttyUSBx
+
+USB-NCMモード (M5ATOMS3Lite):
+    python3 cw_bridge.py --mode ncm [SERVER_NCM_IP]
+    python3 cw_bridge.py --mode ncm               # デフォルト: 192.168.7.1
+
+USB-NCM モードについて:
+    ATOM S3 Lite サーバーが USB-NCM デバイスとして Pi に接続されます。
+    Pi が USB ホストとなり、DHCP で 192.168.7.2 を取得します。
+    cw_bridge は UDP でサーバー (192.168.7.1:8888) と直接通信します。
+    シリアル通信は不要です。
+"""
+import argparse
 import json
 import os
 import socket
-import serial
-import sys
 import threading
 import time
+import sys
 
-UDP_PORT = 8889
-BAUD = 115200
-PING_INTERVAL = 5.0
-STATUS_FILE = "/tmp/cw_bridge_status.json"
+UDP_CLIENT_PORT = 8889   # iOS/Android/クライアントアプリ向けポート
+UDP_SERVER_PORT = 8888   # M5 Server への UDP ポート (WiFi・NCM 共通)
+BAUD            = 115200
+PING_INTERVAL   = 5.0
+STATUS_FILE     = "/tmp/cw_bridge_status.json"
 
-_server_offset_ms = None  # server_millis_at_sync - pi_unix_ms_at_sync (大きな負の値)
-
-def main():
-    global _server_offset_ms
-    max_late_ms = [0]  # 最大観測遅延[ms] (Piへの到達遅延+クロック差-バッファ設定)
-    dev = sys.argv[1] if len(sys.argv) > 1 else "/dev/ttyUSB0"
-    print(f"[cw_bridge] opening {dev}", flush=True)
+# ─────────────────────────────────────────────────────────────────────────────
+# ユーティリティ
+# ─────────────────────────────────────────────────────────────────────────────
+def write_status(synced: bool, offset_ms: float = 0, max_late_ms: float = 0):
+    tmp = STATUS_FILE + ".tmp"
     try:
-        ser = serial.Serial()
-        ser.port = dev
-        ser.baudrate = BAUD
-        ser.bytesize = serial.EIGHTBITS
-        ser.parity = serial.PARITY_NONE
-        ser.stopbits = serial.STOPBITS_ONE
-        ser.timeout = 0.5
-        ser.dtr = False
-        ser.rts = False
+        with open(tmp, 'w') as f:
+            json.dump({"synced": synced, "offset_ms": offset_ms,
+                       "max_late_ms": max_late_ms, "t": time.time()}, f)
+        os.replace(tmp, STATUS_FILE)
+    except Exception:
+        pass
+
+# ─────────────────────────────────────────────────────────────────────────────
+# USB-NCM モード
+# ─────────────────────────────────────────────────────────────────────────────
+def run_ncm(server_ncm_ip: str):
+    """ATOM S3 Lite サーバーと UDP で直接通信する UDP リレー。
+    クライアント (iOS/Android) → Pi:8889 → Server NCM:8888 → Pi → クライアント
+    Server が SYNC・PONG を UDP で処理するため Pi での変換は不要。"""
+
+    print(f"[cw_bridge] NCM モード起動: Server={server_ncm_ip}:{UDP_SERVER_PORT}", flush=True)
+
+    # クライアント向けソケット (iOS/Android アプリから受信)
+    client_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        client_sock.bind(("0.0.0.0", UDP_CLIENT_PORT))
+    except Exception as e:
+        print(f"[cw_bridge] bind 失敗: {e}", flush=True)
+        sys.exit(1)
+    client_sock.settimeout(0.05)
+
+    # サーバー向けソケット (NCM インタフェース経由で ATOM S3 Lite と通信)
+    server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    server_sock.settimeout(0.05)
+
+    last_client_addr = [None]
+    addr_lock = threading.Lock()
+    active = [True]
+
+    # Server → Client 転送スレッド
+    def server_to_client():
+        while active[0]:
+            try:
+                data, _ = server_sock.recvfrom(64)
+                with addr_lock:
+                    ca = last_client_addr[0]
+                if ca:
+                    client_sock.sendto(data, ca)
+                    if data and data[0] == 0xFE:
+                        print("[cw_bridge] PONG → Client", flush=True)
+                    elif len(data) == 9 and data[0] == 0xE1:
+                        print("[cw_bridge] SYNC resp → Client", flush=True)
+            except socket.timeout:
+                pass
+            except Exception as e:
+                if active[0]:
+                    print(f"[cw_bridge] server_to_client エラー: {e}", flush=True)
+
+    t = threading.Thread(target=server_to_client, daemon=True)
+    t.start()
+
+    print(f"[cw_bridge] UDP :{UDP_CLIENT_PORT} → {server_ncm_ip}:{UDP_SERVER_PORT}", flush=True)
+    write_status(True, 0)
+
+    # Client → Server 転送メインループ
+    while True:
+        try:
+            data, addr = client_sock.recvfrom(64)
+        except socket.timeout:
+            continue
+        except Exception as e:
+            print(f"[cw_bridge] recv エラー: {e}", flush=True)
+            break
+
+        with addr_lock:
+            last_client_addr[0] = addr
+
+        try:
+            server_sock.sendto(data, (server_ncm_ip, UDP_SERVER_PORT))
+        except Exception as e:
+            print(f"[cw_bridge] server 送信エラー: {e}", flush=True)
+            continue
+
+        # ログ
+        if len(data) == 5 and data[0] == 0xE0:
+            print(f"[cw_bridge] SYNC req → Server", flush=True)
+        elif len(data) == 10 and data[0] in (0x00, 0x01):
+            print(f"[cw_bridge] KEY {'ON' if data[0]==0x01 else 'OFF'} → Server", flush=True)
+        elif len(data) == 1 and data[0] == 0xFF:
+            print(f"[cw_bridge] PING → Server", flush=True)
+
+    active[0] = False
+    client_sock.close()
+    server_sock.close()
+    print("[cw_bridge] NCM 停止", flush=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# シリアルモード (M5ATOMLite / 旧バージョン互換)
+# ─────────────────────────────────────────────────────────────────────────────
+def run_serial(dev: str):
+    """シリアル経由で ATOM Lite サーバーと通信するブリッジ。
+    元の実装と同一の動作。"""
+    try:
+        import serial as pyserial
+    except ImportError:
+        print("[cw_bridge] pyserial が見つかりません: pip install pyserial", flush=True)
+        sys.exit(1)
+
+    print(f"[cw_bridge] シリアルモード起動: {dev}", flush=True)
+    try:
+        ser = pyserial.Serial()
+        ser.port      = dev
+        ser.baudrate  = BAUD
+        ser.bytesize  = pyserial.EIGHTBITS
+        ser.parity    = pyserial.PARITY_NONE
+        ser.stopbits  = pyserial.STOPBITS_ONE
+        ser.timeout   = 0.5
+        ser.dtr       = False
+        ser.rts       = False
         ser.open()
         time.sleep(0.1)
         ser.reset_input_buffer()
-        print(f"[cw_bridge] serial ok", flush=True)
+        print("[cw_bridge] シリアル OK", flush=True)
     except Exception as e:
-        print(f"[cw_bridge] serial open failed: {e}", flush=True)
+        print(f"[cw_bridge] シリアルオープン失敗: {e}", flush=True)
         sys.exit(1)
 
-    write_lock = threading.Lock()
+    write_lock  = threading.Lock()
+    max_late_ms = [0]
+    _server_offset_ms = [None]
 
-    def _write_status(synced: bool, offset_ms: float = 0):
-        tmp = STATUS_FILE + ".tmp"
-        try:
-            with open(tmp, 'w') as f:
-                json.dump({"synced": synced, "offset_ms": offset_ms, "max_late_ms": max_late_ms[0], "t": time.time()}, f)
-            os.replace(tmp, STATUS_FILE)
-        except Exception:
-            pass
+    def _write_status_local(synced):
+        write_status(synced, _server_offset_ms[0] or 0, max_late_ms[0])
 
-    def _sync_clock() -> bool:
-        """Server の millis() と Pi の time.time() のオフセットを計測する。
-        Pi→Server: 0xE0 + 4bytes(0埋め)  5バイト
-        Server→Pi: 0xE1 + 4bytes(echo) + 4bytes(server_millis big-endian)  9バイト"""
-        global _server_offset_ms
+    def _sync_clock():
         req = bytes([0xE0, 0x00, 0x00, 0x00, 0x00])
         try:
             with write_lock:
                 ser.reset_input_buffer()
                 t_send = time.time()
-                ser.write(req)
-                ser.flush()
-            # write_lock 外で読む (write_lock はライタースレッドとの排他のみ)
-            resp = ser.read(9)
+                ser.write(req); ser.flush()
+            resp  = ser.read(9)
             t_recv = time.time()
             if len(resp) == 9 and resp[0] == 0xE1:
-                server_ms = int.from_bytes(resp[5:9], 'big')
-                rtt_ms = (t_recv - t_send) * 1000
-                # RTT 中点でのServer時刻とPi時刻のズレを計算
-                server_at_midpoint = server_ms - rtt_ms / 2
-                pi_midpoint_ms = (t_send + t_recv) / 2 * 1000
-                _server_offset_ms = server_at_midpoint - pi_midpoint_ms
-                print(f"[cw_bridge] SYNC ok server_ms={server_ms} rtt={rtt_ms:.1f}ms offset={_server_offset_ms:.0f}ms", flush=True)
+                server_ms  = int.from_bytes(resp[5:9], 'big')
+                rtt_ms     = (t_recv - t_send) * 1000
+                midpoint   = server_ms - rtt_ms / 2
+                pi_mid_ms  = (t_send + t_recv) / 2 * 1000
+                _server_offset_ms[0] = midpoint - pi_mid_ms
+                print(f"[cw_bridge] SYNC ok server_ms={server_ms} rtt={rtt_ms:.1f}ms "
+                      f"offset={_server_offset_ms[0]:.0f}ms", flush=True)
                 return True
-            else:
-                print(f"[cw_bridge] SYNC bad resp len={len(resp)}", flush=True)
-                return False
+            print(f"[cw_bridge] SYNC 応答不正 len={len(resp)}", flush=True)
+            return False
         except Exception as e:
-            print(f"[cw_bridge] SYNC error: {e}", flush=True)
+            print(f"[cw_bridge] SYNC エラー: {e}", flush=True)
             return False
 
-    # UDP ソケットを先にbind（SYNC中もポートを確保しパケット損失を防ぐ）
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
-        sock.bind(("0.0.0.0", UDP_PORT))
+        sock.bind(("0.0.0.0", UDP_CLIENT_PORT))
     except Exception as e:
-        print(f"[cw_bridge] bind failed: {e}", flush=True)
+        print(f"[cw_bridge] bind 失敗: {e}", flush=True)
         sys.exit(1)
     sock.settimeout(0.01)
-    print(f"[cw_bridge] UDP :{UDP_PORT} listening", flush=True)
+    print(f"[cw_bridge] UDP :{UDP_CLIENT_PORT} リッスン中", flush=True)
 
-    # 起動時: 最大3回 SYNC を試みる
-    for attempt in range(3):
-        if _sync_clock():
-            break
+    for _ in range(3):
+        if _sync_clock(): break
         time.sleep(0.5)
 
     def ping_loop():
-        """定期的に SYNC を実行して生存確認とオフセット更新を兼ねる"""
         while True:
             time.sleep(PING_INTERVAL)
             ok = _sync_clock()
-            off = _server_offset_ms if _server_offset_ms is not None else 0
-            _write_status(ok, off)
-            print(f"[cw_bridge] ping {'ok' if ok else 'fail'}", flush=True)
+            _write_status_local(ok)
 
     threading.Thread(target=ping_loop, daemon=True).start()
 
-    print(f"[cw_bridge] UDP :{UDP_PORT} -> {dev}", flush=True)
-
-    GUARD_MS = 20  # Pi→Server USB転送マージン
+    GUARD_MS = 20
+    print(f"[cw_bridge] UDP :{UDP_CLIENT_PORT} → {dev}", flush=True)
 
     while True:
         try:
@@ -2351,59 +2500,72 @@ def main():
         except socket.timeout:
             continue
         except Exception as e:
-            print(f"[cw_bridge] recv error: {e}", flush=True)
+            print(f"[cw_bridge] recv エラー: {e}", flush=True)
             break
 
         if len(data) == 5 and data[0] == 0xE0:
-            # M5 Client からのSYNCリクエスト: _server_offset_msを使ってServer millis()を推定して返す
-            pi_now_ms = int(time.time() * 1000)
-            if _server_offset_ms is not None:
-                server_now_ms = int(pi_now_ms + _server_offset_ms) & 0xFFFFFFFF
-            else:
-                server_now_ms = pi_now_ms & 0xFFFFFFFF  # Pi時刻でフォールバック
-            resp = bytes([0xE1]) + data[1:5] + server_now_ms.to_bytes(4, 'big')
-            sock.sendto(resp, addr)
-            print(f"[cw_bridge] SYNC tunnel server_now_ms={server_now_ms} (offset={'ok' if _server_offset_ms is not None else 'fallback'})", flush=True)
+            if _server_offset_ms[0] is not None:
+                pi_now_ms    = int(time.time() * 1000)
+                server_now   = int(pi_now_ms + _server_offset_ms[0]) & 0xFFFFFFFF
+                resp = bytes([0xE1]) + data[1:5] + server_now.to_bytes(4, 'big')
+                sock.sendto(resp, addr)
+                print(f"[cw_bridge] SYNC tunnel server_now_ms={server_now}", flush=True)
 
         elif len(data) == 10 and data[0] in (0x00, 0x01):
-            trx_byte = data[1] if data[1] in (0x01, 0x02) else 0x01
-            android_fire_ms = int.from_bytes(data[2:10], 'big')
-
-            if android_fire_ms > 1 and _server_offset_ms is not None:
-                pi_now_ms = int(time.time() * 1000)
-                server_now_ms = int(pi_now_ms + _server_offset_ms)
-
-                if android_fire_ms <= 0xFFFFFFFF:
-                    # M5 Client SYNC済み: opTimeMsはM5 Server millis()基準 → そのまま使用
-                    server_fire_ms = android_fire_ms
-                    mode_str = "M5ms"
+            trx_byte       = data[1] if data[1] in (0x01, 0x02) else 0x01
+            android_fire   = int.from_bytes(data[2:10], 'big')
+            if android_fire > 1 and _server_offset_ms[0] is not None:
+                pi_now_ms  = int(time.time() * 1000)
+                server_now = int(pi_now_ms + _server_offset_ms[0])
+                if android_fire <= 0xFFFFFFFF:
+                    server_fire = android_fire
+                    mode_str    = "M5ms"
                 else:
-                    # 旧形式: Android Unix ms → Server millis() に変換
-                    server_fire_ms = int(android_fire_ms + _server_offset_ms)
-                    mode_str = "Ams"
-
-                if server_fire_ms < server_now_ms + GUARD_MS:
-                    late_ms = server_now_ms - server_fire_ms
-                    if late_ms > 0 and late_ms > max_late_ms[0]:
-                        max_late_ms[0] = late_ms
-                    server_fire_ms = server_now_ms + GUARD_MS
-                print(f"[cw_bridge] key {'ON' if data[0]==0x01 else 'OFF'} {mode_str}={android_fire_ms}", flush=True)
-                pkt = bytes([data[0], trx_byte]) + server_fire_ms.to_bytes(8, 'big')
+                    server_fire = int(android_fire + _server_offset_ms[0])
+                    mode_str    = "Ams"
+                if server_fire < server_now + GUARD_MS:
+                    late = server_now - server_fire
+                    if late > 0 and late > max_late_ms[0]: max_late_ms[0] = late
+                    server_fire = server_now + GUARD_MS
+                print(f"[cw_bridge] KEY {'ON' if data[0]==0x01 else 'OFF'} "
+                      f"{mode_str}={android_fire}", flush=True)
+                pkt = bytes([data[0], trx_byte]) + server_fire.to_bytes(8, 'big')
             else:
-                # SYNC 未取得 or opTimeMs=1 (即時発火)
                 pkt = bytes([data[0], trx_byte]) + bytes(7) + b'\x01'
             with write_lock:
                 try:
                     ser.write(pkt)
                 except Exception as e:
-                    print(f"[cw_bridge] write error: {e}", flush=True)
-        else:
-            if len(data) not in (5, 10):
-                print(f"[cw_bridge] unknown pkt len={len(data)} hex={data.hex()}", flush=True)
+                    print(f"[cw_bridge] write エラー: {e}", flush=True)
 
-    sock.close()
-    ser.close()
-    print("[cw_bridge] stopped", flush=True)
+    sock.close(); ser.close()
+    print("[cw_bridge] シリアル停止", flush=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# エントリーポイント
+# ─────────────────────────────────────────────────────────────────────────────
+def main():
+    parser = argparse.ArgumentParser(description="RemoteKeyer CW ブリッジ")
+    parser.add_argument("--mode", choices=["serial", "ncm"], default=None,
+                        help="動作モード: serial (デフォルト) / ncm")
+    parser.add_argument("arg", nargs="?", default=None,
+                        help="シリアルモード: デバイスパス (/dev/ttyUSBx)\n"
+                             "NCM モード: Server NCM IP (省略時: 192.168.7.1)")
+    args = parser.parse_args()
+
+    # モード自動判定: 引数が /dev/ で始まればシリアル, それ以外は NCM
+    if args.mode is None:
+        if args.arg and args.arg.startswith("/dev/"):
+            args.mode = "serial"
+        else:
+            args.mode = "ncm"
+
+    if args.mode == "ncm":
+        server_ip = args.arg if args.arg and not args.arg.startswith("/dev/") else "192.168.7.1"
+        run_ncm(server_ip)
+    else:
+        dev = args.arg or "/dev/ttyUSB0"
+        run_serial(dev)
 
 if __name__ == "__main__":
     main()

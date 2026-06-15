@@ -1,0 +1,985 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="#1C1C1C">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- Title + WPM -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="2dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="CW TX"
+                android:textColor="#DDDDDD"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/tvCwWpmLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="20 WPM"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:minWidth="60dp"
+                android:gravity="end" />
+        </LinearLayout>
+        <SeekBar
+            android:id="@+id/seekCwWpm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="55"
+            android:progress="15"
+            android:layout_marginBottom="6dp" />
+
+        <!-- Switches -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="Swap L↔R"
+                android:textColor="#888888"
+                android:textSize="12sp" />
+            <Switch
+                android:id="@+id/switchPaddleSwap"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="16dp" />
+            <TextView
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="PTT poll"
+                android:textColor="#888888"
+                android:textSize="12sp" />
+            <Switch
+                android:id="@+id/switchPttPoll"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#333333"
+            android:layout_marginBottom="8dp" />
+
+        <!-- MY callsign -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="MY: "
+                android:textColor="#888888"
+                android:textSize="12sp" />
+            <TextView
+                android:id="@+id/tvCwMyCall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="(not set)"
+                android:textColor="#00E5FF"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="  ← Set in Connect screen"
+                android:textColor="#555555"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <!-- DX callsign + RST -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="6dp">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DX:"
+                android:textColor="#888888"
+                android:textSize="12sp"
+                android:layout_marginEnd="4dp" />
+            <EditText
+                android:id="@+id/etCwDxCall"
+                android:layout_width="0dp"
+                android:layout_weight="3"
+                android:layout_height="36dp"
+                android:hint="JA2ABC"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#505050"
+                android:backgroundTint="#333333"
+                android:inputType="textVisiblePassword|textCapCharacters|textNoSuggestions"
+                android:singleLine="true"
+                android:padding="6dp"
+                android:textSize="13sp" />
+            <Button
+                android:id="@+id/btnCwDxClear"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:text="×"
+                android:textSize="12sp"
+                android:backgroundTint="#444444"
+                android:textColor="#AAAAAA"
+                android:padding="0dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="6dp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="RST:"
+                android:textColor="#888888"
+                android:textSize="12sp"
+                android:layout_marginEnd="4dp" />
+            <EditText
+                android:id="@+id/etCwRst"
+                android:layout_width="0dp"
+                android:layout_weight="2"
+                android:layout_height="36dp"
+                android:hint="599"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#505050"
+                android:backgroundTint="#333333"
+                android:inputType="textVisiblePassword|textCapCharacters|textNoSuggestions"
+                android:singleLine="true"
+                android:padding="6dp"
+                android:textSize="13sp" />
+            <Button
+                android:id="@+id/btnCwRstClear"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:text="×"
+                android:textSize="11sp"
+                android:backgroundTint="#444444"
+                android:textColor="#AAAAAA"
+                android:padding="0dp"
+                android:layout_marginStart="3dp" />
+            <Button
+                android:id="@+id/btnRst5NN"
+                android:layout_width="36dp"
+                android:layout_height="28dp"
+                android:text="5NN"
+                android:textSize="10sp"
+                android:backgroundTint="#333333"
+                android:textColor="#AAAAAA"
+                android:padding="0dp"
+                android:layout_marginStart="3dp" />
+            <Button
+                android:id="@+id/btnRstR1"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:text="1×"
+                android:textSize="10sp"
+                android:backgroundTint="#1A5C30"
+                android:textColor="#FFFFFF"
+                android:padding="0dp"
+                android:layout_marginStart="4dp" />
+            <Button
+                android:id="@+id/btnRstR2"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:text="2×"
+                android:textSize="10sp"
+                android:backgroundTint="#333333"
+                android:textColor="#888888"
+                android:padding="0dp"
+                android:layout_marginStart="2dp" />
+            <Button
+                android:id="@+id/btnRstR3"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:text="3×"
+                android:textSize="10sp"
+                android:backgroundTint="#333333"
+                android:textColor="#888888"
+                android:padding="0dp"
+                android:layout_marginStart="2dp" />
+        </LinearLayout>
+
+        <!-- POTA + JCC -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="10dp">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="POTA:"
+                android:textColor="#888888"
+                android:textSize="12sp"
+                android:layout_marginEnd="4dp" />
+            <EditText
+                android:id="@+id/etCwPota"
+                android:layout_width="0dp"
+                android:layout_weight="3"
+                android:layout_height="36dp"
+                android:hint="JP-XXXX"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#505050"
+                android:backgroundTint="#333333"
+                android:inputType="textVisiblePassword|textCapCharacters|textNoSuggestions"
+                android:singleLine="true"
+                android:padding="6dp"
+                android:textSize="13sp" />
+            <Button
+                android:id="@+id/btnCwPotaClear"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:text="×"
+                android:textSize="11sp"
+                android:backgroundTint="#444444"
+                android:textColor="#AAAAAA"
+                android:padding="0dp"
+                android:layout_marginStart="3dp"
+                android:layout_marginEnd="6dp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="JCC:"
+                android:textColor="#888888"
+                android:textSize="12sp"
+                android:layout_marginEnd="4dp" />
+            <EditText
+                android:id="@+id/etCwJcc"
+                android:layout_width="0dp"
+                android:layout_weight="2"
+                android:layout_height="36dp"
+                android:hint="1234"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#505050"
+                android:backgroundTint="#333333"
+                android:inputType="number"
+                android:singleLine="true"
+                android:padding="6dp"
+                android:textSize="13sp" />
+            <Button
+                android:id="@+id/btnCwJccClear"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:text="×"
+                android:textSize="11sp"
+                android:backgroundTint="#444444"
+                android:textColor="#AAAAAA"
+                android:padding="0dp"
+                android:layout_marginStart="3dp" />
+        </LinearLayout>
+
+        <!-- Tab bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="8dp">
+
+            <!-- Tab buttons row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="36dp"
+                android:orientation="horizontal">
+                <Button
+                    android:id="@+id/btnTabCq"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="CQ"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:backgroundTint="#222222"
+                    android:textColor="#FFFFFF" />
+                <Button
+                    android:id="@+id/btnTabAns"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="ANS"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:backgroundTint="#222222"
+                    android:textColor="#666666" />
+            </LinearLayout>
+
+            <!-- Active tab indicator line -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="3dp"
+                android:orientation="horizontal">
+                <View
+                    android:id="@+id/viewTabIndCq"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:background="#4499FF" />
+                <View
+                    android:id="@+id/viewTabIndAns"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:background="#333333" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ═══ CQ panel ═══ -->
+        <LinearLayout
+            android:id="@+id/panelCq"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- CQ settings row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="28dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="6dp">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Call×"
+                    android:textColor="#888888"
+                    android:textSize="11sp"
+                    android:layout_marginEnd="4dp" />
+                <Button
+                    android:id="@+id/btnCqR1"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="1"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp" />
+                <Button
+                    android:id="@+id/btnCqR2"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="2"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+                <Button
+                    android:id="@+id/btnCqR3"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="3"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+                <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+                <Button
+                    android:id="@+id/btnCqTogPota"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:text="POTA"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:minWidth="44dp"
+                    android:layout_marginStart="8dp" />
+                <Button
+                    android:id="@+id/btnCqTogJcc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:text="JCC"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:minWidth="44dp"
+                    android:layout_marginStart="2dp" />
+            </LinearLayout>
+
+            <!-- CQ assembled button -->
+            <Button
+                android:id="@+id/btnCwCq"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:text="CQ CQ CQ DE ○○ K"
+                android:textSize="12sp"
+                android:backgroundTint="#1A3A5C"
+                android:textColor="#DDDDDD"
+                android:layout_marginBottom="4dp" />
+
+            <!-- DX DE MY (acknowledge) -->
+            <Button
+                android:id="@+id/btnCwCall"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:text="△△ DE ○○"
+                android:textSize="12sp"
+                android:backgroundTint="#1A3A5C"
+                android:textColor="#DDDDDD"
+                android:layout_marginBottom="4dp" />
+
+            <!-- Greeting toggle (CQ) — above QSL -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="28dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="4dp">
+                <Button
+                    android:id="@+id/btnCqGrNone"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="--"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp" />
+                <Button
+                    android:id="@+id/btnCqGrGm"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="GM"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+                <Button
+                    android:id="@+id/btnCqGrGe"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="GE"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+                <Button
+                    android:id="@+id/btnCqGrGa"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="GA"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+            </LinearLayout>
+
+            <!-- QSL toggle row — above UR button -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="28dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="4dp">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="QSL"
+                    android:textColor="#888888"
+                    android:textSize="11sp"
+                    android:layout_marginEnd="4dp" />
+                <Button
+                    android:id="@+id/btnCqQslNone"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="--"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp" />
+                <Button
+                    android:id="@+id/btnCqQslPse"
+                    android:layout_width="0dp"
+                    android:layout_weight="2"
+                    android:layout_height="match_parent"
+                    android:text="PSE QSL"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+                <Button
+                    android:id="@+id/btnCqQslNo"
+                    android:layout_width="0dp"
+                    android:layout_weight="2"
+                    android:layout_height="match_parent"
+                    android:text="NO QSL"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+            </LinearLayout>
+
+            <!-- UR RST [QSL] BK (assembled, CQ tab) -->
+            <Button
+                android:id="@+id/btnCwCqUr"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:text="UR 599 BK"
+                android:textSize="12sp"
+                android:backgroundTint="#1A3A5C"
+                android:textColor="#DDDDDD"
+                android:layout_marginBottom="4dp" />
+
+            <!-- TU 73 E E + AGN (same row) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:orientation="horizontal"
+                android:layout_marginBottom="4dp">
+                <Button
+                    android:id="@+id/btnCwCqTu"
+                    android:layout_width="0dp"
+                    android:layout_weight="2"
+                    android:layout_height="match_parent"
+                    android:text="TU 73 E E"
+                    android:textSize="12sp"
+                    android:backgroundTint="#1A3A5C"
+                    android:textColor="#DDDDDD"
+                    android:layout_marginEnd="4dp" />
+                <Button
+                    android:id="@+id/btnCwCqAgn"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="AGN"
+                    android:textSize="12sp"
+                    android:backgroundTint="#1A3A5C"
+                    android:textColor="#DDDDDD"
+                    android:layout_marginStart="4dp" />
+            </LinearLayout>
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#333333"
+                android:layout_marginBottom="6dp" />
+
+            <!-- Repeat count row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="28dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="4dp">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Count"
+                    android:textColor="#888888"
+                    android:textSize="11sp"
+                    android:layout_marginEnd="4dp" />
+                <Button
+                    android:id="@+id/btnCqLoop3"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="3×"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp" />
+                <Button
+                    android:id="@+id/btnCqLoop5"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="5×"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+                <Button
+                    android:id="@+id/btnCqLoop10"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="10×"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+                <Button
+                    android:id="@+id/btnCqLoopInf"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="∞"
+                    android:textSize="13sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+            </LinearLayout>
+
+            <!-- Interval row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="28dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="6dp">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Interval"
+                    android:textColor="#888888"
+                    android:textSize="11sp"
+                    android:layout_marginEnd="4dp" />
+                <Button
+                    android:id="@+id/btnCqInt10"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="10s"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp" />
+                <Button
+                    android:id="@+id/btnCqInt15"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="15s"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+                <Button
+                    android:id="@+id/btnCqInt30"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="30s"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+                <Button
+                    android:id="@+id/btnCqInt60"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="60s"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+            </LinearLayout>
+
+            <!-- Repeat status + Start/Stop button -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="4dp">
+                <TextView
+                    android:id="@+id/tvCqRepeatStatus"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textColor="#AAAAAA"
+                    android:textSize="11sp"
+                    android:layout_marginEnd="6dp" />
+                <Button
+                    android:id="@+id/btnCqRepeat"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:text="▶ CQ REPEAT"
+                    android:textSize="12sp"
+                    android:backgroundTint="#1A5C2A"
+                    android:textColor="#DDDDDD"
+                    android:minWidth="120dp" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- ═══ ANS panel ═══ -->
+        <LinearLayout
+            android:id="@+id/panelAns"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <!-- ANS settings row: POTA + JCC only -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="28dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="6dp">
+                <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+                <Button
+                    android:id="@+id/btnAnsTogPota"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:text="POTA"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:minWidth="44dp" />
+                <Button
+                    android:id="@+id/btnAnsTogJcc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:text="JCC"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:minWidth="44dp"
+                    android:layout_marginStart="2dp" />
+            </LinearLayout>
+
+            <!-- MY K -->
+            <Button
+                android:id="@+id/btnCwAnsCall"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:text="○○ K"
+                android:textSize="12sp"
+                android:backgroundTint="#2A1A5C"
+                android:textColor="#DDDDDD"
+                android:layout_marginBottom="4dp" />
+
+            <!-- DX DE MY -->
+            <Button
+                android:id="@+id/btnCwAnsDE"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:text="△△ DE ○○"
+                android:textSize="12sp"
+                android:backgroundTint="#2A1A5C"
+                android:textColor="#DDDDDD"
+                android:layout_marginBottom="4dp" />
+
+            <!-- Greeting toggle (ANS) — above QSL/UR -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="28dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="4dp">
+                <Button
+                    android:id="@+id/btnAnsGrNone"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="--"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp" />
+                <Button
+                    android:id="@+id/btnAnsGrGm"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="GM"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+                <Button
+                    android:id="@+id/btnAnsGrGe"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="GE"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+                <Button
+                    android:id="@+id/btnAnsGrGa"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="GA"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+            </LinearLayout>
+
+            <!-- QSL toggle row — above UR button -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="28dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="4dp">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="QSL"
+                    android:textColor="#888888"
+                    android:textSize="11sp"
+                    android:layout_marginEnd="4dp" />
+                <Button
+                    android:id="@+id/btnQslNone"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="--"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp" />
+                <Button
+                    android:id="@+id/btnQslPse"
+                    android:layout_width="0dp"
+                    android:layout_weight="2"
+                    android:layout_height="match_parent"
+                    android:text="PSE QSL"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+                <Button
+                    android:id="@+id/btnQslTnx"
+                    android:layout_width="0dp"
+                    android:layout_weight="2"
+                    android:layout_height="match_parent"
+                    android:text="NO QSL"
+                    android:textSize="11sp"
+                    android:backgroundTint="#333333"
+                    android:textColor="#888888"
+                    android:padding="0dp"
+                    android:layout_marginStart="2dp" />
+            </LinearLayout>
+
+            <!-- UR RST [POTA/JCC] BK (assembled) -->
+            <Button
+                android:id="@+id/btnCwUr"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:text="UR 599 BK"
+                android:textSize="12sp"
+                android:backgroundTint="#2A1A5C"
+                android:textColor="#DDDDDD"
+                android:layout_marginBottom="4dp" />
+
+            <!-- TU 73 DE MY E E + AGN (same row) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:orientation="horizontal"
+                android:layout_marginBottom="4dp">
+                <Button
+                    android:id="@+id/btnCwTu"
+                    android:layout_width="0dp"
+                    android:layout_weight="3"
+                    android:layout_height="match_parent"
+                    android:text="TU 73 DE ○○ E E"
+                    android:textSize="12sp"
+                    android:backgroundTint="#2A1A5C"
+                    android:textColor="#DDDDDD"
+                    android:layout_marginEnd="4dp" />
+                <Button
+                    android:id="@+id/btnCwAgn"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="AGN"
+                    android:textSize="12sp"
+                    android:backgroundTint="#2A1A5C"
+                    android:textColor="#DDDDDD"
+                    android:layout_marginStart="4dp" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Free text + SEND -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="8dp">
+            <EditText
+                android:id="@+id/etCwFreeText"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:hint="Free text"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#606060"
+                android:backgroundTint="#444444"
+                android:inputType="textVisiblePassword|textCapCharacters|textNoSuggestions"
+                android:singleLine="true"
+                android:padding="8dp"
+                android:layout_marginEnd="6dp" />
+            <Button
+                android:id="@+id/btnCwSend"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SEND"
+                android:textSize="13sp"
+                android:backgroundTint="#1A5C2A"
+                android:textColor="#DDDDDD" />
+        </LinearLayout>
+
+        <!-- STOP button -->
+        <Button
+            android:id="@+id/btnCwSheetStop"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="■  STOP"
+            android:textSize="14sp"
+            android:backgroundTint="#7A1A1A"
+            android:textColor="#FFFFFF"
+            android:visibility="gone" />
+
+    </LinearLayout>
+</ScrollView>

@@ -213,7 +213,7 @@
         android:paddingBottom="4dp"
         android:background="#000000">
 
-        <!-- Row 1: Back / Connect / PTT / About -->
+        <!-- Row 1: Back / Connect / PTT -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="44dp"
@@ -228,6 +228,8 @@
                 android:text="Back"
                 android:textSize="13sp"
                 android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp"
                 android:backgroundTint="#B71C1C"
@@ -242,6 +244,8 @@
                 android:text="Connect"
                 android:textSize="13sp"
                 android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp"
                 android:backgroundTint="#1565C0"
@@ -256,28 +260,15 @@
                 android:text="PTT"
                 android:textSize="13sp"
                 android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp"
                 android:backgroundTint="#F57F17"
-                android:textColor="#000000"
-                android:layout_marginEnd="3dp" />
-
-            <Button
-                android:id="@+id/btnAbout"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:text="About"
-                android:textSize="13sp"
-                android:minWidth="0dp"
-                android:paddingStart="4dp"
-                android:paddingEnd="4dp"
-                android:textAllCaps="false"
-                android:backgroundTint="#37474F"
-                android:textColor="#FFFFFF" />
+                android:textColor="#000000" />
         </LinearLayout>
 
-        <!-- Row 2: Update Pi / CW Bridge / webFT8 / Log / Sync Time -->
+        <!-- Row 2: Update Pi / Log / Sync Time / About -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="44dp"
@@ -291,40 +282,12 @@
                 android:text="Update Pi"
                 android:textSize="12sp"
                 android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp"
                 android:textAllCaps="false"
                 android:backgroundTint="#2E7D32"
-                android:textColor="#FFFFFF"
-                android:layout_marginEnd="3dp" />
-
-            <Button
-                android:id="@+id/btnUpdateCwBridge"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:text="CW Bridge"
-                android:textSize="12sp"
-                android:minWidth="0dp"
-                android:paddingStart="4dp"
-                android:paddingEnd="4dp"
-                android:textAllCaps="false"
-                android:backgroundTint="#6A1B9A"
-                android:textColor="#FFFFFF"
-                android:layout_marginEnd="3dp" />
-
-            <Button
-                android:id="@+id/btnUpdateWebFt8"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:text="webFT8"
-                android:textSize="12sp"
-                android:minWidth="0dp"
-                android:paddingStart="4dp"
-                android:paddingEnd="4dp"
-                android:textAllCaps="false"
-                android:backgroundTint="#00695C"
                 android:textColor="#FFFFFF"
                 android:layout_marginEnd="3dp" />
 
@@ -336,6 +299,8 @@
                 android:text="Log"
                 android:textSize="13sp"
                 android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp"
                 android:textAllCaps="false"
@@ -351,10 +316,29 @@
                 android:text="Sync Time"
                 android:textSize="11sp"
                 android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp"
                 android:textAllCaps="false"
                 android:backgroundTint="#BF360C"
+                android:textColor="#FFFFFF"
+                android:layout_marginEnd="3dp" />
+
+            <Button
+                android:id="@+id/btnAbout"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="About"
+                android:textSize="13sp"
+                android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:textAllCaps="false"
+                android:backgroundTint="#37474F"
                 android:textColor="#FFFFFF" />
         </LinearLayout>
     </LinearLayout>

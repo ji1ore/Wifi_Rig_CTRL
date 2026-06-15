@@ -316,7 +316,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             null
         } catch (e: Exception) {
-            "Connection failed: ${e.message}"
+            val msg = e.message ?: ""
+            when {
+                msg.contains("Connection refused", ignoreCase = true) ->
+                    "FastAPI service not running on Pi.\nRun create_api.sh to reinstall packages."
+                msg.contains("timeout", ignoreCase = true) ||
+                msg.contains("timed out", ignoreCase = true) ->
+                    "Pi unreachable. Check WiFi/network. (${msg})"
+                else -> "Connection failed: $msg"
+            }
         }
     }
 
@@ -748,7 +756,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (hostName.value.isNullOrEmpty()) return
         if (txEnabled.value == true) return  // don't start SPK during TX
         if (aprsTxing) return                // don't start SPK during APRS TX
-        val aPort = apiPort.value ?: 8000
+        val aPort = audioPort.value ?: 50000
         val sIdx = selectedSamplingIndex.value ?: 1
         val rate = SAMPLING_RATES.getOrElse(sIdx) { 0 }
         if (rate == 0) return

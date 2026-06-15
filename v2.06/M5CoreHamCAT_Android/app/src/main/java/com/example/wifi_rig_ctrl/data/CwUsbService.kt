@@ -268,15 +268,9 @@ class CwUsbService(private val context: Context) {
     private fun handleSyncPacket(pkt: ByteArray) {
         val addr = piSyncAddress
         if (addr == null) {
-            // No Pi: reply with Android's actual System.currentTimeMillis() so M5 computes
-            // correct delayOffsetMs = (Android_time - M5_time), enabling opTimeMs-based scheduling.
-            val androidNowMs = System.currentTimeMillis()
-            val response = ByteArray(9)
-            response[0] = 0xE1.toByte()
-            for (i in 0..7) response[1 + i] = ((androidNowMs ushr (56 - i * 8)) and 0xFF).toByte()
-            try { port?.write(response, 100) } catch (_: Exception) {}
-            syncResponseCount++
-            if (syncResponseCount == 10) sendWpmToM5(keeyerWpm)
+            // No server reachable: send zeros in bytes 5-8 so DualKey computes
+            // opTimeMs = (time since last sync) + 100ms ≈ always small → server fires immediately.
+            sendZeroSyncResponse()
             return
         }
         try {
@@ -296,7 +290,19 @@ class CwUsbService(private val context: Context) {
             }
         } catch (e: Exception) {
             Log.w(TAG, "SYNC forward failed: ${e.message}")
+            // Fallback: zeros response so DualKey can still compute a usable opTimeMs
+            sendZeroSyncResponse()
         }
+    }
+
+    private fun sendZeroSyncResponse() {
+        val response = ByteArray(9)
+        response[0] = 0xE1.toByte()
+        // bytes 1-8 = 0: DualKey reads bytes 5-8 as 0, offset = -DualKey_millis,
+        // opTimeMs = (press_time - last_sync_time) + 100ms → always small → server fires immediately
+        try { port?.write(response, 100) } catch (_: Exception) {}
+        syncResponseCount++
+        if (syncResponseCount == 10) sendWpmToM5(keeyerWpm)
     }
 
     // ───────── Key state handling ─────────

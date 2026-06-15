@@ -2,6 +2,15 @@
 # api.py を完全に再作成する
 # set -e は使わない — sudo が不要なステップが sudo 失敗で止まらないよう
 ME=${SUDO_USER:-$(whoami)}
+# root として sudo なしで実行された場合 (api.py から呼ばれる場合など)、
+# fastapi ディレクトリを持つ実ユーザーにフォールバック
+if [ "$ME" = "root" ]; then
+    _FOUND=$(getent passwd | awk -F: '$3>=1000 && $3<65534 {print $1}' | while read _u; do
+        _h=$(getent passwd "$_u" | cut -d: -f6)
+        [ -d "$_h/fastapi" ] && echo "$_u" && break
+    done)
+    [ -n "$_FOUND" ] && ME="$_FOUND"
+fi
 ME_HOME=$(getent passwd "$ME" | cut -d: -f6)
 
 if [ -f $ME_HOME/fastapi/api.py ]; then
@@ -35,7 +44,7 @@ if $_HAS_SUDO; then
     fi
 
     # 古いセットアップで $HOME や /home/pi がリテラルのまま書かれた壊れたサービスファイルを修正
-    _CURRENT_USER=$(whoami)
+    _CURRENT_USER=$ME
     for _svc in /etc/systemd/system/fastapi.service /etc/systemd/system/fastapi-audio.service /etc/systemd/system/webft8.service /etc/systemd/system/direwolf.service; do
         if [ -f "$_svc" ]; then
             _fixed=false
@@ -45,6 +54,10 @@ if $_HAS_SUDO; then
             fi
             if sudo grep -qF '/home/pi' "$_svc" 2>/dev/null; then
                 sudo sed -i "s|WorkingDirectory=/home/pi|WorkingDirectory=$ME_HOME|g; s|-c /home/pi/|-c $ME_HOME/|g; s|ExecStart=/home/pi|ExecStart=$ME_HOME|g" "$_svc"
+                _fixed=true
+            fi
+            if sudo grep -qE 'WorkingDirectory=/root/|ExecStart=/root/|EnvironmentFile=-/root/' "$_svc" 2>/dev/null; then
+                sudo sed -i "s|WorkingDirectory=/root/|WorkingDirectory=$ME_HOME/|g; s|ExecStart=/root/|ExecStart=$ME_HOME/|g; s|EnvironmentFile=-/root/|EnvironmentFile=-$ME_HOME/|g" "$_svc"
                 _fixed=true
             fi
             if sudo grep -qF '%h' "$_svc" 2>/dev/null; then
@@ -1871,10 +1884,13 @@ async def admin_update(request: Request):
         raise HTTPException(status_code=422, detail=f"Syntax error: {e}")
     api_path = _FASTAPI_DIR / "api.py"
     bak_path = _FASTAPI_DIR / "api.py.bak_update"
-    try:
-        if api_path.exists():
-            import shutil
+    if api_path.exists():
+        import shutil
+        try:
             shutil.copy2(api_path, bak_path)
+        except Exception:
+            pass  # backup failure is non-fatal (e.g. stale root-owned file)
+    try:
         api_path.write_bytes(content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Write failed: {e}")

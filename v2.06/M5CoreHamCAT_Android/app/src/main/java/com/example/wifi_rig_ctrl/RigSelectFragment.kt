@@ -36,7 +36,6 @@ class RigSelectFragment : Fragment() {
 
         if (vm.isDemoMode.value == true) {
             binding.btnUpdateApi.isEnabled = false
-            binding.btnUpdateCwBridge.isEnabled = false
             binding.btnSetupLog.isEnabled = false
         }
 
@@ -200,52 +199,6 @@ class RigSelectFragment : Fragment() {
                 binding.tvStatus.text = result
                 Toast.makeText(requireContext(), result, Toast.LENGTH_SHORT).show()
             }
-        }
-
-        binding.btnUpdateCwBridge.setOnClickListener {
-            AlertDialog.Builder(requireContext())
-                .setTitle("Update CW Bridge")
-                .setMessage("Send cw_bridge.py to Pi and restart it. Proceed?")
-                .setPositiveButton("Update") { _, _ ->
-                    binding.btnUpdateCwBridge.isEnabled = false
-                    binding.tvStatus.text = "Uploading cw_bridge.py..."
-                    lifecycleScope.launch {
-                        val result = vm.updateCwBridge()
-                        binding.btnUpdateCwBridge.isEnabled = true
-                        if (result == null) {
-                            binding.tvStatus.text = "cw_bridge.py updated and restarted"
-                            Toast.makeText(requireContext(), "CW Bridge updated", Toast.LENGTH_SHORT).show()
-                        } else {
-                            binding.tvStatus.text = "CW Bridge update failed: $result"
-                            Toast.makeText(requireContext(), "Failed: $result", Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
-        }
-
-        binding.btnUpdateWebFt8.setOnClickListener {
-            AlertDialog.Builder(requireContext())
-                .setTitle("Update webFT8 server")
-                .setMessage("server_webft8.py を Pi に送信してwebft8サービスを再起動します。\n\n※先に「Update Pi」でapi.pyを更新してください。\n\n実行しますか？")
-                .setPositiveButton("Update") { _, _ ->
-                    binding.btnUpdateWebFt8.isEnabled = false
-                    binding.tvStatus.text = "Uploading server_webft8.py..."
-                    lifecycleScope.launch {
-                        val result = vm.updateWebFt8Server()
-                        binding.btnUpdateWebFt8.isEnabled = true
-                        if (result == null) {
-                            binding.tvStatus.text = "webFT8 server updated (port 8081, HTTP)"
-                            Toast.makeText(requireContext(), "webFT8 server updated", Toast.LENGTH_SHORT).show()
-                        } else {
-                            binding.tvStatus.text = "webFT8 update failed: $result"
-                            Toast.makeText(requireContext(), "Failed: $result", Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
         }
 
         binding.btnSetupLog.setOnClickListener {

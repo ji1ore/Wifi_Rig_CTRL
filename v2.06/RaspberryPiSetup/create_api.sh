@@ -144,14 +144,6 @@ except ImportError:
 API_KEY = os.environ.get("API_KEY", "")
 API_VERSION = "2.03"
 
-# ホームディレクトリ — 実行ユーザーに依存しないよう Path.home() で取得
-_HOME = Path.home()
-_FASTAPI_DIR  = _HOME / "fastapi"
-_WEBFT8_DIR   = _HOME / "webft8_static" / "web"
-_CW_BRIDGE    = _HOME / "cw_bridge.py"
-_DIREWOLF_CONF = _HOME / "direwolf.conf"
-_CREATE_API_SH = _HOME / "create_api.sh"
-
 # ALSAデバイス設定 (環境変数 or POST /radio/audio_device で変更可)
 _alsa_capture_dev  = os.environ.get("ALSA_CAPTURE",  "plughw:CARD=CODEC,DEV=0")
 _alsa_playback_dev = os.environ.get("ALSA_PLAYBACK", "plughw:CARD=CODEC,DEV=0")
@@ -171,8 +163,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 動的パス（ユーザー名に依存しない）
+_HOME_DIR = Path(__file__).resolve().parent.parent  # /home/<user>
+_FASTAPI_DIR = Path(__file__).resolve().parent       # /home/<user>/fastapi
+_VENV_PY = str(_FASTAPI_DIR / "bin" / "python3")
+_CW_BRIDGE_PY = str(_HOME_DIR / "cw_bridge.py")
+
 # webft8 static files (web/ サブディレクトリに index.html がある)
-_webft8_dir = str(_WEBFT8_DIR)
+_webft8_dir = str(_HOME_DIR / "webft8_static" / "web")
 if os.path.isdir(_webft8_dir):
     app.mount("/ft8web", StaticFiles(directory=_webft8_dir, html=True), name="ft8web")
 
@@ -185,7 +183,8 @@ radio_cache = {
     "tx": False,
     "power": 0.0,
     "sql": 0.0,
-    "bk_in": 0
+    "bk_in": 0,
+    "rig_wpm": 0
 }
 
 current_model = None
@@ -599,6 +598,7 @@ def poll_rig():
         if rigctl_alive():
             break
         time.sleep(0.5)
+    last_bkin_rig = 0
     print("[poll_rig] rigctld ready, starting poll loop")
     _timeout_streak = 0
     while True:
@@ -651,6 +651,18 @@ def poll_rig():
         except Exception:
             pass
 
+        if time.time() - last_bkin_rig > 15:
+            try:
+                for func in ("SBKIN", "FBKIN"):
+                    raw = rigctl_cmd(f"u {func}")
+                    v = raw.split()[0] if raw else ""
+                    if v.lstrip("-").isdigit():
+                        radio_cache["bk_in"] = int(v)
+                        break
+            except Exception:
+                pass
+            last_bkin_rig = time.time()
+
         time.sleep(1.0)
 
 
@@ -662,7 +674,6 @@ def poll_signal():
         time.sleep(0.5)
     last_power = 0
     last_sql = 0
-    last_bkin = 0
     while True:
         if radio_cache.get("tx", False):
             time.sleep(1.0)  # TX中はrigctld負荷を軽減
@@ -672,7 +683,8 @@ def poll_signal():
             raw = rigctl_cmd("l STRENGTH")
             val = raw.split()[0] if raw else ""
             if val:
-                radio_cache["signal"] = float(val)
+                sig = float(val)
+                radio_cache["signal"] = sig
         except Exception:
             pass
 
@@ -696,23 +708,6 @@ def poll_signal():
                 pass
             last_sql = time.time()
 
-        # CWモード時のみBK-IN状態を取得（15秒間隔、TX中はスキップ済みで安全）
-        # SBKIN(セミブレークイン)→FBKIN(フルブレークイン)の順で試みる
-        if (radio_cache.get("mode", "").upper() in ("CW", "CWR")
-                and time.time() - last_bkin > 15):
-            try:
-                bkin_val = 0
-                for func in ("SBKIN", "FBKIN"):
-                    raw = rigctl_cmd(f"u {func}")
-                    v = raw.split()[0] if raw else ""
-                    if v.lstrip("-").isdigit():
-                        bkin_val = int(v)
-                        break
-                radio_cache["bk_in"] = bkin_val
-            except Exception:
-                pass
-            last_bkin = time.time()
-
         time.sleep(1.0)
 
 
@@ -733,7 +728,7 @@ def watchdog_heartbeat():
 
 
 def _start_webft8_if_needed():
-    web_dir = str(_WEBFT8_DIR)
+    web_dir = str(_HOME_DIR / "webft8_static" / "web")
     srv = os.path.join(web_dir, "server.py")
     pem = os.path.join(web_dir, "server.pem")
     if not (os.path.exists(srv) and os.path.exists(pem)):
@@ -1333,20 +1328,22 @@ def _abort_morse():
             s.close()
         except Exception:
             pass
-    # \stop_morse: hamlib が内部キーヤーのバッファをクリアする (FT-991 等の New CAT では KY; を送出)
-    # T 0 より先に呼んで CW を確実に止める
-    try:
-        rigctl_cmd_priority("\\stop_morse")
-    except Exception:
-        pass
+        # \stop_morse: hamlib が内部キーヤーのバッファをクリアする (FT-991 等の New CAT では KY; を送出)
+        # IC-7300はこのコマンドをサポートしないため2秒タイムアウトになる。
+        # アクティブなセッション停止時のみ呼ぶ（初回送信時はスキップ）。
+        try:
+            rigctl_cmd_priority("\\stop_morse")
+        except Exception:
+            pass
     _morse_sending = False
 
 
 @app.post("/cw/send_morse")
-def cw_send_morse(text: str = Form(...), wpm: int = Form(default=20)):
+def cw_send_morse(text: str = Form(...), wpm: int = Form(default=20),
+                  ptt_poll: bool = Form(default=False)):
     """テキストを Hamlib send_morse (rigctld b コマンド) で CW 送信する。
-    b コマンドは IC-7300 内部キーヤーへのキューで即時返答するため、
-    送信推定時間だけ待機してから PTT OFF する。"""
+    ptt_poll=True: PTT状態をポーリングして終了検出 (FT-991等 CAT PTT対応リグ向け)
+    ptt_poll=False: 推定送信時間で待機 (IC-7300/IC-705等 内部キーヤー向け・デフォルト)"""
     global _morse_sock, _morse_sending
     text = text.strip().upper()
     if not text:
@@ -1360,14 +1357,12 @@ def cw_send_morse(text: str = Form(...), wpm: int = Form(default=20)):
     n_chars = sum(1 for c in text if c != ' ')
     n_spaces = text.count(' ')
     est_dits = n_chars * 13 + n_spaces * 4 + 5
-    est_sec = est_dits * 1200.0 / max(5, min(60, wpm)) / 1000 + 1.5
+    est_sec = est_dits * 1200.0 / max(5, min(60, wpm)) / 1000 + 0.3
 
     def worker():
         global _morse_sock, _morse_sending
         sock = None
         try:
-            rigctl_cmd(f"K {max(5, min(60, wpm))}")
-            # IC-7300 内部キーヤーは PTT を自動管理するため T 1 は不要
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(30.0)
             sock.connect(("localhost", 4532))
@@ -1378,16 +1373,42 @@ def cw_send_morse(text: str = Form(...), wpm: int = Form(default=20)):
                 sock.recv(4096)
             except Exception:
                 pass
-            # IC-7300 が TX を開始するまで少し待ってから PTT ポーリング開始
-            time.sleep(0.5)
-            print(f"[{_ts()}] [morse] polling PTT, deadline={est_sec+5.0:.1f}s (wpm={wpm} chars={n_chars})", flush=True)
-            deadline = time.time() + est_sec + 5.0
-            while time.time() < deadline and not _morse_stop_event.is_set():
-                ptt_raw = rigctl_cmd_priority("t")
-                if ptt_raw and ptt_raw.strip().split("\n")[0].strip() == "0":
-                    print(f"[{_ts()}] [morse] TX ended (PTT=0)", flush=True)
-                    break
-                _morse_stop_event.wait(timeout=0.5)
+            if ptt_poll:
+                # PTTポーリングモード: PTT=1を確認してからPTT=0になるまで待機
+                # FT-991等、内部キーヤー中にCAT get_pttが正しく動作するリグ向け
+                print(f"[{_ts()}] [morse] ptt_poll mode, waiting TX start (wpm={wpm} chars={n_chars})", flush=True)
+                tx_started = False
+                for _ in range(30):  # 最大3秒待機
+                    if _morse_stop_event.is_set():
+                        break
+                    ptt_raw = rigctl_cmd_priority("t")
+                    if ptt_raw and ptt_raw.strip().split("\n")[0].strip() == "1":
+                        tx_started = True
+                        break
+                    _morse_stop_event.wait(timeout=0.1)
+                if tx_started:
+                    print(f"[{_ts()}] [morse] TX started, polling until PTT=0, deadline={est_sec+5.0:.1f}s", flush=True)
+                    deadline = time.time() + est_sec + 5.0
+                    while time.time() < deadline and not _morse_stop_event.is_set():
+                        ptt_raw = rigctl_cmd_priority("t")
+                        if ptt_raw and ptt_raw.strip().split("\n")[0].strip() == "0":
+                            print(f"[{_ts()}] [morse] TX ended (PTT=0)", flush=True)
+                            break
+                        _morse_stop_event.wait(timeout=0.5)
+                    else:
+                        print(f"[{_ts()}] [morse] TX stopped by user", flush=True)
+                else:
+                    print(f"[{_ts()}] [morse] TX never started, falling back to time wait", flush=True)
+                    _morse_stop_event.wait(timeout=est_sec)
+            else:
+                # 時間ベースモード: 推定送信時間だけ待機
+                # IC-7300/IC-705等、内部キーヤー中にCAT PTTが0を返すリグ向け
+                print(f"[{_ts()}] [morse] time mode, waiting {est_sec:.1f}s (wpm={wpm} chars={n_chars})", flush=True)
+                _morse_stop_event.wait(timeout=est_sec)
+                if _morse_stop_event.is_set():
+                    print(f"[{_ts()}] [morse] TX stopped by user", flush=True)
+                else:
+                    print(f"[{_ts()}] [morse] TX complete (estimated)", flush=True)
         except Exception as e:
             print(f"[{_ts()}] [morse] error: {e}", flush=True)
         finally:
@@ -1403,7 +1424,8 @@ def cw_send_morse(text: str = Form(...), wpm: int = Form(default=20)):
                 rigctl_cmd_priority("\\stop_morse")
             except Exception:
                 pass
-            rigctl_cmd_priority("T 0")
+            # 内部キーヤー使用時は T 1 を送っていないため T 0 不要
+            # (IC-705/IC-7300 は内部キーヤー完了後に自動でRXへ戻る)
             _morse_sending = False
 
     threading.Thread(target=worker, daemon=True).start()
@@ -1445,8 +1467,7 @@ def cw_open(port: str = "ttyACM0", delay_ms: int = 0):
         except Exception:
             pass
         try:
-            venv_py = str(_FASTAPI_DIR / "bin/python3")
-            _cw_bridge_proc = subprocess.Popen([venv_py, str(_CW_BRIDGE), dev])
+            _cw_bridge_proc = subprocess.Popen([_VENV_PY, _CW_BRIDGE_PY, dev])
             _cw_bridge_port = dev
             print(f"[cw] bridge started pid={_cw_bridge_proc.pid} dev={dev}")
             return {"status": "ok", "port": dev}
@@ -1787,7 +1808,7 @@ def update_aprs_config(cfg: AprsConfig):
     # PTT RIG 2 = Hamlib NET rigctl (rigctld プロトコルで localhost:4532 に接続)
     # PTT RIG {rig_id} localhost は FT-991A バックエンドが生 CAT を送信してしまい PTT 失敗
     conf += (f"KISSPORT 8001\nAGWPORT 8050\nPTT RIG 2 localhost:4532\n")
-    _atomic_write(str(_DIREWOLF_CONF), conf)
+    _atomic_write(str(_HOME_DIR / "direwolf.conf"), conf)
     # direwolf 再起動はバックグラウンドで実行（KISS ポート待機は aprs_loop が行う）
     threading.Thread(
         target=lambda: subprocess.run(["sudo", "systemctl", "restart", "direwolf"]),
@@ -1882,15 +1903,15 @@ async def admin_update(request: Request):
         compile(content.decode("utf-8"), "<api.py>", "exec")
     except SyntaxError as e:
         raise HTTPException(status_code=422, detail=f"Syntax error: {e}")
-    api_path = _FASTAPI_DIR / "api.py"
-    bak_path = _FASTAPI_DIR / "api.py.bak_update"
-    if api_path.exists():
-        import shutil
-        try:
-            shutil.copy2(api_path, bak_path)
-        except Exception:
-            pass  # backup failure is non-fatal (e.g. stale root-owned file)
+    # 書き込み先パスを決定（_HOME_DIR 経由でユーザー名に依存しない）
+    api_path = _HOME_DIR / "fastapi" / "api.py"
+    if not api_path.parent.exists():
+        api_path = Path(__file__).resolve()
+    bak_path = api_path.with_suffix(".py.bak_update")
     try:
+        if api_path.exists():
+            import shutil
+            shutil.copy2(api_path, bak_path)
         api_path.write_bytes(content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Write failed: {e}")
@@ -1910,7 +1931,6 @@ async def admin_update(request: Request):
         # 方法2: sudo 不可 → nohup スクリプト + SIGTERM
         # systemd が Restart= で再起動するケースと手動起動のケースを両立するため
         # 「uvicorn が起動していなければ起動する」チェックを入れて2重起動を防ぐ
-        _fd = str(_FASTAPI_DIR)
         restart_sh = (
             "#!/bin/bash\n"
             "sleep 2\n"
@@ -1922,8 +1942,8 @@ async def admin_update(request: Request):
             "if pgrep -f 'uvicorn api' >/dev/null 2>&1; then\n"
             "  exit 0\n"
             "fi\n"
-            f"cd {_fd}\n"
-            f"{_fd}/bin/uvicorn api:app --host 0.0.0.0 --port 8000 "
+            f"cd {_FASTAPI_DIR}\n"
+            f"{_VENV_PY.replace('python3','uvicorn')} api:app --host 0.0.0.0 --port 8000 "
             ">>/tmp/uvicorn_restart.log 2>&1\n"
         )
         sh = "/tmp/_fastapi_restart.sh"
@@ -1953,8 +1973,8 @@ async def admin_update_cw_bridge(request: Request):
         compile(content.decode("utf-8"), "<cw_bridge.py>", "exec")
     except SyntaxError as e:
         raise HTTPException(status_code=422, detail=f"Syntax error: {e}")
-    bridge_path = _CW_BRIDGE
-    bak_path = _HOME / "cw_bridge.py.bak"
+    bridge_path = Path(_CW_BRIDGE_PY)
+    bak_path = Path(_CW_BRIDGE_PY + ".bak")
     try:
         if bridge_path.exists():
             import shutil
@@ -1980,8 +2000,7 @@ async def admin_update_cw_bridge(request: Request):
         _cw_bridge_proc = None
         if saved_port:
             try:
-                venv_py = str(_FASTAPI_DIR / "bin/python3")
-                _cw_bridge_proc = subprocess.Popen([venv_py, str(_CW_BRIDGE), saved_port])
+                _cw_bridge_proc = subprocess.Popen([_VENV_PY, _CW_BRIDGE_PY, saved_port])
                 _cw_bridge_port = saved_port
             except Exception as e:
                 return {"status": "updated", "restart": f"failed: {e}"}
@@ -1998,8 +2017,8 @@ async def admin_update_webft8(request: Request):
         compile(content.decode("utf-8"), "<server.py>", "exec")
     except SyntaxError as e:
         raise HTTPException(status_code=422, detail=f"Syntax error: {e}")
-    server_path = _WEBFT8_DIR / "server.py"
-    bak_path = _WEBFT8_DIR / "server.py.bak"
+    server_path = _HOME_DIR / "webft8_static" / "web" / "server.py"
+    bak_path = _HOME_DIR / "webft8_static" / "web" / "server.py.bak"
     try:
         if server_path.exists():
             import shutil
@@ -2008,7 +2027,7 @@ async def admin_update_webft8(request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Write failed: {e}")
     try:
-        subprocess.run(["sudo", "-n", "systemctl", "restart", "webft8"], timeout=10)
+        subprocess.run(["sudo", "systemctl", "restart", "webft8"], timeout=10)
     except Exception as e:
         return {"status": "updated", "restart": f"failed: {e}"}
     return {"status": "ok", "message": "webft8 server.py updated and restarted"}
@@ -2020,7 +2039,7 @@ async def admin_setup(request: Request):
     content = await request.body()
     if not content:
         raise HTTPException(status_code=400, detail="Empty body")
-    script_path = _CREATE_API_SH
+    script_path = _HOME_DIR / "create_api.sh"
     try:
         script_path.write_bytes(content)
         script_path.chmod(0o755)
@@ -2031,7 +2050,7 @@ async def admin_setup(request: Request):
         ["bash", str(script_path)],
         stdout=open(log_path, "w"),
         stderr=subprocess.STDOUT,
-        cwd=str(_HOME),
+        cwd=str(_HOME_DIR),
         start_new_session=True,
     )
     return {"status": "ok", "message": f"setup running in background, log: {log_path}"}

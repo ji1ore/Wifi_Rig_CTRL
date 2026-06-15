@@ -1788,17 +1788,9 @@ async def admin_update(request: Request):
         compile(content.decode("utf-8"), "<api.py>", "exec")
     except SyntaxError as e:
         raise HTTPException(status_code=422, detail=f"Syntax error: {e}")
-    # 書き込み先パスを決定（旧バージョン/異なるユーザー名への互換フォールバック）
-    api_path = None
-    for candidate in [
-        Path(__file__).resolve(),                  # 通常: 実行中のファイル自身
-        Path("/home/pizero/fastapi/api.py"),       # pizeroユーザー
-        Path("/home/pi/fastapi/api.py"),           # piユーザー（旧来）
-    ]:
-        if candidate.parent.exists():
-            api_path = candidate
-            break
-    if api_path is None:
+    # 書き込み先パスを決定（_HOME_DIR 経由でユーザー名に依存しない）
+    api_path = _HOME_DIR / "fastapi" / "api.py"
+    if not api_path.parent.exists():
         api_path = Path(__file__).resolve()
     bak_path = api_path.with_suffix(".py.bak_update")
     try:
@@ -1928,7 +1920,7 @@ async def admin_update_webft8(request: Request):
 
 @app.post("/admin/setup")
 async def admin_setup(request: Request):
-    """create_api.sh を受け取り /home/pi/create_api.sh に保存してバックグラウンド実行する"""
+    """create_api.sh を受け取りホームディレクトリに保存してバックグラウンド実行する"""
     content = await request.body()
     if not content:
         raise HTTPException(status_code=400, detail="Empty body")

@@ -113,6 +113,7 @@ if [ ! -f $ME_HOME/fastapi/.env ]; then
     echo ".env テンプレート生成: $ME_HOME/fastapi/.env"
 fi
 
+cat << 'APIEOF' > $ME_HOME/fastapi/api.py
 from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, Request, Security, Form, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse

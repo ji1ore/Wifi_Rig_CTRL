@@ -1,9 +1,9 @@
-Wifi RIG CTRL  Raspberry Pi セットアップガイド（v2.05）
+Wifi RIG CTRL  Raspberry Pi セットアップガイド（v2.07）
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 配布ファイル
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-WifiRigCtrl_v2.05.apk    : Android アプリ
+Wifi_RIG_CTRL_v2.07.apk  : Android アプリ
 api.py                    : FastAPI サーバー本体
 cw_bridge.py              : CW USB/NCM 中継スクリプト
 server_webft8.py          : webft8 HTTPS プロキシサーバー（UpdateWebFT8で転送）
@@ -31,6 +31,29 @@ setup_ft8_encode.sh     : FT8 TX 用バイナリビルド（FT8 TX を使う場�
 8443  : webft8 HTTPS サーバー（FT8 デジタルモード）
 8888  : M5 Server UDP (NCM / WiFi)
 8889  : cw_bridge UDP クライアント受信ポート
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+v2.07 での変更点
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+・USB シリアル接続時の PTT 自動最適化（IC-705 USB 対応強化）
+    ttyACM / ttyUSB デバイス使用時は PTT を自動的に RTS → CAT（CI-V）に切替
+    IC-705 USB オーディオリセット問題を回避
+
+・rigctld 起動後の PTT 強制解除
+    rigctld 再起動時に誤って TX になることを防止
+
+・TX 中の rigctld 再起動を禁止
+    CW/音声送信中に rigctld が再起動して DTR が切れる問題を修正
+
+・PTT タイプ表示を「RIG」→「CAT」に変更（UI 表記統一）
+
+・CW CQ リピート UI 改善
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+v2.06 での変更点
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+・CW USB（DualKey）の Pi 未接続時の同期動作を修正
+    Pi 不在でもキーイングタイミングが正しく計算されるよう改善
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 v2.05 での変更点
@@ -90,12 +113,12 @@ ssh <ユーザー名>@raspizero
 ③ セットアップスクリプト実行
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 --- ネットワーク設定（任意）---
-wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.05/RaspberryPiSetup/setup_netwk.sh
+wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.07/RaspberryPiSetup/setup_netwk.sh
 chmod +x setup_netwk.sh
 bash setup_netwk.sh
 
 --- 環境構築（FT8 含む全機能セットアップ・UpdatePi 相当）---
-BASE=https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.05/RaspberryPiSetup
+BASE=https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.07/RaspberryPiSetup
 wget $BASE/setup_fastapi_radio.sh
 wget $BASE/create_api.sh
 wget $BASE/set_api_key.sh
@@ -146,7 +169,7 @@ bash ~/set_api_key.sh ""   # 無効化
 ⑦ FT8 TX 機能の有効化（任意・追加ビルド不要な場合はスキップ）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FT8/FT4 送信（webft8 UI からの TX）を使う場合:
-  wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.05/RaspberryPiSetup/setup_ft8_encode.sh
+  wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.07/RaspberryPiSetup/setup_ft8_encode.sh
   chmod +x setup_ft8_encode.sh
   bash setup_ft8_encode.sh
 
@@ -164,8 +187,8 @@ FT8/FT4 送信（webft8 UI からの TX）を使う場合:
 
 【GitHub から再取得】スクリプトを最新版に更新してから再セットアップ
   Pi に SSH でログイン後:
-  wget -O ~/create_api.sh https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.05/RaspberryPiSetup/create_api.sh
-  wget -O ~/set_api_key.sh https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.05/RaspberryPiSetup/set_api_key.sh
+  wget -O ~/create_api.sh https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.07/RaspberryPiSetup/create_api.sh
+  wget -O ~/set_api_key.sh https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.07/RaspberryPiSetup/set_api_key.sh
   chmod +x ~/create_api.sh ~/set_api_key.sh
   sudo bash ~/create_api.sh
 

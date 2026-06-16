@@ -37,7 +37,7 @@ Android スマートフォンから Raspberry Pi 経由でアマチュア無線�
 
 ## APK インストール手順
 
-1. `Wifi_RIG_CTRL_v2.06.apk` をダウンロード
+1. `Wifi_RIG_CTRL_v2.07.apk` をダウンロード
 2. Android の設定で「提供元不明のアプリ」のインストールを許可
 3. APK をタップしてインストール
 

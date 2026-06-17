@@ -46,6 +46,11 @@ class MainControlFragment : Fragment() {
     private var cwSheetMsgButtons: List<android.widget.Button> = emptyList()
     private var cwPanelUpdateLabels: (() -> Unit)? = null
     private var cwRepeatUpdateFn: (() -> Unit)? = null
+    private var cwSheetFreqView: android.widget.TextView? = null
+    private var cwSheetRxView: android.widget.TextView? = null
+    private var cwSheetRxScroll: android.widget.HorizontalScrollView? = null
+    private var cwSheetTxView: android.widget.TextView? = null
+    private var cwSheetTxScroll: android.widget.HorizontalScrollView? = null
 
     private val requestMicPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -168,6 +173,7 @@ class MainControlFragment : Fragment() {
         vm.sharedFreq.observe(viewLifecycleOwner) { freq ->
             val mhz = freq / 1_000_000.0
             binding.tvFreq.text = "%.5f".format(mhz)
+            cwSheetFreqView?.text = "%.5f".format(mhz)
         }
         vm.sharedMode.observe(viewLifecycleOwner) { updateInfoRow(); updateButtonHighlights() }
         vm.sharedPower.observe(viewLifecycleOwner) { updateInfoRow() }
@@ -216,9 +222,14 @@ class MainControlFragment : Fragment() {
         vm.cwDecoding.observe(viewLifecycleOwner) { decoding ->
             binding.llCwDecoder.visibility = if (decoding) View.VISIBLE else View.GONE
             updateButtonHighlights()
+            val vis = if (decoding) View.VISIBLE else View.GONE
+            cwSheetRxScroll?.visibility = vis
+            cwSheetTxScroll?.visibility = vis
         }
         vm.cwTxText.observe(viewLifecycleOwner) { text ->
             binding.tvCwTx.text = text
+            cwSheetTxView?.text = if (text.isEmpty()) "" else "TX: $text"
+            if (text.isNotEmpty()) cwSheetTxScroll?.post { cwSheetTxScroll?.fullScroll(android.view.View.FOCUS_RIGHT) }
             binding.hsvCwTx.post { binding.hsvCwTx.fullScroll(HorizontalScrollView.FOCUS_RIGHT) }
         }
         val cwRxTextViews = listOf(binding.tvCwRx0, binding.tvCwRx1, binding.tvCwRx2, binding.tvCwRx3, binding.tvCwRx4)
@@ -229,6 +240,10 @@ class MainControlFragment : Fragment() {
             vm.cwRxTexts[i].observe(viewLifecycleOwner) { text ->
                 cwRxTextViews[i].text = text
                 hsv.post { hsv.fullScroll(HorizontalScrollView.FOCUS_RIGHT) }
+                if (i == 0) {
+                    cwSheetRxView?.text = "RX: $text"
+                    cwSheetRxScroll?.post { cwSheetRxScroll?.fullScroll(android.view.View.FOCUS_RIGHT) }
+                }
             }
             vm.cwRxFreqLabels[i].observe(viewLifecycleOwner) { label ->
                 cwFreqTextViews[i].text = label
@@ -815,6 +830,50 @@ class MainControlFragment : Fragment() {
         cwSheetStopBtn    = btnStop
         cwSheetMsgButtons = emptyList()
 
+        val tvCwFreqDisplay  = id<android.widget.TextView>(R.id.tvCwFreqDisplay)
+        val btnCwFreqDown    = id<android.widget.Button>(R.id.btnCwFreqDown)
+        val btnCwFreqUp      = id<android.widget.Button>(R.id.btnCwFreqUp)
+        val tvCwPanelRx      = id<android.widget.TextView>(R.id.tvCwPanelRx)
+        val hsvCwPanelRx     = id<android.widget.HorizontalScrollView>(R.id.hsvCwPanelRx)
+        val tvCwPanelTx      = id<android.widget.TextView>(R.id.tvCwPanelTx)
+        val hsvCwPanelTx     = id<android.widget.HorizontalScrollView>(R.id.hsvCwPanelTx)
+        cwSheetFreqView  = tvCwFreqDisplay
+        cwSheetRxView    = tvCwPanelRx
+        cwSheetRxScroll  = hsvCwPanelRx
+        cwSheetTxView    = tvCwPanelTx
+        cwSheetTxScroll  = hsvCwPanelTx
+
+        // 初期値を反映
+        tvCwFreqDisplay.text = "%.5f".format((vm.sharedFreq.value ?: 0L) / 1_000_000.0)
+        tvCwPanelRx.text = "RX: ${vm.cwRxTexts[0].value ?: ""}"
+        tvCwPanelTx.text = vm.cwTxText.value?.let { if (it.isEmpty()) "" else "TX: $it" } ?: ""
+        val decodeVis = if (vm.cwDecoding.value == true) View.VISIBLE else View.GONE
+        hsvCwPanelRx.visibility = decodeVis
+        hsvCwPanelTx.visibility = decodeVis
+
+        // 周波数タップ → 入力ダイアログ
+        tvCwFreqDisplay.setOnClickListener {
+            val et = android.widget.EditText(ctx).apply {
+                setText("%.5f".format((vm.sharedFreq.value ?: 0L) / 1_000_000.0))
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+                selectAll()
+            }
+            android.app.AlertDialog.Builder(ctx)
+                .setTitle("周波数 (MHz)")
+                .setView(et)
+                .setPositiveButton("OK") { _, _ ->
+                    val hz = (et.text.toString().toDoubleOrNull() ?: return@setPositiveButton) * 1_000_000
+                    vm.sendFreq(hz.toLong())
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+        // ◀/▶ 短押し±500Hz、長押し±5kHz
+        btnCwFreqDown.setOnClickListener     { vm.sendFreq((vm.sharedFreq.value ?: 0L) - 500L) }
+        btnCwFreqDown.setOnLongClickListener { vm.sendFreq((vm.sharedFreq.value ?: 0L) - 5000L); true }
+        btnCwFreqUp.setOnClickListener       { vm.sendFreq((vm.sharedFreq.value ?: 0L) + 500L) }
+        btnCwFreqUp.setOnLongClickListener   { vm.sendFreq((vm.sharedFreq.value ?: 0L) + 5000L); true }
+
         // MY callsign
         val myCall = vm.prefs.ft8MyCall.ifEmpty { vm.prefs.aprsCallsign }
         tvMyCall.text = if (myCall.isNotEmpty()) myCall else "(not set)"
@@ -1133,6 +1192,11 @@ class MainControlFragment : Fragment() {
             cwSheetMsgButtons = emptyList()
             cwPanelUpdateLabels = null
             cwRepeatUpdateFn = null
+            cwSheetFreqView = null
+            cwSheetRxView = null
+            cwSheetRxScroll = null
+            cwSheetTxView = null
+            cwSheetTxScroll = null
         }
 
         sheet.setOnShowListener {

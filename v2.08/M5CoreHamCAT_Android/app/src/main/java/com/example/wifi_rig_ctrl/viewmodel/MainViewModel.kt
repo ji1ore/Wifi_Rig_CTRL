@@ -109,6 +109,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     @Volatile var piClockOffsetMs: Long = 0L  // (Pi Unix ms) - (Android Unix ms)
     @Volatile var ft8FragmentActive = false      // FT8 WebView is visible (suppress SPK watchdog)
     @Volatile private var cwFmTxActive = false  // FM CW TX active flag (prevents false external PTT detection)
+    @Volatile private var cwTextTxActive = false // CW text TX active flag (prevents false external PTT detection)
     @Volatile private var aprsTxing = false    // APRS TX active flag (prevents false external PTT detection, manages SPK)
     @Volatile private var aprsStoppedAt = 0L  // APRS stop time: silence SPK errors for 120 seconds after stop
     private var lastAudioWatchdogMs = 0L      // last SPK watchdog start time
@@ -538,7 +539,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // Skip when aprsActive to avoid falsely detecting APRS TX as external PTT
         val pttOffCooldown = System.currentTimeMillis() - lastAndroidPttOffTime < 5000
         val connectCooldown = System.currentTimeMillis() - lastConnectTime < 8000
-        if (pttOffJob == null && audioTxStartJob == null && !pttOffCooldown && !connectCooldown && !cwFmTxActive && aprsActive.value != true) {
+        // CW USBキーヤーがCWモードで有効な場合、無線機のTX状態はCWキーによるもの（外部PTTではない）
+        val cwUsbCwActive = cwUsbEnabled.value == true && (sharedMode.value ?: "").contains("CW", ignoreCase = true)
+        if (pttOffJob == null && audioTxStartJob == null && !pttOffCooldown && !connectCooldown && !cwFmTxActive && !cwTextTxActive && !cwUsbCwActive && aprsActive.value != true) {
             if (st.tx && txEnabled.value != true) {
                 // External device started TX → start TX audio on Android too
                 externalPttActive = true
@@ -1642,7 +1645,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val isCwMode = (sharedMode.value ?: "").contains("CW", ignoreCase = true)
             withContext(Dispatchers.Main) {
                 cwTxBusy.value = true
-                txEnabled.value = true
+                if (isCwMode) cwTextTxActive = true else txEnabled.value = true
                 stopStatusPolling()
                 audio.stop()
                 if (!isCwMode) cwUsb.stopCwAudioStream()  // audio_tx 競合防止
@@ -1673,6 +1676,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 withContext(Dispatchers.Main) {
                     if (cwTxBusy.value == true) {
                         cwTxBusy.value = false
+                        cwTextTxActive = false
                         txEnabled.value = false
                         startStatusPolling()
                         if (spkEnabled.value == true) startAudio()
@@ -1693,6 +1697,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         stopPttHeartbeat()
         cwFmTxActive = false
+        cwTextTxActive = false
         cwTxBusy.value = false
         txEnabled.value = false
         startStatusPolling()

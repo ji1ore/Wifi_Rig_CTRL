@@ -782,6 +782,7 @@ class MainControlFragment : Fragment() {
         val btnCqTogJcc   = id<android.widget.Button>(R.id.btnCqTogJcc)
         // CQ preset buttons
         val btnCwCq       = id<android.widget.Button>(R.id.btnCwCq)
+        val btnCwCqDxK    = id<android.widget.Button>(R.id.btnCwCqDxK)
         val btnCwCall     = id<android.widget.Button>(R.id.btnCwCall)
         val btnCwCqTu     = id<android.widget.Button>(R.id.btnCwCqTu)
         val btnCwCqAgn    = id<android.widget.Button>(R.id.btnCwCqAgn)
@@ -1061,13 +1062,14 @@ class MainControlFragment : Fragment() {
                 if (cqJcc  && jOk) append(" JCC $j")
             }
             btnCwCq.text = "CQ CQ CQ DE $callPart$cqPostExtra K"
-            btnCwCall.text = "$dDisp DE $mDisp"
-            btnCwCqTu.text = "TU 73 E E"
+            btnCwCqDxK.text = "$dDisp K"
+            btnCwCall.text = "$dDisp DE $mDisp K"
+            btnCwCqTu.text = "TU TU 73 E E"
 
             // ANS assembled messages — greeting goes into UR (not DE)
             val greetPfx = if (ansGreet.isNotEmpty()) "$ansGreet " else ""
             btnCwAnsCall.text = "$mDisp K"
-            btnCwAnsDE.text   = "$dDisp DE $mDisp"
+            btnCwAnsDE.text   = "$dDisp DE $mDisp K"
             val urExtra = buildString {
                 if (ansPota && pOk) append(" POTA $p")
                 if (ansJcc  && jOk) append(" JCC $j")
@@ -1076,7 +1078,7 @@ class MainControlFragment : Fragment() {
             val qslInUr = if (qsl.isNotEmpty()) " $qsl" else ""
             btnCwUr.text   = "${greetPfx}UR $rstPart$urExtra$qslInUr BK"
             btnCwCqUr.text = "${greetPfx}UR $rstPart$urExtra$qslInUr BK"
-            btnCwTu.text   = "TU 73 E E"
+            btnCwTu.text   = "TU TU 73 E E"
 
             // Enable/disable per button
             fun setBtn(btn: android.widget.Button, ok: Boolean) {
@@ -1085,6 +1087,7 @@ class MainControlFragment : Fragment() {
                 btn.alpha     = if (en) 1.0f else 0.35f
             }
             setBtn(btnCwCq,      myOk)
+            setBtn(btnCwCqDxK,   dOk)
             setBtn(btnCwCall,    myOk && dOk)
             setBtn(btnCwCqTu,    true)
             setBtn(btnCwCqAgn,   true)
@@ -1165,8 +1168,9 @@ class MainControlFragment : Fragment() {
 
         // ── Preset button send actions ──
         btnCwCq.setOnClickListener      { send(btnCwCq.text.toString()) }
+        btnCwCqDxK.setOnClickListener   { send(btnCwCqDxK.text.toString()) }
         btnCwCall.setOnClickListener    { send(btnCwCall.text.toString()) }
-        btnCwCqTu.setOnClickListener    { send("TU 73 E E") }
+        btnCwCqTu.setOnClickListener    { send("TU TU 73 E E") }
         btnCwAnsCall.setOnClickListener { send(btnCwAnsCall.text.toString()) }
         btnCwAnsDE.setOnClickListener   { send(btnCwAnsDE.text.toString()) }
         btnCwUr.setOnClickListener      { send(btnCwUr.text.toString()) }

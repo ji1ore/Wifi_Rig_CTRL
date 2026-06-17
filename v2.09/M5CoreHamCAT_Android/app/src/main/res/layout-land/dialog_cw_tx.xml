@@ -571,17 +571,33 @@
                 android:textColor="#DDDDDD"
                 android:layout_marginBottom="2dp" />
 
-            <!-- CALL button -->
-            <Button
-                android:id="@+id/btnCwCall"
+            <!-- DX K | DX DE MY K -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:text="△△ DE ○○"
-                android:textSize="13sp"
-                android:backgroundTint="#1A3A5C"
-                android:textColor="#DDDDDD"
-                android:layout_marginBottom="2dp" />
+                android:orientation="horizontal"
+                android:layout_marginBottom="2dp">
+                <Button
+                    android:id="@+id/btnCwCqDxK"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="△△ K"
+                    android:textSize="13sp"
+                    android:backgroundTint="#1A3A5C"
+                    android:textColor="#DDDDDD"
+                    android:layout_marginEnd="2dp" />
+                <Button
+                    android:id="@+id/btnCwCall"
+                    android:layout_width="0dp"
+                    android:layout_weight="2"
+                    android:layout_height="match_parent"
+                    android:text="△△ DE ○○"
+                    android:textSize="13sp"
+                    android:backgroundTint="#1A3A5C"
+                    android:textColor="#DDDDDD" />
+            </LinearLayout>
 
             <!-- Greeting + QSL combined row -->
             <LinearLayout
@@ -901,29 +917,33 @@
                     android:layout_marginStart="2dp" />
             </LinearLayout>
 
-            <!-- MY K -->
-            <Button
-                android:id="@+id/btnCwAnsCall"
+            <!-- MY K | DX DE MY K -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:text="○○ K"
-                android:textSize="13sp"
-                android:backgroundTint="#2A1A5C"
-                android:textColor="#DDDDDD"
-                android:layout_marginBottom="2dp" />
-
-            <!-- DX DE MY -->
-            <Button
-                android:id="@+id/btnCwAnsDE"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:text="△△ DE ○○"
-                android:textSize="13sp"
-                android:backgroundTint="#2A1A5C"
-                android:textColor="#DDDDDD"
-                android:layout_marginBottom="2dp" />
+                android:orientation="horizontal"
+                android:layout_marginBottom="2dp">
+                <Button
+                    android:id="@+id/btnCwAnsCall"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="match_parent"
+                    android:text="○○ K"
+                    android:textSize="13sp"
+                    android:backgroundTint="#2A1A5C"
+                    android:textColor="#DDDDDD"
+                    android:layout_marginEnd="2dp" />
+                <Button
+                    android:id="@+id/btnCwAnsDE"
+                    android:layout_width="0dp"
+                    android:layout_weight="2"
+                    android:layout_height="match_parent"
+                    android:text="△△ DE ○○"
+                    android:textSize="13sp"
+                    android:backgroundTint="#2A1A5C"
+                    android:textColor="#DDDDDD" />
+            </LinearLayout>
 
             <!-- Greeting + QSL combined -->
             <LinearLayout

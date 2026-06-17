@@ -152,7 +152,7 @@ class AppPrefs(context: Context) {
     var cwRst: String get() = p.getString("cwRst", "599") ?: "599"; set(v) = p.edit().putString("cwRst", v).apply()
     var cwPota: String get() = p.getString("cwPota", "") ?: ""; set(v) = p.edit().putString("cwPota", v).apply()
     var cwJcc: String get() = p.getString("cwJcc", "") ?: ""; set(v) = p.edit().putString("cwJcc", v).apply()
-    var cwCqRepeat: Int get() = p.getInt("cwCqRepeat", 3); set(v) = p.edit().putInt("cwCqRepeat", v).apply()
+    var cwCqRepeat: Int get() = p.getInt("cwCqRepeat", 1); set(v) = p.edit().putInt("cwCqRepeat", v).apply()
     var cwCqPota: Boolean get() = p.getBoolean("cwCqPota", false); set(v) = p.edit().putBoolean("cwCqPota", v).apply()
     var cwCqJcc: Boolean get() = p.getBoolean("cwCqJcc", false); set(v) = p.edit().putBoolean("cwCqJcc", v).apply()
     var cwAnsGreeting: String get() = p.getString("cwAnsGreeting", "") ?: ""; set(v) = p.edit().putString("cwAnsGreeting", v).apply()
@@ -163,7 +163,7 @@ class AppPrefs(context: Context) {
         set(v) = p.edit().putString("cwQsl", v).apply()
     var cwCqLoopCount: Int get() = p.getInt("cwCqLoopCount", 3); set(v) = p.edit().putInt("cwCqLoopCount", v).apply()
     var cwCqLoopInterval: Int get() = p.getInt("cwCqLoopInterval", 15); set(v) = p.edit().putInt("cwCqLoopInterval", v).apply()
-    var cwRstRepeat: Int get() = p.getInt("cwRstRepeat", 1); set(v) = p.edit().putInt("cwRstRepeat", v).apply()
+    var cwRstRepeat: Int get() = p.getInt("cwRstRepeat", 2); set(v) = p.edit().putInt("cwRstRepeat", v).apply()
 
     fun getModeStep(mode: String): Int = p.getInt("step_$mode", defaultStepFor(mode))
     fun setModeStep(mode: String, step: Int) = p.edit().putInt("step_$mode", step).apply()

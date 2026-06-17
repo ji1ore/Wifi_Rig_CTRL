@@ -191,12 +191,12 @@ class CwDecoder(private val sampleRate: Int = 8000) {
             val effectiveMin = maxOf(ditWinsMin, ditWins * 0.6f)
             if (wins.toFloat() < effectiveMin) return
             framesNoRealElement = 0
-            if (wins.toFloat() < ditWins * 2f) {
+            if (wins.toFloat() < ditWins * 1.8f) {
                 elements.append('.')
-                ditWins = (ditWins * 0.85f + wins * 0.15f).coerceIn(ditWinsMin, ditWinsMax)
+                ditWins = (ditWins * 0.95f + wins * 0.05f).coerceIn(ditWinsMin, ditWinsMax)
             } else {
                 elements.append('-')
-                ditWins = (ditWins * 0.85f + wins / 3f * 0.15f).coerceIn(ditWinsMin, ditWinsMax)
+                ditWins = (ditWins * 0.95f + wins / 3f * 0.05f).coerceIn(ditWinsMin, ditWinsMax)
             }
         }
 
@@ -207,7 +207,7 @@ class CwDecoder(private val sampleRate: Int = 8000) {
                     flushChar(ci); charFlushed = true
                     if (!wordEmitted) { onCharDecoded?.invoke(' ', ci); wordEmitted = true }
                 }
-                wins.toFloat() >= ditWins * 2f -> { flushChar(ci); charFlushed = true }
+                wins.toFloat() >= ditWins * 2.5f -> { flushChar(ci); charFlushed = true }
             }
         }
 
@@ -286,7 +286,7 @@ class CwDecoder(private val sampleRate: Int = 8000) {
         val cwRange = cwBinMax - cwBinMin + 1
         for (i in 0 until cwRange) cwBandBuf[i] = specPow[cwBinMin + i]
         java.util.Arrays.sort(cwBandBuf, 0, cwRange)
-        val noisePow = cwBandBuf[(cwRange * 0.30).toInt().coerceIn(0, cwRange - 1)]
+        val noisePow = cwBandBuf[(cwRange * 0.20).toInt().coerceIn(0, cwRange - 1)]
         val peakMinPow = noisePow * PEAK_SNR_MIN
 
         // White noise detection: judge flatness by maximum value of sorted cwBandBuf
@@ -303,9 +303,11 @@ class CwDecoder(private val sampleRate: Int = 8000) {
                 if (ch.trackPeak(specPow)) onChannelFreq?.invoke(ci, ch.freqHz)
                 val b = ch.freqBin
                 val e = sqrt(
+                    specPow[(b-2).coerceAtLeast(cwBinMin)] +
                     specPow[(b-1).coerceAtLeast(cwBinMin)] +
                     specPow[b] +
-                    specPow[(b+1).coerceAtMost(cwBinMax)]
+                    specPow[(b+1).coerceAtMost(cwBinMax)] +
+                    specPow[(b+2).coerceAtMost(cwBinMax)]
                 )
                 ch.process(e, ci)
             }
@@ -369,9 +371,11 @@ class CwDecoder(private val sampleRate: Int = 8000) {
             val slot = channels.indexOfFirst { it == null }
             if (slot < 0) break
             val e = sqrt(
+                specPow[(bin-2).coerceAtLeast(cwBinMin)] +
                 specPow[(bin-1).coerceAtLeast(cwBinMin)] +
                 specPow[bin] +
-                specPow[(bin+1).coerceAtMost(cwBinMax)]
+                specPow[(bin+1).coerceAtMost(cwBinMax)] +
+                specPow[(bin+2).coerceAtMost(cwBinMax)]
             )
             val ch = Channel(bin, e, noiseE)
             channels[slot] = ch

@@ -61,7 +61,7 @@ class CwKeyDecoder {
     }
 
     private fun analyzeElement(durationMs: Long) {
-        if (durationMs < ditMs / 4) return  // below 25% is noise, ignore
+        if (durationMs < (ditMs * 0.6f).toLong()) return  // below ~60% of dit is noise (matches CwDecoder)
         if (durationMs < ditMs * 2) {
             elements.append('.')
             ditMs = (ditMs * 0.85f + durationMs * 0.15f).toLong()
@@ -69,7 +69,7 @@ class CwKeyDecoder {
             elements.append('-')
             ditMs = (ditMs * 0.85f + durationMs / 3f * 0.15f).toLong()
         }
-        ditMs = ditMs.coerceIn(15L, 250L)  // 15ms to 250ms
+        ditMs = ditMs.coerceIn(20L, 250L)  // 20ms to 250ms
     }
 
     private fun analyzeGap(durationMs: Long) {
@@ -79,7 +79,7 @@ class CwKeyDecoder {
                 flushCharacter(); charFlushed = true
                 if (!wordEmitted) { onCharDecoded?.invoke(' ', true); wordEmitted = true }
             }
-            durationMs >= ditMs * 2 -> {
+            durationMs >= (ditMs * 2.5).toLong() -> {
                 flushCharacter(); charFlushed = true
             }
         }

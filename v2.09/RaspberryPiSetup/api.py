@@ -1717,6 +1717,8 @@ def aprs_loop():
                 # direwolf KISS ポートが応答するまで待つ（再起動が必要なら実施）
                 if not _wait_direwolf_kiss_ready(2.0):
                     print("[APRS] restarting direwolf (KISS port not ready)")
+                    subprocess.run(["pkill", "-9", "aplay"], capture_output=True)
+                    time.sleep(0.5)
                     subprocess.run(["sudo", "systemctl", "restart", "direwolf"],
                                    capture_output=True, timeout=10)
                     _wait_direwolf_kiss_ready(15.0)
@@ -1794,6 +1796,8 @@ def aprs_start(cfg: AprsStart):
         if old and old.is_alive():
             old.join(timeout=3.0)
         # KISS ポートが開くまで待つ（Pi Zero は Hamlib 初期化で ~10s かかる）
+        subprocess.run(["pkill", "-9", "aplay"], capture_output=True)
+        time.sleep(0.5)
         if not _wait_direwolf_kiss_ready(20.0):
             if subprocess.run(["pgrep", "-x", "direwolf"], capture_output=True).returncode != 0:
                 print("[aprs_start] direwolf not running, starting")

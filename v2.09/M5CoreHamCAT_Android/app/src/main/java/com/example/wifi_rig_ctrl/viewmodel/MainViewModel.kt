@@ -525,9 +525,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
 
-        // SPK watchdog: auto-reconnect every 15 seconds if SPK is ON but audio stopped
-        // Keep audio active even when APRS is enabled, except during APRS TX (aprsTxing)
-        if (spkEnabled.value == true && !audio.isPlaying && !audio.isStreamActive
+        // SPK watchdog: auto-reconnect every 15 seconds if SPK is ON but audio stopped or zombie
+        // (zombie = AudioTrack.PLAYSTATE_PLAYING but Pi stopped sending data)
+        if (spkEnabled.value == true && !audio.isDataFlowing && !audio.isStreamActive
                 && txEnabled.value != true && !aprsTxing && !ft8FragmentActive
                 && now - lastAudioWatchdogMs > 15_000L) {
             startAudio()
@@ -1679,7 +1679,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         cwTextTxActive = false
                         txEnabled.value = false
                         startStatusPolling()
-                        if (spkEnabled.value == true && (!isCwMode || !audio.isPlaying)) startAudio()  // CWモード: 再生中でなければ再起動
+                        if (spkEnabled.value == true && (!isCwMode || !audio.isDataFlowing)) startAudio()  // CWモード: データが流れていなければ再起動
                         updateCwAudioStreamForMode(sharedMode.value ?: "")  // 電鍵ストリーム復元
                     }
                 }
@@ -1702,7 +1702,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         txEnabled.value = false
         startStatusPolling()
         val isCwModeNow = (sharedMode.value ?: "").contains("CW", ignoreCase = true)
-        if (spkEnabled.value == true && (!isCwModeNow || !audio.isPlaying)) startAudio()  // CWモード: 再生中でなければ再起動
+        if (spkEnabled.value == true && (!isCwModeNow || !audio.isDataFlowing)) startAudio()  // CWモード: データが流れていなければ再起動
     }
 
     fun disconnectFromRig() {

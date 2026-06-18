@@ -22,6 +22,7 @@ class AudioStreamService {
     private var activeCall: Call? = null
     @Volatile private var currentVolume: Float = 0.5f
     @Volatile private var stopping = false
+    @Volatile private var lastDataMs: Long = 0L
 
     // For CW decode: notify PCM16 samples in real time (called from IO thread)
     @Volatile var audioSampleListener: ((ShortArray) -> Unit)? = null
@@ -127,6 +128,7 @@ class AudioStreamService {
                             val n = stream.read(readBuf)
                             if (n <= 0) break
                             track.write(readBuf, 0, n)
+                            lastDataMs = System.currentTimeMillis()
                             notifySamples(readBuf, n)
                         }
 
@@ -177,6 +179,7 @@ class AudioStreamService {
         activeCall = null
         val track = audioTrack
         audioTrack = null
+        lastDataMs = 0L
         try { track?.stop() } catch (_: Exception) {}
         try { track?.release() } catch (_: Exception) {}
     }
@@ -188,6 +191,9 @@ class AudioStreamService {
 
     val isPlaying: Boolean get() = audioTrack?.playState == AudioTrack.PLAYSTATE_PLAYING
     val isStreamActive: Boolean get() = streamJob?.isActive == true
+    // True only when AudioTrack is playing AND data was received within the last 5 seconds.
+    // Detects "zombie" state: AudioTrack.PLAYSTATE_PLAYING but Pi stopped sending data.
+    val isDataFlowing: Boolean get() = isPlaying && (System.currentTimeMillis() - lastDataMs < 5000L)
 
     private fun extractSampleRate(url: String): Int =
         Regex("rate=(\\d+)").find(url)?.groupValues?.get(1)?.toIntOrNull() ?: 8000

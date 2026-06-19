@@ -414,12 +414,24 @@ class _FfmpegMgr:
                 break
 
 # ── ノイズリダクション設定 ──────────────────────────────────
-_noise_reduction_level = 0  # 0=OFF, 1=Light(nf=-30), 2=Medium(nf=-25), 3=Strong(nf=-20)
+_noise_reduction_level = 0  # 0=OFF, 1=Light, 2=Medium, 3=Strong, 4=Max, 5=Neural
+# model.rnnn はapi.pyと同じディレクトリに置く（ユーザー名非依存）
+_ARNNDN_MODEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model.rnnn")
 
 def _build_rx_af(level: int) -> str:
     base = "highpass=f=300,lowpass=f=4000,volume=10.0"
-    nr = {1: ",afftdn=nf=-30", 2: ",afftdn=nf=-25", 3: ",afftdn=nf=-20"}
-    return base + nr.get(level, "")
+    # NR ON時: ノイズ除去後にダイナミック圧縮で弱い信号を持ち上げる
+    enhance = ",acompressor=threshold=-20dB:ratio=3:attack=5:release=50"
+    nr = {
+        1: ",afftdn=nf=-30:nr=15",
+        2: ",afftdn=nf=-25:nr=20",
+        3: ",afftdn=nf=-20:nr=25:tn=1",
+        4: ",afftdn=nf=-15:nr=33:tn=1,anlmdn=s=7",
+        5: f",arnndn=model={_ARNNDN_MODEL},afftdn=nf=-20:nr=25:tn=1",
+    }
+    if level == 0:
+        return base
+    return base + nr.get(level, "") + enhance
 
 # メイン音声: SPK用フィルター+音量ブースト、direwolf停止あり
 _mgr_rx  = _FfmpegMgr(af=_build_rx_af(0), kill_direwolf=True)
@@ -1087,7 +1099,7 @@ def get_noise_reduction():
 @app.post("/radio/noise_reduction")
 def set_noise_reduction(level: int = Form(...)):
     global _noise_reduction_level
-    level = max(0, min(3, level))
+    level = max(0, min(5, level))
     _noise_reduction_level = level
     _mgr_rx._af = _build_rx_af(level)
     _mgr_rx.stop()  # AudioStreamServiceの自動再接続で新フィルターを適用
@@ -1855,6 +1867,8 @@ def aprs_loop():
                 # direwolf KISS ポートが応答するまで待つ（再起動が必要なら実施）
                 if not _wait_direwolf_kiss_ready(2.0):
                     print("[APRS] restarting direwolf (KISS port not ready)")
+                    subprocess.run(["pkill", "-9", "aplay"], capture_output=True)
+                    time.sleep(0.5)
                     subprocess.run(["sudo", "systemctl", "restart", "direwolf"],
                                    capture_output=True, timeout=10)
                     _wait_direwolf_kiss_ready(15.0)
@@ -1932,6 +1946,8 @@ def aprs_start(cfg: AprsStart):
         if old and old.is_alive():
             old.join(timeout=3.0)
         # KISS ポートが開くまで待つ（Pi Zero は Hamlib 初期化で ~10s かかる）
+        subprocess.run(["pkill", "-9", "aplay"], capture_output=True)
+        time.sleep(0.5)
         if not _wait_direwolf_kiss_ready(20.0):
             if subprocess.run(["pgrep", "-x", "direwolf"], capture_output=True).returncode != 0:
                 print("[aprs_start] direwolf not running, starting")

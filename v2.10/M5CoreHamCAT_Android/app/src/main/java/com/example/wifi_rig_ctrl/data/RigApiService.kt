@@ -218,6 +218,19 @@ class RigApiService(private var hostName: String, private var apiPort: Int, priv
         } catch (_: Exception) { }
     }
 
+    fun setCwDecodeMode(active: Boolean) = post("/radio/cw_decode",
+        FormBody.Builder().add("active", if (active) "1" else "0").build())
+
+    fun setCwDecodeModeOnPort(port: Int, active: Boolean) {
+        if (port == apiPort) return
+        try {
+            val url = "http://$hostName:$port/radio/cw_decode"
+            val body = FormBody.Builder().add("active", if (active) "1" else "0").build()
+            val req = Request.Builder().url(url).withApiKey().post(body).build()
+            client.newCall(req).execute().use { }
+        } catch (_: Exception) { }
+    }
+
     fun setPtt(on: Boolean) = post("/radio/ptt",
         FormBody.Builder().add("state", if (on) "1" else "0").build())
 

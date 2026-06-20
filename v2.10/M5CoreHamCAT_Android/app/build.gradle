@@ -11,7 +11,7 @@ android {
         applicationId "com.ji1ore.wifi_rig_ctrl"
         minSdk 21
         targetSdk 35
-        versionCode 37
+        versionCode 38
         versionName "2.10"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

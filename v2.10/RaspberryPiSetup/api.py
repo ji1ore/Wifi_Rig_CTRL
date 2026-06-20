@@ -298,23 +298,26 @@ class _FfmpegMgr:
                 break
 
 # ── ノイズリダクション設定 ──────────────────────────────────
-_noise_reduction_level = 0  # 0=OFF, 1=Light, 2=Medium, 3=Strong, 4=Max, 5=Neural
-# model.rnnn はapi.pyと同じディレクトリに置く（ユーザー名非依存）
-_ARNNDN_MODEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model.rnnn")
+_noise_reduction_level = 0  # 0=OFF, 1=Light, 2=Medium, 3=Strong, 4=Stronger, 5=Max
+_cw_decode_active = False    # True時はafftdnをスキップしバンドパスのみ適用（CWタイミング保護）
 
 def _build_rx_af(level: int) -> str:
     base = "highpass=f=300,lowpass=f=4000,volume=10.0"
     # NR ON時: ノイズ除去後にダイナミック圧縮で弱い信号を持ち上げる
     enhance = ",acompressor=threshold=-20dB:ratio=3:attack=5:release=50"
+    if level == 0:
+        return base
+    # CWデコード中: afftdnはキーON/OFFのトランジェントを遅延させCWタイミングを歪める。
+    # baseのhighpass/lowpassがバンドパスNRとして機能するためafftdnをスキップする。
+    if _cw_decode_active:
+        return base + enhance
     nr = {
         1: ",afftdn=nf=-30:nr=15",
         2: ",afftdn=nf=-25:nr=20",
         3: ",afftdn=nf=-20:nr=25:tn=1",
-        4: ",afftdn=nf=-15:nr=33:tn=1,anlmdn=s=7",
-        5: f",arnndn=model={_ARNNDN_MODEL},afftdn=nf=-20:nr=25:tn=1",
+        4: ",afftdn=nf=-20:nr=33:tn=1",
+        5: ",afftdn=nf=-20:nr=40:tn=1",
     }
-    if level == 0:
-        return base
     return base + nr.get(level, "") + enhance
 
 # メイン音声: SPK用フィルター+音量ブースト、direwolf停止あり
@@ -988,6 +991,17 @@ def set_noise_reduction(level: int = Form(...)):
     _mgr_rx._af = _build_rx_af(level)
     _mgr_rx.stop()  # AudioStreamServiceの自動再接続で新フィルターを適用
     return {"level": level}
+
+
+@app.post("/radio/cw_decode")
+def set_cw_decode(active: int = Form(...)):
+    global _cw_decode_active
+    _cw_decode_active = bool(active)
+    # NRが有効な場合のみフィルター切替が発生する
+    if _noise_reduction_level > 0:
+        _mgr_rx._af = _build_rx_af(_noise_reduction_level)
+        _mgr_rx.stop()
+    return {"cw_decode": _cw_decode_active}
 
 
 @app.post("/radio/audio_tx")
@@ -1928,14 +1942,16 @@ async def admin_update(request: Request):
             "pkill -TERM -f 'uvicorn api' 2>/dev/null || true\n"
             "sleep 1\n"
             "pkill -9 -f 'uvicorn api' 2>/dev/null || true\n"
-            "sleep 3\n"
-            # systemd が既に再起動していれば何もしない
+            "sleep 15\n"
+            # systemd が既に再起動していれば何もしない (Pi Zero は ~10-15s かかる)
             "if pgrep -f 'uvicorn api' >/dev/null 2>&1; then\n"
             "  exit 0\n"
             "fi\n"
             f"cd {_FASTAPI_DIR}\n"
             f"{_VENV_PY.replace('python3','uvicorn')} api:app --host 0.0.0.0 --port 8000 "
-            ">>/tmp/uvicorn_restart.log 2>&1\n"
+            ">>/tmp/uvicorn_restart.log 2>&1 &\n"
+            f"{_VENV_PY.replace('python3','uvicorn')} api:app --host 0.0.0.0 --port 50000 "
+            ">>/tmp/uvicorn_audio_restart.log 2>&1\n"
         )
         sh = "/tmp/_fastapi_restart.sh"
         with open(sh, "w") as _f:

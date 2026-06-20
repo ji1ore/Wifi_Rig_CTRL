@@ -1,9 +1,9 @@
-Wifi RIG CTRL  Raspberry Pi セットアップガイド（v2.09）
+Wifi RIG CTRL  Raspberry Pi セットアップガイド（v2.10）
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 配布ファイル
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Wifi_RIG_CTRL_v2.09.apk  : Android アプリ
+Wifi_RIG_CTRL_v2.10.apk  : Android アプリ
 api.py                    : FastAPI サーバー本体
 cw_bridge.py              : CW USB/NCM 中継スクリプト
 server_webft8.py          : webft8 HTTPS プロキシサーバー（UpdateWebFT8で転送）
@@ -31,6 +31,24 @@ setup_ft8_encode.sh     : FT8 TX 用バイナリビルド（FT8 TX を使う場�
 8443  : webft8 HTTPS サーバー（FT8 デジタルモード）
 8888  : M5 Server UDP (NCM / WiFi)
 8889  : cw_bridge UDP クライアント受信ポート
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+v2.10 での変更点
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+・ノイズリダクション強化（afftdn ベースに統一）
+    NR レベルを 3 段階から 5 段階に拡張
+    Level 1 (Light)   : afftdn=nf=-30:nr=15
+    Level 2 (Medium)  : afftdn=nf=-25:nr=20
+    Level 3 (Strong)  : afftdn=nf=-20:nr=25:tn=1
+    Level 4 (Stronger): afftdn=nf=-20:nr=33:tn=1
+    Level 5 (Max)     : afftdn=nf=-20:nr=40:tn=1
+    NR をデュアルサーバー構成に対応（apiPort / audioPort 両方に同期送信）
+    SQL ボタン長押しで 0→1→2→3→4→5→0 循環
+
+・Update Pi の信頼性向上
+    sudoers 設定を実行ユーザー名で正しく生成（sudo 時の whoami バグを修正）
+    fallback 再起動の待機時間を 3s → 15s に延長（Pi Zero 対応）
+    fallback 時に fastapi-audio（port 50000）も確実に再起動
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 v2.09 での変更点
@@ -136,12 +154,12 @@ ssh <ユーザー名>@raspizero
 ③ セットアップスクリプト実行
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 --- ネットワーク設定（任意）---
-wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.09/RaspberryPiSetup/setup_netwk.sh
+wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.10/RaspberryPiSetup/setup_netwk.sh
 chmod +x setup_netwk.sh
 bash setup_netwk.sh
 
 --- 環境構築（FT8 含む全機能セットアップ・UpdatePi 相当）---
-BASE=https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.09/RaspberryPiSetup
+BASE=https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.10/RaspberryPiSetup
 wget $BASE/setup_fastapi_radio.sh
 wget $BASE/create_api.sh
 wget $BASE/set_api_key.sh
@@ -192,7 +210,7 @@ bash ~/set_api_key.sh ""   # 無効化
 ⑦ FT8 TX 機能の有効化（任意・追加ビルド不要な場合はスキップ）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FT8/FT4 送信（webft8 UI からの TX）を使う場合:
-  wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.09/RaspberryPiSetup/setup_ft8_encode.sh
+  wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.10/RaspberryPiSetup/setup_ft8_encode.sh
   chmod +x setup_ft8_encode.sh
   bash setup_ft8_encode.sh
 
@@ -210,8 +228,8 @@ FT8/FT4 送信（webft8 UI からの TX）を使う場合:
 
 【GitHub から再取得】スクリプトを最新版に更新してから再セットアップ
   Pi に SSH でログイン後:
-  wget -O ~/create_api.sh https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.09/RaspberryPiSetup/create_api.sh
-  wget -O ~/set_api_key.sh https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.09/RaspberryPiSetup/set_api_key.sh
+  wget -O ~/create_api.sh https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.10/RaspberryPiSetup/create_api.sh
+  wget -O ~/set_api_key.sh https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.10/RaspberryPiSetup/set_api_key.sh
   chmod +x ~/create_api.sh ~/set_api_key.sh
   sudo bash ~/create_api.sh
 

@@ -6,15 +6,20 @@ Android スマートフォンから Raspberry Pi 経由でアマチュア無線�
 
 ### ノイズリダクション強化
 
-- **NR レベルを 3 段階から 5 段階に拡張**
-  - Level 1 (Light): `afftdn=nf=-30:nr=15`
-  - Level 2 (Medium): `afftdn=nf=-25:nr=20`
-  - Level 3 (Strong): `afftdn=nf=-20:nr=25:tn=1`（ノイズ追従）
-  - Level 4 (Max): `afftdn=nf=-15:nr=33:tn=1` + `anlmdn=s=7`（二重フィルター）
-  - Level 5 (Neural): `arnndn`（ニューラルネットワーク）+ `afftdn` 強
+- **NR レベルを 3 段階から 5 段階に拡張（afftdn ベースに統一）**
+  - Level 1 (Light)   : `afftdn=nf=-30:nr=15`
+  - Level 2 (Medium)  : `afftdn=nf=-25:nr=20`
+  - Level 3 (Strong)  : `afftdn=nf=-20:nr=25:tn=1`
+  - Level 4 (Stronger): `afftdn=nf=-20:nr=33:tn=1`
+  - Level 5 (Max)     : `afftdn=nf=-20:nr=40:tn=1`
 - **NR をデュアルサーバー構成に対応**（apiPort / audioPort 両方に同期送信）
-- **NR モデルパスをユーザー名非依存に変更**（api.py と同ディレクトリの `model.rnnn` を参照）
 - **SQL ボタン長押し**で 0→1→2→3→4→5→0 循環
+
+### Update Pi 信頼性向上
+
+- sudoers 設定を実行ユーザー名で正しく生成（sudo 実行時の whoami バグを修正）
+- fallback 再起動の待機時間を 3s → 15s に延長（Pi Zero 対応）
+- fallback 時に fastapi-audio（port 50000）も確実に再起動
 
 ## APK インストール手順
 

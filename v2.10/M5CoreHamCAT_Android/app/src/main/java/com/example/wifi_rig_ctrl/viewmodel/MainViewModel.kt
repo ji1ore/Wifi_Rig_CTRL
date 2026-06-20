@@ -84,6 +84,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun setNoiseReduction(level: Int) {
+        noiseReductionLevel.value = level
+        prefs.nrLevel = level
+        viewModelScope.launch(Dispatchers.IO) {
+            api.setNrLevel(level)
+            api.setNrLevelOnPort(prefs.audioPort, level)
+        }
+    }
+
     // UI control state
     val txEnabled = MutableLiveData(false)
     val spkEnabled = MutableLiveData(false)
@@ -1427,6 +1436,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         cwDecoding.value = next
         cwDecodingActive = next
         if (next) {
+            // CWデコード中はafftdnのトランジェント遅延を避けるため
+            // バンドパスフィルター(NR相当)に自動切替をPiに通知
+            viewModelScope.launch(Dispatchers.IO) {
+                api.setCwDecodeMode(true)
+                api.setCwDecodeModeOnPort(prefs.audioPort, true)
+            }
+
             synchronized(cwDecodedLock) {
                 cwTxBuffer.clear()
                 cwRxBuffers.forEach { it.clear() }
@@ -1489,6 +1505,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             cwTxTimeoutHandler.removeCallbacks(cwTxTimeoutRunnable)
             cwTxTimeoutJob?.cancel(); cwTxTimeoutJob = null
             cwRxFreqLabels.forEachIndexed { i, ld -> ld.value = if (i == 0) "RX:" else "---" }
+
+            // CWデコード終了: afftdn NRに戻す
+            viewModelScope.launch(Dispatchers.IO) {
+                api.setCwDecodeMode(false)
+                api.setCwDecodeModeOnPort(prefs.audioPort, false)
+            }
         }
     }
 

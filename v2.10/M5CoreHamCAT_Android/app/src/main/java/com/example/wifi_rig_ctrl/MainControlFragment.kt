@@ -849,6 +849,15 @@ class MainControlFragment : Fragment() {
         val btnCwUr       = id<android.widget.Button>(R.id.btnCwUr)
         val btnCwTu       = id<android.widget.Button>(R.id.btnCwTu)
         val btnCwAgn      = id<android.widget.Button>(R.id.btnCwAgn)
+        // NR level
+        val btnNrOff = id<android.widget.Button>(R.id.btnCwNrOff)
+        val btnNr1   = id<android.widget.Button>(R.id.btnCwNr1)
+        val btnNr2   = id<android.widget.Button>(R.id.btnCwNr2)
+        val btnNr3   = id<android.widget.Button>(R.id.btnCwNr3)
+        val btnNr4   = id<android.widget.Button>(R.id.btnCwNr4)
+        val btnNr5   = id<android.widget.Button>(R.id.btnCwNr5)
+        val nrButtons = listOf(btnNrOff, btnNr1, btnNr2, btnNr3, btnNr4, btnNr5)
+
         // Free text
         val etFree        = id<EditText>(R.id.etCwFreeText)
         val btnSend       = id<android.widget.Button>(R.id.btnCwSend)
@@ -932,6 +941,25 @@ class MainControlFragment : Fragment() {
         swPaddleSwap.setOnCheckedChangeListener { _, c -> vm.updatePaddleSwap(c) }
         swPttPoll.isChecked = vm.cwPttPoll.value ?: false
         swPttPoll.setOnCheckedChangeListener { _, c -> vm.updateCwPttPoll(c) }
+
+        // NR level buttons
+        fun updateNrHighlights() {
+            val level = vm.noiseReductionLevel.value ?: 0
+            nrButtons.forEachIndexed { idx, btn ->
+                val active = idx == level
+                btn.backgroundTintList = ColorStateList.valueOf(
+                    if (active) 0xFF6A1B9A.toInt() else 0xFF333333.toInt()
+                )
+                btn.setTextColor(if (active) 0xFFEEEEEE.toInt() else 0xFF888888.toInt())
+            }
+        }
+        updateNrHighlights()
+        nrButtons.forEachIndexed { idx, btn ->
+            btn.setOnClickListener {
+                vm.setNoiseReduction(idx)
+                updateNrHighlights()
+            }
+        }
 
         // ── CQ/ANS pattern state ──
         var cqRepeat     = vm.prefs.cwCqRepeat

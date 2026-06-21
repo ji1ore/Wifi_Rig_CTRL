@@ -75,12 +75,91 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.05）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.11）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v2.05）。
+アプリを v1.30 より公開しています（最新版：v2.11）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
+
+●v2.11 の変更点（v2.10 との比較）
+【新機能】
+・DualKey-BLE サポート（AtomS3 BLE キーヤー）
+  - M5AtomS3（AtomS3）を BLE（Bluetooth LE）で Android にワイヤレス接続可能
+  - Nordic UART Service（NUS）プロトコルを使用
+  - Android の Bluetooth 設定で "DualKey-BLE" をペアリング後、
+    BTボタンをタップするだけで自動検出・接続
+  - USB CDC / BLE 自動切替機能
+    ・電源投入後10秒間: 左パドル（DAH）→ USB CDC モード、
+                         右パドル（DIT）→ BLE モード（デフォルト）
+    ・BLE モード中: アプリ（Android）からの USB データ受信で
+      自動的に USB CDC モードへ再起動
+    ・USB CDC モード中: USB 切断で自動的に BLE モードへ再起動
+
+【改善・修正】
+・CW 接続状態表示を改善
+  - BT 接続時: 「BT」緑表示
+  - BLE 接続時: 「BLE」緑表示
+  - 未接続時: 「BT」グレー表示
+
+●v2.10 の変更点（v2.09 との比較）
+【改善・修正】
+・ノイズリダクション強化（afftdn ベースに統一）
+  - NR レベルを 3 段階から 5 段階に拡張
+    Level 1 (Light)   : afftdn=nf=-30:nr=15
+    Level 2 (Medium)  : afftdn=nf=-25:nr=20
+    Level 3 (Strong)  : afftdn=nf=-20:nr=25:tn=1
+    Level 4 (Stronger): afftdn=nf=-20:nr=33:tn=1
+    Level 5 (Max)     : afftdn=nf=-20:nr=40:tn=1
+  - SQL ボタン長押しで 0→1→2→3→4→5→0 循環
+  - NR をデュアルサーバー構成に対応（apiPort / audioPort 両方に同期送信）
+
+・Update Pi の信頼性向上
+  - sudoers 設定を実行ユーザー名で正しく生成（sudo 時の whoami バグを修正）
+  - fallback 再起動の待機時間を 3s → 15s に延長（Pi Zero 対応）
+  - fallback 時に fastapi-audio（port 50000）も確実に再起動
+
+●v2.09 の変更点（v2.08 との比較）
+【改善・修正】
+・CW デコード精度向上（RX メイン画面・TX CW パネル）
+  - dit/dah 境界判定を改善（×2 → ×1.8）: dah 誤判定削減
+  - 字間ギャップ判定を緩和（×2 → ×2.5）: 字間誤切り込み削減
+  - ditWins 収束を遅くして急激なスピード変動耐性向上
+  - エネルギー計算を 3bin → 5bin 合計に拡大（弱信号 SNR 向上）
+  - ノイズフロア推定を 30 → 20 パーセンタイルに変更（混信耐性向上）
+  - TX 側: ditMs 下限を 15ms → 20ms に変更（誤カウント防止）
+
+●v2.08 の変更点（v2.07 との比較）
+【改善・修正】
+・CW TX 開始ラグを修正（USB シリアル接続時）
+  - open_radio で current_ptt_type に実効 PTT タイプ（RIG）を保存するよう修正
+  - ttyACM/ttyUSB 使用時に CW TX 毎に rigctld 再起動が発生していた問題を解消
+    （タイミングにより 0〜7 秒のラグが発生していた）
+
+・CW TX パネルの UI 改善
+  - ボタンを大型化し、1画面に収まるレイアウトに変更
+  - 横向き（ランドスケープ）時は 2 カラムレイアウトで表示
+
+●v2.07 の変更点（v2.06 との比較）
+【改善・修正】
+・USB シリアル接続時の PTT 自動最適化（IC-705 USB 対応強化）
+  - ttyACM / ttyUSB デバイス使用時は PTT を自動的に RTS → CAT（CI-V）に切替
+  - IC-705 USB オーディオリセット問題を回避
+
+・rigctld 起動後の PTT 強制解除
+  - rigctld 再起動時に誤って TX になることを防止
+
+・TX 中の rigctld 再起動を禁止
+  - CW/音声送信中に rigctld が再起動して DTR が切れる問題を修正
+
+・PTT タイプ表示を「RIG」→「CAT」に変更（UI 表記統一）
+
+・CW CQ リピート UI 改善
+
+●v2.06 の変更点（v2.05 との比較）
+【改善・修正】
+・CW USB（DualKey）の Pi 未接続時の同期動作を修正
+  - Pi 不在でもキーイングタイミングが正しく計算されるよう改善
 
 ●v2.05 の変更点（v2.04 との比較）
 【修正・改善】
@@ -195,7 +274,8 @@ Raspberry Pi のセットアップは M5Core 版と共通です。
 ・受信音声をスマートフォンのスピーカーで再生（SPK）
 ・PTT ON/OFF と音声送信（マイクの音声を無線機に送出）
 ・WiFi PTT（M5Atom 等の外部デバイスと連動した PTT 制御）
-・USB CW中継（M5ATOM を直接 Android に接続して CW キー信号を中継）
+・USB CW中継（M5ATOM / DualKey を直接 Android に接続して CW キー信号を中継）
+・BLE CW中継（DualKey-BLE を Android に BLE 接続して CW キー信号を中継）
 ・FT8/FT4 受信デコード・送信（WebView ベース）
 ・APRS ビーコン送信（DireWolf 経由、スマートフォン GPS 対応）
 ・複数プロファイル対応（接続先の切り替え）
@@ -211,11 +291,15 @@ USB CW中継を使う場合:
 ・M5ATOM Lite または M5ATOM S3 Lite（Wifi_Rig_CW Ver1.40 ファームウェア書き込み済み）
 ・OTG 対応 USB ケーブル
 
+BLE CW中継を使う場合（DualKey-BLE）:
+・M5AtomS3（AtomS3）（Wifi_Rig_CW_DUALKEY Ver1.43 ファームウェア書き込み済み）
+・Android の Bluetooth 設定で "DualKey-BLE" をペアリング（OTG ケーブル不要）
+
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.05/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.11/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v2.05.apk をダウンロード
+  1. Wifi_RIG_CTRL_v2.11.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
@@ -223,7 +307,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.05/M5CoreHamCAT_Android
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.05/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.11/RaspberryPiSetup
 
 v2.03 以降からのアップグレード: アプリの「Update Pi」ボタンで自動更新
 v2.02 以前からのアップグレード: 初回のみ手動 scp が必要
@@ -235,5 +319,5 @@ v2.02 以前からのアップグレード: 初回のみ手動 scp が必要
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 （v1.40 からの変更なし）
 
-2026/6/14
+2026/6/21
 以上。

@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#000000"
+    android:padding="8dp">
+
+    <!-- Top row: Model + TX -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="2dp">
+        <TextView
+            android:id="@+id/tvModel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="#888888"
+            android:textSize="14sp"
+            android:text="---" />
+        <TextView
+            android:id="@+id/tvTxIndicator"
+            android:layout_width="56dp"
+            android:layout_height="22dp"
+            android:gravity="center"
+            android:text="TX"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#000000"
+            android:background="#DDDDDD" />
+    </LinearLayout>
+
+    <!-- Frequency display panel -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#050B19"
+        android:paddingTop="4dp"
+        android:paddingBottom="2dp"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:layout_marginBottom="4dp">
+        <TextView
+            android:id="@+id/tvFreq"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="0.00000"
+            android:textColor="#E8F4FF"
+            android:textSize="44sp"
+            android:textStyle="bold"
+            android:fontFamily="monospace"
+            android:clickable="true"
+            android:focusable="true" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="end"
+            android:text="MHz"
+            android:textColor="#3A5A7A"
+            android:textSize="13sp"
+            android:paddingEnd="2dp" />
+    </LinearLayout>
+
+    <!-- S-meter card -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#08081A"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="3dp"
+        android:layout_marginBottom="4dp">
+
+        <!-- Bars row with "S" label -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+                android:layout_width="18dp"
+                android:layout_height="wrap_content"
+                android:text="S"
+                android:textColor="#00C853"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:gravity="center"/>
+            <LinearLayout
+                android:id="@+id/llSmeter"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"/>
+        </LinearLayout>
+
+        <!-- Scale labels (populated in code, same weight structure as bars) -->
+        <LinearLayout
+            android:id="@+id/llSmeterLabels"
+            android:layout_width="match_parent"
+            android:layout_height="12dp"
+            android:orientation="horizontal"
+            android:paddingStart="18dp"/>
+    </LinearLayout>
+
+    <!-- Info row: Step / Mode / Width / Pow / SQL / BK-IN -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="36dp"
+        android:orientation="horizontal"
+        android:background="#080808"
+        android:layout_marginBottom="4dp">
+        <TextView android:id="@+id/tvStep"  android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:textColor="#AAAAAA" android:textSize="12sp" android:gravity="center"
+            android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground"/>
+        <TextView android:id="@+id/tvMode"  android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:textColor="#AAAAAA" android:textSize="12sp" android:gravity="center"
+            android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground"/>
+        <TextView android:id="@+id/tvWidth" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:textColor="#AAAAAA" android:textSize="12sp" android:gravity="center"
+            android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground"/>
+        <TextView android:id="@+id/tvPow"   android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:textColor="#AAAAAA" android:textSize="12sp" android:gravity="center"
+            android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground"/>
+        <TextView android:id="@+id/tvSQL"   android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:textColor="#AAAAAA" android:textSize="12sp" android:gravity="center"
+            android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground"/>
+        <TextView android:id="@+id/tvBkIn"  android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:textColor="#444444" android:textSize="11sp" android:gravity="center"
+            android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground"/>
+    </LinearLayout>
+
+    <!-- Volume + Mic Gain sliders -->
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical"
+        android:layout_marginBottom="2dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Vol" android:textColor="#666666" android:textSize="13sp"
+            android:layout_marginEnd="6dp"/>
+        <SeekBar
+            android:id="@+id/seekVolume"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:max="100"
+            android:progress="50" />
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical"
+        android:layout_marginBottom="6dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Mic" android:textColor="#666666" android:textSize="13sp"
+            android:layout_marginEnd="6dp"/>
+        <SeekBar
+            android:id="@+id/seekMicGain"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:max="30"
+            android:progress="10" />
+        <TextView
+            android:id="@+id/tvMicGain"
+            android:layout_width="36dp"
+            android:layout_height="wrap_content"
+            android:text="1.0"
+            android:textColor="#666666"
+            android:textSize="12sp"
+            android:gravity="end"
+            android:layout_marginStart="4dp"/>
+    </LinearLayout>
+
+    <!-- CW/BT ステータスバー（一行） -->
+    <LinearLayout
+        android:id="@+id/llCwUsb"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="30dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#0C0C0C"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:layout_marginBottom="2dp"
+        android:clickable="true"
+        android:focusable="true">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="CW:"
+            android:textColor="#555555"
+            android:textSize="12sp"
+            android:layout_marginEnd="4dp"/>
+        <!-- BT タップエリア（BT接続/切断） - 左寄せ -->
+        <LinearLayout
+            android:id="@+id/llCwBt"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingEnd="6dp"
+            android:clickable="true"
+            android:focusable="true">
+            <TextView
+                android:id="@+id/tvCwBtStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="BT"
+                android:textColor="#444444"
+                android:textSize="11sp"
+                android:textStyle="bold"/>
+        </LinearLayout>
+        <TextView
+            android:id="@+id/tvCwUsbLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="USB"
+            android:textColor="#444444"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:layout_marginEnd="4dp"/>
+        <TextView
+            android:id="@+id/tvCwUsbStatus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Not connected"
+            android:textColor="#444444"
+            android:textSize="12sp"
+            android:maxLines="1"
+            android:ellipsize="end"/>
+        <TextView
+            android:id="@+id/tvCwServerStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Svr:--"
+            android:textColor="#888888"
+            android:textSize="11sp"
+            android:layout_marginStart="6dp"/>
+        <TextView
+            android:id="@+id/tvCwUsbPort"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ttyACM0"
+            android:textColor="#333333"
+            android:textSize="11sp"
+            android:layout_marginStart="6dp"/>
+    </LinearLayout>
+
+    <!-- CW デコード表示欄 -->
+    <LinearLayout
+        android:id="@+id/llCwDecoder"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:visibility="gone"
+        android:background="#0D0D00"
+        android:layout_marginBottom="2dp"
+        android:clickable="true"
+        android:focusable="true">
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:gravity="center_vertical">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="TX:" android:textColor="#00E5FF" android:textSize="13sp" android:fontFamily="monospace"/>
+            <TextView android:id="@+id/tvCwFreq0" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="RX:" android:textColor="#FFFF00" android:textSize="13sp" android:fontFamily="monospace"/>
+            <TextView android:id="@+id/tvCwFreq1" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="---" android:textColor="#FFAA00" android:textSize="13sp" android:fontFamily="monospace" android:visibility="gone"/>
+            <TextView android:id="@+id/tvCwFreq2" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="---" android:textColor="#FF8800" android:textSize="13sp" android:fontFamily="monospace" android:visibility="gone"/>
+            <TextView android:id="@+id/tvCwFreq3" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="---" android:textColor="#FF6600" android:textSize="13sp" android:fontFamily="monospace" android:visibility="gone"/>
+            <TextView android:id="@+id/tvCwFreq4" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="---" android:textColor="#FF4400" android:textSize="13sp" android:fontFamily="monospace" android:visibility="gone"/>
+        </LinearLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+            <HorizontalScrollView android:id="@+id/hsvCwTx" android:layout_width="match_parent" android:layout_height="wrap_content" android:scrollbars="none" android:overScrollMode="never">
+                <TextView android:id="@+id/tvCwTx" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:textColor="#00E5FF" android:textSize="14sp" android:fontFamily="monospace" android:paddingEnd="8dp"/>
+            </HorizontalScrollView>
+            <HorizontalScrollView android:id="@+id/hsvCwRx0" android:layout_width="match_parent" android:layout_height="wrap_content" android:scrollbars="none" android:overScrollMode="never">
+                <TextView android:id="@+id/tvCwRx0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:textColor="#FFFF00" android:textSize="14sp" android:fontFamily="monospace" android:paddingEnd="8dp"/>
+            </HorizontalScrollView>
+            <HorizontalScrollView android:id="@+id/hsvCwRx1" android:layout_width="match_parent" android:layout_height="wrap_content" android:scrollbars="none" android:overScrollMode="never" android:visibility="gone">
+                <TextView android:id="@+id/tvCwRx1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:textColor="#FFAA00" android:textSize="14sp" android:fontFamily="monospace" android:paddingEnd="8dp"/>
+            </HorizontalScrollView>
+            <HorizontalScrollView android:id="@+id/hsvCwRx2" android:layout_width="match_parent" android:layout_height="wrap_content" android:scrollbars="none" android:overScrollMode="never" android:visibility="gone">
+                <TextView android:id="@+id/tvCwRx2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:textColor="#FF8800" android:textSize="14sp" android:fontFamily="monospace" android:paddingEnd="8dp"/>
+            </HorizontalScrollView>
+            <HorizontalScrollView android:id="@+id/hsvCwRx3" android:layout_width="match_parent" android:layout_height="wrap_content" android:scrollbars="none" android:overScrollMode="never" android:visibility="gone">
+                <TextView android:id="@+id/tvCwRx3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:textColor="#FF6600" android:textSize="14sp" android:fontFamily="monospace" android:paddingEnd="8dp"/>
+            </HorizontalScrollView>
+            <HorizontalScrollView android:id="@+id/hsvCwRx4" android:layout_width="match_parent" android:layout_height="wrap_content" android:scrollbars="none" android:overScrollMode="never" android:visibility="gone">
+                <TextView android:id="@+id/tvCwRx4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:textColor="#FF4400" android:textSize="14sp" android:fontFamily="monospace" android:paddingEnd="8dp"/>
+            </HorizontalScrollView>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Button grid 4x4 -->
+    <GridLayout
+        android:id="@+id/gridButtons"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:columnCount="4"
+        android:rowCount="4"
+        android:useDefaultMargins="true">
+
+        <!-- Row 1: Mode quick select (LSB↔PKTLSB / USB↔PKTUSB / CW↔CWR / FM↔PKTFM) -->
+        <Button android:id="@+id/btnModeLsb" android:text="LSB" android:textSize="14sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1A237E" android:textColor="#AAAAFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnModeUsb" android:text="USB" android:textSize="14sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1A237E" android:textColor="#AAAAFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnModeCw"  android:text="CW"  android:textSize="14sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1A237E" android:textColor="#AAAAFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnModeFm"  android:text="FM"  android:textSize="14sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1A237E" android:textColor="#AAAAFF" android:padding="0dp"/>
+
+        <!-- Row 2: Freq / Wid / Pow / SQL -->
+        <Button android:id="@+id/btnFreq"  android:text="Freq" android:textSize="15sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1565C0" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnWidth" android:text="Wid"  android:textSize="15sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1565C0" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnPow"   android:text="Pow"  android:textSize="15sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1565C0" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnSQL"   android:text="SQL"  android:textSize="15sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1565C0" android:textColor="#FFFFFF" android:padding="0dp"/>
+
+        <!-- Row 3: CW TX / FT8 / APRS / PTT -->
+        <Button android:id="@+id/btnCwTx" android:text="CW TX" android:textSize="13sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1A1A1A" android:textColor="#555555" android:padding="0dp"/>
+        <Button android:id="@+id/btnFt8"  android:text="FT8"   android:textSize="15sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#006064" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnAprs" android:text="APRS"  android:textSize="15sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#455A64" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnPtt"  android:text="PTT"   android:textSize="15sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#6A1B9A" android:textColor="#FFFFFF" android:padding="0dp"/>
+
+        <!-- Row 4: Back / SPK / DOWN / UP -->
+        <Button android:id="@+id/btnBack" android:text="Back" android:textSize="15sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#B71C1C" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnSpk"  android:text="SPK"  android:textSize="15sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1B5E20" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnDown" android:text="DOWN" android:textSize="15sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#E65100" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnUp"   android:text="UP"   android:textSize="15sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#E65100" android:textColor="#FFFFFF" android:padding="0dp"/>
+
+    </GridLayout>
+
+</LinearLayout>

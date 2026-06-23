@@ -4,28 +4,20 @@ Android スマートフォンから Raspberry Pi 経由でアマチュア無線�
 
 ## v2.11 変更点（v2.10 との比較）
 
-### ノイズリダクション強化
+### BLE CW 電鍵サポートを追加（DualKey-BLE / RemoteKeyer-BLE）
 
-- **NR レベルを 3 段階から 5 段階に拡張（afftdn ベースに統一）**
-  - Level 1 (Light)   : `afftdn=nf=-30:nr=15`
-  - Level 2 (Medium)  : `afftdn=nf=-25:nr=20`
-  - Level 3 (Strong)  : `afftdn=nf=-20:nr=25:tn=1`
-  - Level 4 (Stronger): `afftdn=nf=-20:nr=33:tn=1`
-  - Level 5 (Max)     : `afftdn=nf=-20:nr=40:tn=1`
-- **NR をデュアルサーバー構成に対応**（apiPort / audioPort 両方に同期送信）
-- **SQL ボタン長押し**で 0→1→2→3→4→5→0 循環
+- **DualKey-BLE（M5AtomS3）または RemoteKeyer-BLE を BLE（Bluetooth LE）で Android にワイヤレス接続可能**
+- Nordic UART Service（NUS）プロトコルを使用
+- Android の Bluetooth 設定でペアリング後、BT ボタンをタップするだけで自動検出・接続
+- **DualKey-BLE の USB CDC / BLE 自動切替機能**
+  - 電源投入後10秒間: 左パドル（DAH）→ USB CDC モード、右パドル（DIT）→ BLE モード（デフォルト）
+  - BLE モード中: アプリ（Android）からの USB データ受信で自動的に USB CDC モードへ再起動
+  - USB CDC モード中: USB 切断で自動的に BLE モードへ再起動
 
-### Update Pi 信頼性向上
+### CW 接続状態表示を改善
 
-- sudoers 設定を実行ユーザー名で正しく生成（sudo 実行時の whoami バグを修正）
-- fallback 再起動の待機時間を 3s → 15s に延長（Pi Zero 対応）
-- fallback 時に fastapi-audio（port 50000）も確実に再起動
-
-### BLE 対応（DualKey-BLE）
-
-- **DualKey-BLE デバイスのサポートを追加**（Nordic UART Service）
-- ペアリング済みデバイスが RemoteKeyer-BT（Classic BT）と DualKey-BLE（BLE）両方ある場合は選択ダイアログ表示
-- BLE 接続時の WPM・パドルスワップ同期対応
+- BLE 接続時: 「BLE」緑表示
+- 未接続時: 「BLE」グレー表示
 
 ## APK インストール手順
 

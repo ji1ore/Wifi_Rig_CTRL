@@ -148,7 +148,8 @@ class RigApiService(private var hostName: String, private var apiPort: Int, priv
                 width = width,
                 sql = sql,
                 txInProgress = doc["tx_in_progress"] as? Boolean ?: false,
-                bkIn = bkIn
+                bkIn = bkIn,
+                apiVersion = doc["api_version"] as? String ?: ""
             )
         } catch (_: Exception) { null }
     }
@@ -351,6 +352,12 @@ class RigApiService(private var hostName: String, private var apiPort: Int, priv
 
     fun cwKey(isOn: Boolean) = post("/cw/key",
         FormBody.Builder().add("is_on", if (isOn) "true" else "false").build())
+
+    fun rebootPi(): Boolean = try {
+        val req = Request.Builder().url("$baseUrl/admin/reboot").withApiKey()
+            .post("".toRequestBody("text/plain".toMediaType())).build()
+        client.newCall(req).execute().use { it.isSuccessful }
+    } catch (_: Exception) { false }
 
     fun sendWebFt8Update(content: ByteArray): String? = try {
         val body = content.toRequestBody("text/plain".toMediaType())

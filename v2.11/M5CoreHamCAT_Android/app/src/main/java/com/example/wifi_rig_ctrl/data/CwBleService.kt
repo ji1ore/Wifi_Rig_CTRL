@@ -37,9 +37,12 @@ class CwBleService(private val context: Context) {
     private var toneThread: Thread? = null
     @Volatile private var keyOn = false
 
+    private var cwAudioStream: CwAudioStream? = null
+
     var onKeyStateChange: ((Boolean, ByteArray) -> Unit)? = null
     var onConnectionStateChange: ((Boolean) -> Unit)? = null
     var onWpmChange: ((Int) -> Unit)? = null
+    var onAudioStreamNeeded: (() -> Unit)? = null
 
     @Volatile var currentMode: String = ""
     @Volatile var sidetoneEnabled: Boolean = true
@@ -76,6 +79,8 @@ class CwBleService(private val context: Context) {
         running = false
         syncQueue.clear()
         stopSidetone()
+        cwAudioStream?.stop()
+        cwAudioStream = null
         audioTrack?.release()
         audioTrack = null
         gatt?.disconnect()
@@ -293,6 +298,22 @@ class CwBleService(private val context: Context) {
             lastReportedKeyState = isOn
             onKeyStateChange?.invoke(isOn, rawPacket)
         }
+        val isCwMode = currentMode.contains("CW", ignoreCase = true)
+        if (!isCwMode) {
+            if (cwAudioStream == null) onAudioStreamNeeded?.invoke()
+            if (isOn) cwAudioStream?.keyOn() else cwAudioStream?.keyOff()
+        }
+    }
+
+    fun startCwAudioStream(api: RigApiService, apiKey: String) {
+        cwAudioStream?.stop()
+        cwAudioStream = CwAudioStream(api, apiKey, SIDETONE_FREQ_HZ, 8000)
+        cwAudioStream?.start()
+    }
+
+    fun stopCwAudioStream() {
+        cwAudioStream?.stop()
+        cwAudioStream = null
     }
 
     // ───────── Sidetone ─────────
@@ -317,12 +338,12 @@ class CwBleService(private val context: Context) {
             .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
             .build()
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-            audioTrack?.setBufferSizeInFrames(nativeSR / 100)
+            audioTrack?.setBufferSizeInFrames(nativeSR / 20)  // 50ms: headroom for BLE scheduling jitter
         }
         toneThread = Thread {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
             audioTrack?.play()
-            val chunkSamples = nativeSR / 500
+            val chunkSamples = nativeSR / 100  // 10ms chunks
             val chunk = ShortArray(chunkSamples)
             var phase = 0.0
             val phaseInc = 2.0 * PI * SIDETONE_FREQ_HZ / nativeSR

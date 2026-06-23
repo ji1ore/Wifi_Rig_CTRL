@@ -154,6 +154,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         cwPttPoll.value = enabled
     }
     val cwTxBusy = MutableLiveData(false)
+    val cwKeyOn  = MutableLiveData(false)
     private var cwTextJob: Job? = null
 
     val cwCqRepeating = MutableLiveData(false)
@@ -233,6 +234,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val errorMessage = MutableLiveData<String?>(null)
     val audioError = MutableLiveData<String?>(null)
     val isConnectedToRig = MutableLiveData(false)
+    val piVersionMismatch = MutableLiveData(false)
     val isDemoMode = MutableLiveData(false)
     private var demoTick = 0
 
@@ -255,6 +257,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         const val CW_UDP_PORT = 8889
+        const val EXPECTED_PI_API_VERSION = "2.11"
     }
     private var cwServerPollingJob: Job? = null
     private var aprsHeartbeatJob: Job? = null
@@ -549,6 +552,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         sharedSignal.value = s
         sharedTx.value = st.tx
         aprsTxInProgress.value = st.txInProgress
+        if (st.apiVersion.isNotEmpty()) piVersionMismatch.value = st.apiVersion != EXPECTED_PI_API_VERSION
 
         // APRS TX state management: radio is TX and APRS is enabled → treat as APRS TX
         // Stop SPK on TX start, resume SPK on TX end (also blocks false external PTT detection)
@@ -628,10 +632,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun updateCwAudioStreamForMode(mode: String) {
-        if (cwUsbEnabled.value != true) return
         val isCwMode = mode.contains("CW", ignoreCase = true)
-        if (isCwMode) cwUsb.stopCwAudioStream()
-        else cwUsb.startCwAudioStream(api, apiKey.value ?: "")
+        if (cwUsbEnabled.value == true) {
+            if (isCwMode) cwUsb.stopCwAudioStream() else cwUsb.startCwAudioStream(api, apiKey.value ?: "")
+        }
+        if (cwBleEnabled.value == true) {
+            if (isCwMode) cwBle.stopCwAudioStream() else cwBle.startCwAudioStream(api, apiKey.value ?: "")
+        }
     }
 
     fun toggleCwSidetone() {
@@ -680,6 +687,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             stopStatusPolling()
             // Stop CW audio stream during PTT: prevents contention on audio_tx endpoint
             cwUsb.stopCwAudioStream()
+            cwBle.stopCwAudioStream()
             // Cancel pending PTT OFF and force close
             val jobToCancel = pttOffJob
             if (jobToCancel != null) {
@@ -1092,6 +1100,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         } catch (e: Exception) { e.message }
     }
 
+    suspend fun rebootPiAndWait(): String = withContext(Dispatchers.IO) {
+        // api.py 再送直後は FastAPI が再起動中のため、成功するまでリトライ
+        val readyDeadline = System.currentTimeMillis() + 30_000L
+        var rebooted = false
+        while (System.currentTimeMillis() < readyDeadline) {
+            if (api.rebootPi()) { rebooted = true; break }
+            Thread.sleep(3000)
+        }
+        if (!rebooted) return@withContext "Reboot failed — Pi unreachable"
+        Thread.sleep(8000)  // Pi がシャットダウンを開始するまで待つ
+        val deadline = System.currentTimeMillis() + 120_000L
+        while (System.currentTimeMillis() < deadline) {
+            if (api.getStatus() != null) return@withContext "Pi reboot complete"
+            Thread.sleep(5000)
+        }
+        "Pi reboot timeout — check connection"
+    }
+
     suspend fun syncPiTime(): String = withContext(Dispatchers.IO) {
         // 同期前のPi時刻ずれを測定
         val preOffsetMs = try { api.getPiClockOffsetMs() } catch (_: Exception) { null }
@@ -1290,6 +1316,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         cwUsb.onKeyStateChange = { isOn, rawPacket ->
+            cwKeyOn.postValue(isOn)
             cwUsb.currentMode = sharedMode.value ?: ""
             val mode = cwUsb.currentMode
             val isCwMode = mode.contains("CW", ignoreCase = true)
@@ -1417,6 +1444,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         cwBleConnecting = true
 
         cwBle.sidetoneEnabled = prefs.cwSidetoneEnabled
+        cwBle.onAudioStreamNeeded = {
+            val mode = sharedMode.value ?: ""
+            val pttActive = txEnabled.value == true
+            if (!mode.contains("CW", ignoreCase = true) && cwBleEnabled.value == true && !pttActive) {
+                viewModelScope.launch(Dispatchers.Main) {
+                    cwBle.startCwAudioStream(api, apiKey.value ?: "")
+                }
+            }
+        }
         cwBle.onConnectionStateChange = { connected ->
             cwBleConnected.postValue(connected)
             if (!connected) {
@@ -1458,6 +1494,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             cwWpm.postValue(wpm)
         }
         cwBle.onKeyStateChange = { isOn, rawPacket ->
+            cwKeyOn.postValue(isOn)
             cwBle.currentMode = sharedMode.value ?: ""
             val mode = cwBle.currentMode
             val isCwMode = mode.contains("CW", ignoreCase = true)

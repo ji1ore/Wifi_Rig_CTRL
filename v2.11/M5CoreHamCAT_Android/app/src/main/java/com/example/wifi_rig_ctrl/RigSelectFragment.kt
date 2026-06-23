@@ -39,6 +39,10 @@ class RigSelectFragment : Fragment() {
             binding.btnSetupLog.isEnabled = false
         }
 
+        vm.piVersionMismatch.observe(viewLifecycleOwner) { mismatch ->
+            if (mismatch) binding.tvStatus.text = "Pi APIバージョン不一致 — UPDATEで更新してください"
+        }
+
         // Rig model tap →dialog
         binding.tvRigName.setOnClickListener {
             val rigs = vm.rigList.value ?: return@setOnClickListener
@@ -162,27 +166,32 @@ class RigSelectFragment : Fragment() {
         binding.btnUpdateApi.setOnClickListener {
             AlertDialog.Builder(requireContext())
                 .setTitle("Update Pi")
-                .setMessage("Send api.py then run create_api.sh in background (includes re-fetching webft8 files). Proceed?")
+                .setMessage("Send api.py then run create_api.sh in background (includes re-fetching webft8 files), then reboot Pi. Proceed?")
                 .setPositiveButton("Update") { _, _ ->
                     binding.btnUpdateApi.isEnabled = false
                     binding.tvStatus.text = "Uploading api.py..."
                     lifecycleScope.launch {
                         val result = vm.updatePiSoftware()
-                        binding.btnUpdateApi.isEnabled = true
                         when {
                             result == null -> {
-                                binding.tvStatus.text = "Update complete. api.py deployed to Pi."
-                                Toast.makeText(requireContext(), "Pi update complete", Toast.LENGTH_SHORT).show()
+                                binding.tvStatus.text = "Update complete. Rebooting Pi..."
+                                val rebootResult = vm.rebootPiAndWait()
+                                binding.btnUpdateApi.isEnabled = true
+                                binding.tvStatus.text = rebootResult
+                                Toast.makeText(requireContext(), rebootResult, Toast.LENGTH_SHORT).show()
                             }
                             result.startsWith("api.py OK") -> {
+                                binding.btnUpdateApi.isEnabled = true
                                 binding.tvStatus.text = "api.py sent but setup script failed. Run UPDATE again."
                                 Toast.makeText(requireContext(), result, Toast.LENGTH_LONG).show()
                             }
                             result.startsWith("setup OK") -> {
+                                binding.btnUpdateApi.isEnabled = true
                                 binding.tvStatus.text = "Setup done but api.py resend failed. Run UPDATE again."
                                 Toast.makeText(requireContext(), result, Toast.LENGTH_LONG).show()
                             }
                             else -> {
+                                binding.btnUpdateApi.isEnabled = true
                                 binding.tvStatus.text = "Update failed: $result"
                                 Toast.makeText(requireContext(), "Update failed: $result", Toast.LENGTH_LONG).show()
                             }

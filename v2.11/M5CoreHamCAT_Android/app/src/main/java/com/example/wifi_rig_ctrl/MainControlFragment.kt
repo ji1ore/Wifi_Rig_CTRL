@@ -146,6 +146,11 @@ class MainControlFragment : Fragment() {
         }
     }
 
+    private fun updateModelDisplay() {
+        val name = vm.sharedModel.value ?: ""
+        binding.tvModel.text = if (vm.piVersionMismatch.value == true && name.isNotEmpty()) "$name ⚠UPDATE" else name
+    }
+
     private fun updateSMeter(signal: Float) {
         val bars = binding.llSmeter.childCount
         val threshold = (signal * 2f).toInt()
@@ -182,7 +187,8 @@ class MainControlFragment : Fragment() {
         vm.sharedBkIn.observe(viewLifecycleOwner) { updateInfoRow(); updateButtonHighlights() }
         vm.sharedWidth.observe(viewLifecycleOwner) { updateInfoRow() }
         vm.sharedSignal.observe(viewLifecycleOwner) { updateSMeter(it) }
-        vm.sharedModel.observe(viewLifecycleOwner) { binding.tvModel.text = it }
+        vm.sharedModel.observe(viewLifecycleOwner) { updateModelDisplay() }
+        vm.piVersionMismatch.observe(viewLifecycleOwner) { updateModelDisplay() }
         vm.selectedStep.observe(viewLifecycleOwner) { updateInfoRow() }
         vm.selectedMenuItem.observe(viewLifecycleOwner) { updateButtonHighlights() }
         vm.aprsEnabled.observe(viewLifecycleOwner) { updateButtonHighlights() }
@@ -193,6 +199,9 @@ class MainControlFragment : Fragment() {
             updateTxIndicator()
         }
         vm.aprsTxInProgress.observe(viewLifecycleOwner) { _ ->
+            updateTxIndicator()
+        }
+        vm.cwKeyOn.observe(viewLifecycleOwner) { _ ->
             updateTxIndicator()
         }
         vm.audioError.observe(viewLifecycleOwner) { msg ->
@@ -327,16 +336,18 @@ class MainControlFragment : Fragment() {
     }
 
     private fun updateTxIndicator() {
-        val tx = vm.txEnabled.value == true
+        val tx   = vm.txEnabled.value == true
         val aprs = vm.aprsTxInProgress.value == true
+        val cwKey = vm.cwKeyOn.value == true
         val bgColor = when {
-            aprs -> 0xFFFF8800.toInt()  // orange: APRS TX
-            tx   -> 0xFFFF0000.toInt()  // red: TX
-            else -> 0xFFDDDDDD.toInt()  // grey: RX
+            aprs  -> 0xFFFF8800.toInt()  // orange: APRS TX
+            tx    -> 0xFFFF0000.toInt()  // red: PTT TX
+            cwKey -> 0xFFFF0000.toInt()  // red: CW keying TX
+            else  -> 0xFFDDDDDD.toInt()  // grey: RX
         }
-        val textColor = if (tx || aprs) 0xFFFFFFFF.toInt() else 0xFF000000.toInt()
+        val lit = tx || aprs || cwKey
         binding.tvTxIndicator.setBackgroundColor(bgColor)
-        binding.tvTxIndicator.setTextColor(textColor)
+        binding.tvTxIndicator.setTextColor(if (lit) 0xFFFFFFFF.toInt() else 0xFF000000.toInt())
         binding.tvTxIndicator.text = if (aprs) "APRS" else "TX"
     }
 
@@ -349,13 +360,8 @@ class MainControlFragment : Fragment() {
         binding.btnWidth.backgroundTintList = tint(if (sel == MenuItem.WIDTH) 0xFF00BCD4.toInt() else 0xFF1565C0.toInt())
         binding.btnPow.backgroundTintList   = tint(if (sel == MenuItem.POW)   0xFF00BCD4.toInt() else 0xFF1565C0.toInt())
         val nrLevel = vm.noiseReductionLevel.value ?: 0
-        val sqlNrActive = nrLevel > 0
-        binding.btnSQL.backgroundTintList = tint(when {
-            sel == MenuItem.SQL -> 0xFF00BCD4.toInt()
-            sqlNrActive         -> 0xFF6A1B9A.toInt()  // purple: NR active
-            else                -> 0xFF1565C0.toInt()
-        })
-        binding.btnSQL.text = if (sqlNrActive) "SQL\nNR$nrLevel" else "SQL"
+        binding.btnSQL.backgroundTintList = tint(if (sel == MenuItem.SQL) 0xFF00BCD4.toInt() else 0xFF1565C0.toInt())
+        binding.btnSQL.text = "SQL"
 
         // Info row highlight: selected item → cyan text
         binding.tvStep.setTextColor(if (sel == MenuItem.STEP)  0xFF00FFFF.toInt() else 0xFFCCCCCC.toInt())
@@ -390,8 +396,15 @@ class MainControlFragment : Fragment() {
             else          -> 0xFF1B5E20.toInt()  // Dark green: SPK OFF
         }
         binding.btnSpk.backgroundTintList = tint(spkColor)
-        // Show DEC in lower caption when decoding
-        binding.btnSpk.text = if (cwDecoding) "SPK\nDEC" else "SPK"
+        binding.btnSpk.text = "SPK"
+
+        // NR button
+        val nrActive = nrLevel > 0
+        binding.btnNr.backgroundTintList = tint(if (nrActive) 0xFF6A1B9A.toInt() else 0xFF1565C0.toInt())
+        binding.btnNr.text = if (nrActive) "NR$nrLevel" else "NR"
+
+        // DEC button
+        binding.btnDec.backgroundTintList = tint(if (cwDecoding) 0xFF00897B.toInt() else 0xFF1565C0.toInt())
 
         // Mode quick-select buttons (Row 1): base=cyan / PKT variant=teal / inactive=dark indigo
         val curMode = vm.sharedMode.value ?: ""
@@ -447,24 +460,6 @@ class MainControlFragment : Fragment() {
                 vm.selectedMenuItem.value =
                     if (vm.selectedMenuItem.value == item) MenuItem.NONE else item
             }
-        }
-
-        // SQL long press: cycle noise reduction level 0→1→2→3→0
-        binding.btnSQL.setOnLongClickListener {
-            if (vm.txEnabled.value == true) return@setOnLongClickListener true
-            vm.cycleNoiseReduction()
-            val level = vm.noiseReductionLevel.value ?: 0
-            val msg = when (level) {
-                0 -> "Noise Reduction: OFF"
-                1 -> "Noise Reduction: Level 1 (Light)"
-                2 -> "Noise Reduction: Level 2 (Medium)"
-                3 -> "Noise Reduction: Level 3 (Strong)"
-                4 -> "Noise Reduction: Level 4 (Max)"
-                5 -> "Noise Reduction: Level 5 (Neural)"
-                else -> "Noise Reduction: Level $level"
-            }
-            Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
-            true
         }
 
         // Info row taps: select parameter for UP/DOWN
@@ -545,9 +540,40 @@ class MainControlFragment : Fragment() {
             true
         }
 
-        // UP / DOWN → adjust selected parameter
-        binding.btnUp.setOnClickListener { handleUpDown(+1) }
-        binding.btnDown.setOnClickListener { handleUpDown(-1) }
+        // Freq ◀/▶ → step by current step size
+        binding.btnFreqMinus.setOnClickListener {
+            val step = STEP_LIST.getOrElse(vm.selectedStep.value ?: 0) { STEP_LIST[0] }
+            vm.sendFreq((vm.sharedFreq.value ?: 0L) - step.stepHz)
+        }
+        binding.btnFreqPlus.setOnClickListener {
+            val step = STEP_LIST.getOrElse(vm.selectedStep.value ?: 0) { STEP_LIST[0] }
+            vm.sendFreq((vm.sharedFreq.value ?: 0L) + step.stepHz)
+        }
+
+        // NR button: cycle noise reduction level
+        binding.btnNr.setOnClickListener {
+            if (vm.txEnabled.value == true) return@setOnClickListener
+            vm.cycleNoiseReduction()
+            val level = vm.noiseReductionLevel.value ?: 0
+            val msg = when (level) {
+                0    -> "Noise Reduction: OFF"
+                1    -> "Noise Reduction: Level 1 (Light)"
+                2    -> "Noise Reduction: Level 2 (Medium)"
+                3    -> "Noise Reduction: Level 3 (Strong)"
+                4    -> "Noise Reduction: Level 4 (Max)"
+                5    -> "Noise Reduction: Level 5 (Neural)"
+                else -> "Noise Reduction: Level $level"
+            }
+            Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+        }
+
+        // DEC button: toggle CW decode
+        binding.btnDec.setOnClickListener {
+            vm.toggleCwDecoding()
+            val decoding = vm.cwDecoding.value ?: false
+            val msg = if (decoding) "CW Decode ON (yellow=RX  blue=TX)" else "CW Decode OFF"
+            Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+        }
 
         // PTT toggle
         binding.btnPtt.setOnClickListener {
@@ -574,15 +600,6 @@ class MainControlFragment : Fragment() {
             val on = !(vm.spkEnabled.value ?: false)
             vm.spkEnabled.value = on
             if (on) vm.startAudio() else vm.stopAudio()
-        }
-
-        // SPK long press: toggle CW/FM-CW decode display ON/OFF
-        binding.btnSpk.setOnLongClickListener {
-            vm.toggleCwDecoding()
-            val decoding = vm.cwDecoding.value ?: false
-            val msg = if (decoding) "CW Decode ON (yellow=RX  blue=TX)" else "CW Decode OFF"
-            Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
-            true
         }
 
         // Decode area long press: toggle RX multi-channel display ON/OFF

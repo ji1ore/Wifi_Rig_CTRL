@@ -76,7 +76,7 @@ if $_HAS_SUDO; then
     done
 
     # 実行ユーザーが sudo なしで systemctl restart できるよう NOPASSWD 設定
-    echo "$ME ALL=(ALL) NOPASSWD: /bin/systemctl restart fastapi, /bin/systemctl restart fastapi-audio, /bin/systemctl restart webft8, /bin/systemctl restart direwolf, /bin/systemctl start direwolf, /bin/systemctl stop direwolf, /bin/chown $ME\:$ME $ME_HOME/fastapi/api.py, /usr/bin/chown $ME\:$ME $ME_HOME/fastapi/api.py" \
+    echo "$ME ALL=(ALL) NOPASSWD: /bin/systemctl restart fastapi, /bin/systemctl restart fastapi-audio, /bin/systemctl restart webft8, /bin/systemctl restart direwolf, /bin/systemctl start direwolf, /bin/systemctl stop direwolf, /bin/systemctl reboot, /bin/chown $ME\:$ME $ME_HOME/fastapi/api.py, /usr/bin/chown $ME\:$ME $ME_HOME/fastapi/api.py" \
         | sudo tee /etc/sudoers.d/fastapi-restart > /dev/null
     sudo chmod 0440 /etc/sudoers.d/fastapi-restart
     echo "NOPASSWD 設定完了"

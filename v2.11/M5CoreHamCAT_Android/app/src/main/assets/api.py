@@ -2124,3 +2124,13 @@ async def admin_setup_log(lines: int = 60):
         if Path(f"/proc/{p}/cmdline").exists()
     )
     return {"running": running, "log": tail}
+
+
+@app.post("/admin/reboot")
+async def admin_reboot():
+    """ラズパイを再起動する"""
+    def _do_reboot():
+        time.sleep(2)
+        subprocess.run(["sudo", "-n", "/bin/systemctl", "reboot"], check=False)
+    threading.Thread(target=_do_reboot, daemon=True).start()
+    return {"ok": True}

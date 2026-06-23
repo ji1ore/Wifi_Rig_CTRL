@@ -354,16 +354,14 @@ class CwUsbService(private val context: Context) {
             .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
             .build()
 
-        // Limit buffer depth to ~10ms to reduce sidetone on/off delay
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-            audioTrack?.setBufferSizeInFrames(nativeSR / 100)  // 10ms
+            audioTrack?.setBufferSizeInFrames(nativeSR / 20)  // 50ms: headroom against scheduling jitter
         }
 
         toneThread = Thread {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
             audioTrack?.play()
-            // 2ms chunks: minimize buffer depth (48000Hz → 96 samples)
-            val chunkSamples = nativeSR / 500
+            val chunkSamples = nativeSR / 100  // 10ms chunks
             val chunk = ShortArray(chunkSamples)
             var phase = 0.0
             val phaseInc = 2.0 * PI * SIDETONE_FREQ_HZ / nativeSR

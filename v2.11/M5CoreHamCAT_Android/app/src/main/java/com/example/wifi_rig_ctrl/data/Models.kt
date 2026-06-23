@@ -13,7 +13,8 @@ data class RigStatus(
     val width: Int,
     val sql: Float,
     val txInProgress: Boolean,
-    val bkIn: Boolean = false
+    val bkIn: Boolean = false,
+    val apiVersion: String = ""
 )
 
 data class AprsConfig(

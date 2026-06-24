@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#000000">
+
+    <!-- Scrollable settings content -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="RIG CONNECT"
+                android:textColor="#00FFFF"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Rig Model -->
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="Rig model" android:textColor="#AAAAAA" android:textSize="18sp"/>
+            <TextView
+                android:id="@+id/tvRigName"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:background="@drawable/edit_bg"
+                android:gravity="center_vertical"
+                android:padding="10dp"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp"
+                android:layout_marginBottom="8dp" />
+
+            <!-- CAT Device + Screen Timeout row -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:layout_marginBottom="4dp">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="4dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="CAT Device" android:textColor="#AAAAAA" android:textSize="18sp"/>
+                    <TextView
+                        android:id="@+id/tvCatDevice"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:background="@drawable/edit_bg"
+                        android:gravity="center_vertical"
+                        android:padding="10dp"
+                        android:textColor="#FFFFFF"
+                        android:textSize="18sp" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="4dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Disp Off" android:textColor="#AAAAAA" android:textSize="18sp"/>
+                    <TextView
+                        android:id="@+id/tvTimeout"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:background="@drawable/edit_bg"
+                        android:gravity="center_vertical"
+                        android:padding="10dp"
+                        android:textColor="#FFFFFF"
+                        android:textSize="18sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- PTT Device row -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:layout_marginBottom="4dp">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="4dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="PTT Device" android:textColor="#AAAAAA" android:textSize="18sp"/>
+                    <TextView
+                        android:id="@+id/tvPttDevice"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:background="@drawable/edit_bg"
+                        android:gravity="center_vertical"
+                        android:padding="10dp"
+                        android:textColor="#FFFFFF"
+                        android:textSize="18sp" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="4dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="PTT Type" android:textColor="#AAAAAA" android:textSize="18sp"/>
+                    <TextView
+                        android:id="@+id/tvPttType"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:background="@drawable/edit_bg"
+                        android:gravity="center_vertical"
+                        android:padding="10dp"
+                        android:textColor="#FFFFFF"
+                        android:textSize="18sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Baud Rate + Sampling Rate row -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:layout_marginBottom="4dp">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="4dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Baud Rate" android:textColor="#AAAAAA" android:textSize="18sp"/>
+                    <TextView
+                        android:id="@+id/tvBaudRate"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:background="@drawable/edit_bg"
+                        android:gravity="center_vertical"
+                        android:padding="10dp"
+                        android:textColor="#FFFFFF"
+                        android:textSize="18sp" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="4dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="RX Rate" android:textColor="#AAAAAA" android:textSize="18sp"/>
+                    <TextView
+                        android:id="@+id/tvSampling"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:background="@drawable/edit_bg"
+                        android:gravity="center_vertical"
+                        android:padding="10dp"
+                        android:textColor="#FFFFFF"
+                        android:textSize="18sp" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="4dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="TX Rate" android:textColor="#AAAAAA" android:textSize="18sp"/>
+                    <TextView
+                        android:id="@+id/tvTxRate"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:background="@drawable/edit_bg"
+                        android:gravity="center_vertical"
+                        android:padding="10dp"
+                        android:textColor="#FFFFFF"
+                        android:textSize="18sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Audio Device (SPK/TX) and FT8 Audio Device - vertical layout -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:layout_marginTop="4dp" android:layout_marginBottom="8dp">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Audio (SPK/TX)" android:textColor="#AAAAAA" android:textSize="16sp"/>
+                <TextView
+                    android:id="@+id/tvAudioDevice"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:background="@drawable/edit_bg"
+                    android:gravity="center_vertical"
+                    android:padding="8dp"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="4dp" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Audio (FT8)" android:textColor="#AAAAAA" android:textSize="16sp"/>
+                <TextView
+                    android:id="@+id/tvAudioDeviceFt8"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:background="@drawable/edit_bg"
+                    android:gravity="center_vertical"
+                    android:padding="8dp"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
+            <View android:layout_width="match_parent" android:layout_height="1dp"
+                android:background="#333333" android:layout_marginVertical="8dp"/>
+
+            <ProgressBar
+                android:id="@+id/progressBar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#FF4444"
+                android:textSize="15sp"
+                android:layout_marginBottom="8dp" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Bottom buttons (always visible) - 2 rows x 3 columns -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:background="#000000">
+
+        <!-- Row 1: Back / Connect / PTT -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:orientation="horizontal"
+            android:layout_marginBottom="3dp">
+
+            <Button
+                android:id="@+id/btnBack"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="Back"
+                android:textSize="13sp"
+                android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:backgroundTint="#B71C1C"
+                android:textColor="#FFFFFF"
+                android:layout_marginEnd="3dp" />
+
+            <Button
+                android:id="@+id/btnConnect"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="Connect"
+                android:textSize="13sp"
+                android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:backgroundTint="#1565C0"
+                android:textColor="#FFFFFF"
+                android:layout_marginEnd="3dp" />
+
+            <Button
+                android:id="@+id/btnPttSettings"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="PTT"
+                android:textSize="13sp"
+                android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:backgroundTint="#F57F17"
+                android:textColor="#000000" />
+        </LinearLayout>
+
+        <!-- Row 2: Update / Sync Time / About -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnUpdate"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="Update"
+                android:textSize="13sp"
+                android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:textAllCaps="false"
+                android:backgroundTint="#2E7D32"
+                android:textColor="#FFFFFF"
+                android:layout_marginEnd="3dp" />
+
+            <Button
+                android:id="@+id/btnSyncTime"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="Sync Time"
+                android:textSize="11sp"
+                android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:textAllCaps="false"
+                android:backgroundTint="#BF360C"
+                android:textColor="#FFFFFF"
+                android:layout_marginEnd="3dp" />
+
+            <Button
+                android:id="@+id/btnAbout"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="About"
+                android:textSize="13sp"
+                android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:textAllCaps="false"
+                android:backgroundTint="#37474F"
+                android:textColor="#FFFFFF" />
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

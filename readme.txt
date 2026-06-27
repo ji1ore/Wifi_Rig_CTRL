@@ -75,21 +75,70 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.11）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.13）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v2.11）。
+アプリを v1.30 より公開しています（最新版：v2.13）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
 
+●v2.13 の変更点（v2.12 との比較）
+【改善】
+・CW 打鍵時の SPK 音切れタイミング改善（iOS 版と同等のレスポンス）
+  - AudioTrack バッファを ~2 秒 → ~200ms に削減
+
+【新機能】
+・ピクチャー・イン・ピクチャー（PiP）対応
+  - TX 中・CW 打鍵中にホームボタンで自動的に小画面に移行
+  - Android 12+ では setAutoEnterEnabled で自動移行
+
+【修正・改善】
+・エッジ・ツー・エッジ表示に正式対応（Google Play ポリシー準拠）
+  - enableEdgeToEdge() + WindowInsetsCompat でシステムバー領域を自動回避
+  - 非推奨 API setStatusBarColor / setNavigationBarColor を解消
+・USB CW 接続時のレイアウト崩れを修正
+  - パーミッションダイアログ中の誤 PiP 移行を防止
+・スプラッシュ画面にアプリアイコンを追加
+・「+ New」ボタンの見切れを修正
+・Pi 側スクリプト変更なし（v2.12 と同一）
+
+●v2.12 の変更点（v2.11 との比較）
+【新機能】
+・Hamlib 4.7.2 サポート追加
+  - apt では Hamlib 4.7.x を取得できないため、ソースビルドに対応
+  - インストール先: ~/.local/bin/rigctld（sudo 不要・RPATH 付きビルド）
+  - アプリの「Update」→「Update Hamlib」ボタンから実行（Pi Zero で 30〜60 分）
+  - rigctld は ~/.local/bin/rigctld（4.7.2）を優先使用し、なければシステム版にフォールバック
+
+・Update 画面を新設（UI 整理）
+  - Update Pi・Update Hamlib・Pi Log・Hamlib Log を 1 画面に統合
+  - ログエリア（緑モノスペース）でビルド進捗をリアルタイム確認
+  - Reload ボタンで手動更新
+  - RIG CONNECT 画面のボタンを 6 個（2 行×3 列）に整理
+
+・About 画面に Pi API バージョン・Hamlib バージョンを表示
+  - 接続中の Pi の FastAPI バージョンと rigctld バージョンを確認可能
+
+【修正】
+・webFT8 画面で Rig→TX / RX フィールドを変更すると無線機の周波数が変わる問題を修正
+  - 横向き（ランドスケープ）時のみ発生
+  - 原因: DOM change イベントリスナーがオーディオオフセット等の値を周波数と誤検知していた
+  - localStorage.setItem インターセプターによる周波数同期は引き続き正常動作
+
+・WID（フィルター幅）・POW（送信出力）・SQL（スケルチ）を ◀▶ ボタンで増減可能に
+  - WID ±100 Hz、POW ±1%、SQL ±1% の増減
+  - WID / POW / SQL ボタンを押して選択状態にしてから ◀▶ で操作
+
+・Update Pi 後の「Pi API バージョン不一致」表示を修正
+  - アプリ側の期待バージョン定数が v2.11 のままだったため、Update 後も不一致が出ていた問題を修正
+
 ●v2.11 の変更点（v2.10 との比較）
 【新機能】
-・DualKey-BLE サポート（AtomS3 BLE キーヤー）
-  - M5AtomS3（AtomS3）を BLE（Bluetooth LE）で Android にワイヤレス接続可能
+・BLE CW 電鍵サポートを追加（DualKey-BLE / RemoteKeyer-BLE）
+  - DualKey-BLE（M5AtomS3）または RemoteKeyer-BLE を BLE（Bluetooth LE）で Android にワイヤレス接続可能
   - Nordic UART Service（NUS）プロトコルを使用
-  - Android の Bluetooth 設定で "DualKey-BLE" をペアリング後、
-    BTボタンをタップするだけで自動検出・接続
-  - USB CDC / BLE 自動切替機能
+  - Android の Bluetooth 設定でペアリング後、BT ボタンをタップするだけで自動検出・接続
+  - DualKey-BLE の USB CDC / BLE 自動切替機能
     ・電源投入後10秒間: 左パドル（DAH）→ USB CDC モード、
                          右パドル（DIT）→ BLE モード（デフォルト）
     ・BLE モード中: アプリ（Android）からの USB データ受信で
@@ -98,9 +147,8 @@ Raspberry Pi のセットアップは M5Core 版と共通です。
 
 【改善・修正】
 ・CW 接続状態表示を改善
-  - BT 接続時: 「BT」緑表示
   - BLE 接続時: 「BLE」緑表示
-  - 未接続時: 「BT」グレー表示
+  - 未接続時: 「BLE」グレー表示
 
 ●v2.10 の変更点（v2.09 との比較）
 【改善・修正】
@@ -275,7 +323,7 @@ Raspberry Pi のセットアップは M5Core 版と共通です。
 ・PTT ON/OFF と音声送信（マイクの音声を無線機に送出）
 ・WiFi PTT（M5Atom 等の外部デバイスと連動した PTT 制御）
 ・USB CW中継（M5ATOM / DualKey を直接 Android に接続して CW キー信号を中継）
-・BLE CW中継（DualKey-BLE を Android に BLE 接続して CW キー信号を中継）
+・BLE CW中継（DualKey-BLE または RemoteKeyer-BLE を Android に BLE 接続して CW キー信号を中継）
 ・FT8/FT4 受信デコード・送信（WebView ベース）
 ・APRS ビーコン送信（DireWolf 経由、スマートフォン GPS 対応）
 ・複数プロファイル対応（接続先の切り替え）
@@ -291,15 +339,16 @@ USB CW中継を使う場合:
 ・M5ATOM Lite または M5ATOM S3 Lite（Wifi_Rig_CW Ver1.40 ファームウェア書き込み済み）
 ・OTG 対応 USB ケーブル
 
-BLE CW中継を使う場合（DualKey-BLE）:
-・M5AtomS3（AtomS3）（Wifi_Rig_CW_DUALKEY Ver1.43 ファームウェア書き込み済み）
-・Android の Bluetooth 設定で "DualKey-BLE" をペアリング（OTG ケーブル不要）
+BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
+・DualKey-BLE: M5AtomS3（AtomS3）（Wifi_Rig_CW_DUALKEY Ver1.43 ファームウェア書き込み済み）
+・RemoteKeyer-BLE: M5StackCore 等（Remotekeyer_M5Stack_Server Ver1.43 ファームウェア書き込み済み）
+・Android の Bluetooth 設定でペアリング（OTG ケーブル不要）
 
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.11/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.13/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v2.11.apk をダウンロード
+  1. Wifi_RIG_CTRL_v2.13.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
@@ -307,9 +356,10 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.11/M5CoreHamCAT_Android
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.11/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.13/RaspberryPiSetup
 
-v2.03 以降からのアップグレード: アプリの「Update Pi」ボタンで自動更新
+v2.03 以降からのアップグレード: アプリの「Update」→「Update Pi」ボタンで自動更新
+v2.12 から Hamlib 4.7.2 対応: アプリの「Update」→「Update Hamlib」ボタンで追加インストール
 v2.02 以前からのアップグレード: 初回のみ手動 scp が必要
   scp api.py <ユーザー名>@raspizero:~/fastapi/api.py
   ssh <ユーザー名>@raspizero "sudo systemctl restart fastapi"
@@ -319,5 +369,5 @@ v2.02 以前からのアップグレード: 初回のみ手動 scp が必要
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 （v1.40 からの変更なし）
 
-2026/6/21
+2026/6/26
 以上。

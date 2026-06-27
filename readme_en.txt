@@ -113,21 +113,72 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.11)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.13)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.11)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.13)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v2.13 (compared to v2.12)
+
+Improvements:
+- CW sidetone cut-off timing improved (matches iOS response)
+  - AudioTrack buffer reduced from ~2 seconds → ~200ms
+
+New features:
+- Picture-in-Picture (PiP) support
+  - Auto-enter PiP when transmitting or keying CW and pressing the home button
+  - On Android 12+: automatic via setAutoEnterEnabled
+
+Bug fixes & improvements:
+- Full edge-to-edge display support (Google Play policy compliance)
+  - enableEdgeToEdge() + WindowInsetsCompat handles system bar insets
+  - Deprecated APIs setStatusBarColor / setNavigationBarColor removed
+- Fixed layout issue (1-row display) when connecting USB CW keyer
+  - suppressPip flag prevents PiP entry during USB permission dialog
+- App icon added to splash screen
+- Fixed "+ New" button being partially hidden
+- No changes to Pi-side scripts (same as v2.12)
+
+● What's New in v2.12 (compared to v2.11)
+
+New features:
+- Hamlib 4.7.2 support added
+  - Hamlib 4.7.x is not available via apt; source build is now supported
+  - Installed to ~/.local/bin/rigctld (no sudo required; built with RPATH)
+  - Install via the app's "Update" → "Update Hamlib" button (30–60 min on Pi Zero)
+  - rigctld uses ~/.local/bin/rigctld (4.7.2) preferentially; falls back to system version if not present
+
+- New "Update" screen (UI reorganization)
+  - Update Pi, Update Hamlib, Pi Log, and Hamlib Log consolidated into one screen
+  - Log area (green monospace) shows build progress in real time
+  - Reload button for manual refresh
+  - RIG CONNECT screen simplified to 6 buttons (2 rows × 3 columns)
+
+- About screen now displays Pi API version and Hamlib version
+  - Shows FastAPI version and rigctld version of the connected Pi
+
+Bug fixes:
+- Fixed webFT8 frequency change bug when editing Rig→TX / RX fields
+  - Occurred in landscape orientation only
+  - Cause: DOM change event listener was misinterpreting audio offset values as radio frequencies
+  - localStorage.setItem-based frequency sync continues to work correctly
+
+- WID (filter width), POW (TX power), and SQL (squelch) are now adjustable with ◀▶ buttons
+  - WID ±100 Hz, POW ±1%, SQL ±1% per button press
+  - Tap WID / POW / SQL button to select it, then use ◀▶ to adjust
+
+- Fixed "Pi API version mismatch" shown after Update Pi
+  - The app's expected-version constant was still set to v2.11, causing a false mismatch after update
 
 ● What's New in v2.11 (compared to v2.10)
 
 New features:
-- DualKey-BLE support (AtomS3 BLE keyer)
-  - Connect M5AtomS3 (AtomS3) to Android wirelessly via BLE (Bluetooth LE)
+- BLE CW keyer support added (DualKey-BLE / RemoteKeyer-BLE)
+  - Connect DualKey-BLE (M5AtomS3) or RemoteKeyer-BLE to Android wirelessly via BLE (Bluetooth LE)
   - Uses Nordic UART Service (NUS) protocol
-  - After pairing "DualKey-BLE" in Android Bluetooth settings,
-    tap the BT button to auto-detect and connect
-  - USB CDC / BLE auto-switching
+  - After pairing in Android Bluetooth settings, tap the BT button to auto-detect and connect
+  - DualKey-BLE USB CDC / BLE auto-switching
     · Power-on window (10 sec): left paddle (DAH) → USB CDC mode,
                                  right paddle (DIT) → BLE mode (default)
     · While in BLE mode: USB app data received → auto-restart into USB CDC mode
@@ -135,9 +186,70 @@ New features:
 
 Improvements:
 - CW connection status display improved
-  - BT connected: shows "BT" in green
   - BLE connected: shows "BLE" in green
-  - Disconnected: shows "BT" in grey
+  - Disconnected: shows "BLE" in grey
+
+● What's New in v2.10 (compared to v2.09)
+
+Bug fixes & improvements:
+- Enhanced Noise Reduction (NR) with 5 levels (unified to afftdn-based)
+  - Level 1 (Light)   : afftdn=nf=-30:nr=15
+  - Level 2 (Medium)  : afftdn=nf=-25:nr=20
+  - Level 3 (Strong)  : afftdn=nf=-20:nr=25:tn=1
+  - Level 4 (Stronger): afftdn=nf=-20:nr=33:tn=1
+  - Level 5 (Max)     : afftdn=nf=-20:nr=40:tn=1
+  - Long-press SQL button to cycle 0→1→2→3→4→5→0
+  - NR settings now synced to dual-server (apiPort / audioPort)
+
+- Improved Update Pi button reliability
+  - sudoers now generated with actual runtime username (fixed whoami bug during sudo)
+  - Fallback restart wait extended 3s → 15s (Pi Zero support)
+  - Fallback now also restarts fastapi-audio (port 50000)
+
+● What's New in v2.09 (compared to v2.08)
+
+Bug fixes & improvements:
+- CW decoder accuracy improvements (RX main screen & TX CW panel)
+  - dit/dah boundary threshold improved (×2 → ×1.8): reduced dah misdetection
+  - Inter-character gap threshold relaxed (×2 → ×2.5): reduced false character splits
+  - ditWins convergence slowed for better tolerance of rapid speed changes
+  - Energy calculation expanded from 3-bin to 5-bin total (improved SNR for weak signals)
+  - Noise floor estimation changed from 30th → 20th percentile (improved interference tolerance)
+  - TX side: ditMs lower limit changed 15ms → 20ms (prevents false counts)
+
+● What's New in v2.08 (compared to v2.07)
+
+Bug fixes & improvements:
+- Fixed CW TX start lag (USB serial connection)
+  - open_radio now saves effective PTT type (RIG) to current_ptt_type
+  - Eliminated rigctld restart on every CW TX for ttyACM/ttyUSB (was causing 0–7s lag)
+
+- CW TX panel UI improvements
+  - Enlarged buttons, layout now fits in one screen
+  - Landscape mode: 2-column layout
+
+● What's New in v2.07 (compared to v2.06)
+
+Bug fixes & improvements:
+- USB serial PTT auto-optimization (IC-705 USB enhancement)
+  - Auto-switch PTT from RTS → CAT (CI-V) for ttyACM/ttyUSB devices
+  - Avoids IC-705 USB audio reset issue
+
+- PTT forced release after rigctld start
+  - Prevents accidental TX during rigctld restart
+
+- Banned rigctld restart during TX
+  - Fixed: DTR would be cut during CW/voice transmission causing transmission drop
+
+- PTT type display changed "RIG" → "CAT" (UI unification)
+
+- CW CQ repeat UI improved
+
+● What's New in v2.06 (compared to v2.05)
+
+Bug fixes & improvements:
+- Fixed CW USB (DualKey) sync behavior when Pi is not connected
+  - Keying timing is now calculated correctly even without Pi present
 
 ● What's New in v2.05 (compared to v2.04)
 
@@ -254,7 +366,7 @@ FastAPI update (re-run create_api.sh required):
 - PTT ON/OFF and audio transmission (send microphone audio to the radio)
 - WiFi PTT (PTT control via external devices such as M5Atom)
 - USB CW relay (connect M5ATOM / DualKey directly to Android to relay CW key signals)
-- BLE CW relay (connect DualKey-BLE to Android via BLE to relay CW key signals)
+- BLE CW relay (connect DualKey-BLE or RemoteKeyer-BLE to Android via BLE to relay CW key signals)
 - FT8/FT4 receive decode and transmit (WebView-based)
 - APRS beacon transmission (via DireWolf, with smartphone GPS support)
 - Multiple profile support (switch between connection targets)
@@ -270,15 +382,16 @@ For USB CW relay:
 - M5ATOM Lite or M5ATOM S3 Lite (with Wifi_Rig_CW Ver1.40 firmware)
 - OTG-compatible USB cable
 
-For BLE CW relay (DualKey-BLE):
-- M5AtomS3 (AtomS3) with Wifi_Rig_CW_DUALKEY Ver1.43 firmware
-- Pair "DualKey-BLE" in Android Bluetooth settings (no OTG cable required)
+For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
+- DualKey-BLE: M5AtomS3 (AtomS3) with Wifi_Rig_CW_DUALKEY Ver1.43 firmware
+- RemoteKeyer-BLE: M5Stack Core etc. with Remotekeyer_M5Stack_Server Ver1.43 firmware
+- Pair in Android Bluetooth settings (no OTG cable required)
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.11/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.13/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v2.11.apk
+  1. Download Wifi_RIG_CTRL_v2.13.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
@@ -286,9 +399,10 @@ Source code is also published in the same folder (buildable with Android Studio)
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.11/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.13/RaspberryPiSetup
 
-Upgrading from v2.03 or later: use the "Update Pi" button in the app
+Upgrading from v2.03 or later: use the "Update" → "Update Pi" button in the app
+Hamlib 4.7.2 (added in v2.12): use the "Update" → "Update Hamlib" button in the app
 Upgrading from v2.02 or earlier: first-time manual scp required
   scp api.py <username>@raspizero:~/fastapi/api.py
   ssh <username>@raspizero "sudo systemctl restart fastapi"
@@ -298,4 +412,4 @@ If connecting from outside your home network (e.g., via mobile data), WireGuard 
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 (No changes from v1.40)
 
-2026/6/21
+2026/6/26

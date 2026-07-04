@@ -113,11 +113,21 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.13)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.14)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.13)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.14)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v2.14 (compared to v2.13)
+
+New features:
+- Direct Wifi CI-V connection support for IC-705 / IC-9700 (no Raspberry Pi required)
+  - Toggle between Pi mode and direct CI-V mode with the "USE CI-V" switch in RIG CONNECT
+  - Configure CI-V port (default 50001) and CI-V address (IC-705: 0xA4)
+  - Supported: frequency, mode, S-meter, PTT, RF power, squelch, BK-IN
+  - Pi-mode only: audio streaming, CW text TX, FT8, APRS
+  - No changes to Pi-side scripts (same as v2.13)
 
 ● What's New in v2.13 (compared to v2.12)
 
@@ -389,9 +399,9 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.13/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.14/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v2.13.apk
+  1. Download Wifi_RIG_CTRL_v2.14.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
@@ -399,7 +409,7 @@ Source code is also published in the same folder (buildable with Android Studio)
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.13/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.14/RaspberryPiSetup
 
 Upgrading from v2.03 or later: use the "Update" → "Update Pi" button in the app
 Hamlib 4.7.2 (added in v2.12): use the "Update" → "Update Hamlib" button in the app
@@ -412,4 +422,4 @@ If connecting from outside your home network (e.g., via mobile data), WireGuard 
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 (No changes from v1.40)
 
-2026/6/26
+2026/7/4

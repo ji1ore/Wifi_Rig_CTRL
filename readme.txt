@@ -75,12 +75,21 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.13）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.14）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v2.13）。
+アプリを v1.30 より公開しています（最新版：v2.14）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
+
+●v2.14 の変更点（v2.13 との比較）
+【新機能】
+・IC-705 / IC-9700 等への直接 Wifi CI-V 接続対応（Raspberry Pi 不要）
+  - RIG CONNECT 画面の「USE CI-V」スイッチで Pi モード / CI-V 直接接続を切替
+  - CI-V ポート（デフォルト 50001）・CI-V アドレス（IC-705: 0xA4）を設定可能
+  - 対応機能: 周波数・モード・Sメーター・PTT・RF power・SQL・BK-IN
+  - 非対応機能（Pi モードのみ）: 音声ストリーミング・CW テキスト送信・FT8・APRS
+  - Pi 側スクリプト変更なし（v2.13 と同一）
 
 ●v2.13 の変更点（v2.12 との比較）
 【改善】
@@ -346,9 +355,9 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.13/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.14/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v2.13.apk をダウンロード
+  1. Wifi_RIG_CTRL_v2.14.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
@@ -356,7 +365,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.13/M5CoreHamCAT_Android
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.13/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.14/RaspberryPiSetup
 
 v2.03 以降からのアップグレード: アプリの「Update」→「Update Pi」ボタンで自動更新
 v2.12 から Hamlib 4.7.2 対応: アプリの「Update」→「Update Hamlib」ボタンで追加インストール
@@ -369,5 +378,5 @@ v2.02 以前からのアップグレード: 初回のみ手動 scp が必要
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 （v1.40 からの変更なし）
 
-2026/6/26
+2026/7/4
 以上。

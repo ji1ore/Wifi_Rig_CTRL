@@ -113,11 +113,19 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.16)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.17)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.16)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.17)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v2.17 (compared to v2.16)
+
+Bug fixes:
+- Fixed panel buttons showing only the top row (4 buttons) when returning from PiP (minimize) mode
+  - Moved requestLayout() inside post{} in onPictureInPictureModeChanged so the GridLayout
+    remeasures only after the window has fully restored to its normal size
+  - No changes to Pi-side scripts (same as v2.16)
 
 ● What's New in v2.16 (compared to v2.15)
 
@@ -413,9 +421,9 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.16/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.17/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v2.16.apk
+  1. Download Wifi_RIG_CTRL_v2.17.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
@@ -423,7 +431,7 @@ Source code is also published in the same folder (buildable with Android Studio)
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.16/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.17/RaspberryPiSetup
 
 Upgrading from v2.03 or later: use the "Update" → "Update Pi" button in the app
 Hamlib 4.7.2 (added in v2.12): use the "Update" → "Update Hamlib" button in the app

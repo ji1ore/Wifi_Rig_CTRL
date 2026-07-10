@@ -1350,7 +1350,9 @@ final class MainViewModel {
             }
             // Always run cleanup (v2.02: stop morse + PTT off + re-enable polling).
             self.cwMorseSending = false
-            self.stopLocalCwSidetone()
+            // Do NOT stop sidetone here — let it self-terminate so the last character
+            // is not cut off. stopLocalCwSidetone() is called by cwStopMorse() on
+            // manual stop, and by startLocalCwSidetone() when the next send begins.
             try? await self.api.cwStopMorse()
             try? await self.api.setPtt(state: false)
             try? await self.api.setPoll(state: true)
@@ -1411,15 +1413,19 @@ final class MainViewModel {
     // テキスト中の全符号要素のdit単位数合計を返す (チャンク待機時間計算用)
     private func civMorseDurationUnits(_ text: String) -> Int {
         var units = 0
-        var charsDone = 0
-        for ch in text.uppercased() {
-            guard let code = cwMorseTable[ch] else { continue }
-            if charsDone > 0 { units += 3 }
-            for (ei, e) in code.enumerated() {
-                if ei > 0 { units += 1 }
-                units += (e == ".") ? 1 : 3
+        let words = text.uppercased().split(separator: " ", omittingEmptySubsequences: true)
+        for (wi, word) in words.enumerated() {
+            if wi > 0 { units += 7 }  // inter-word gap (7 dits)
+            var charsDone = 0
+            for ch in word {
+                guard let code = cwMorseTable[ch] else { continue }
+                if charsDone > 0 { units += 3 }  // inter-char gap
+                for (ei, e) in code.enumerated() {
+                    if ei > 0 { units += 1 }
+                    units += (e == ".") ? 1 : 3
+                }
+                charsDone += 1
             }
-            charsDone += 1
         }
         return units
     }
@@ -1536,6 +1542,15 @@ final class MainViewModel {
                 if Task.isCancelled { break }
                 cwBleRef.setSidetoneKeyRealtime(isOn)
                 targetNs += UInt64(max(1, durMs) * 1_000_000)
+            }
+            // Wait until the scheduled end of the last element before turning key off.
+            // Without this sleep the final dash/dot key-ON is immediately followed by key-OFF
+            // (loop exits without sleeping), causing the last character to produce no sound.
+            if !Task.isCancelled {
+                let now = DispatchTime.now().uptimeNanoseconds
+                if targetNs > now {
+                    try? await Task.sleep(nanoseconds: targetNs - now)
+                }
             }
             // Always turn key off — covers both normal completion and cancellation.
             cwBleRef.setSidetoneKeyRealtime(false)

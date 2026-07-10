@@ -582,11 +582,11 @@ struct CwView: View {
                 .buttonStyle(CwBigButtonStyle(color: Color(red: 0.17, green: 0.1, blue: 0.36),
                                                enabled: !vm.cwMorseSending, compact: compact))
 
-            // TU 73 DE MY EE | AGN
+            // TU TU 73 E E | AGN
             HStack(spacing: 4) {
-                Button("TU TU 73 DE \(mDisp) E E") { Task { await vm.cwSendText("TU TU 73 DE \(mDisp) E E") } }
+                Button("TU TU 73 E E") { Task { await vm.cwSendText("TU TU 73 E E") } }
                     .buttonStyle(CwBigButtonStyle(color: Color(red: 0.17, green: 0.1, blue: 0.36),
-                                                   enabled: myOk && !vm.cwMorseSending, compact: compact))
+                                                   enabled: !vm.cwMorseSending, compact: compact))
                     .frame(maxWidth: .infinity)
                 Button("AGN") { Task { await vm.cwSendText("AGN") } }
                     .buttonStyle(CwBigButtonStyle(color: Color(red: 0.17, green: 0.1, blue: 0.36),

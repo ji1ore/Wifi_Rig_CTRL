@@ -1,4 +1,4 @@
-# M5CoreHamCAT for Core2/Tough  Ver 2.18
+# Wifi_Rig_CTRL for Core2/Tough  Ver 2.18
 
 M5Stack Core2 / Tough を無線機（リグ）のリモートコントローラーにするファームウェアです。
 Raspberry Pi（Wifi_Rig_CTRL FastAPI バックエンド）または ICOM WLAN Remote（CI-V over WiFi）経由でリグを操作し、

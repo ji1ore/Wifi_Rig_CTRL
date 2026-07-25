@@ -1,4 +1,4 @@
-①はじめに
+は①はじめに
 M5CoreHamCATは、Raspberry Pi Zero2WとM5CoreS3SEを用い、無線機に接続したRaspberry Pi Zero2Wを使って
 無線機をCAT操作し、その情報の取得、及び操作をM5CoreS3SE上で行うシステムです。
 技術的には、Raspberry Pi Zero2W上のHamlibをFastAPIでWrapし、M5CoreS3SEからFastAPIを叩いて無線機の操作や
@@ -15,6 +15,15 @@ Ver1.20にてAPRSの送信に対応しました(動作確認、IC-705/ボーレ�
 2026/3/1
 M5CoreHamCAT_SpeakerはModule Audio経由で音を出すことができるようになったので、廃止します。
 --
+2026/7/22
+Ver2.20にて、M5Core2 / M5Core2 Tough / M5CoreS3SEの3機種それぞれのソース・ファームウェアを公開しました
+（機種ごとに別フォルダ：M5CoreHamCAT_Core2 / M5CoreHamCAT_Core2Tough / M5CoreHamCAT_CoreS3SE）。
+--
+2026/7/25
+readmeを最新化し、Ver2.20対応の全デバイス（M5Core2 / M5Core2 Tough / M5CoreS3SE / Android / iOS）を
+網羅する内容に更新しました。M5の各機種紹介文（M5Burner掲載用）、およびiOS版（WifiRigCTRL for iOS）の
+案内（⑦）を追加しています。
+--
 
 現在のところ、Yaesu FT-991A のみで動作確認を行っており、他の無線機での動作は未検証です。
 また、 M5CoreS3やM5CoreS3Lite、他のM5Coreシリーズで動作するかは未検証です。
@@ -25,8 +34,9 @@ M5CoreHamCAT_SpeakerはModule Audio経由で音を出すことができるよう
 ・Module Audio(M5純正 SKU:M144) PortAに刺します。
 ・Raspberry Pi Zero2W
 ・Wifiルータ(上記２つの端末が同一Wifiネットワーク上に存在することを前提とします。)
-・Unit Encoder(M5純正 SKU:U135) 
+・Unit Encoder(M5純正 SKU:U135)
  なくても動作しますが、操作性が向上します。
+ ※M5Core2 Toughのみ、Unit Encoderの代わりに機械式2相ロータリーエンコーダをPort Aに直結する方式です（Unit Encoder不要）。
 ・M5Stack CoreS3用バッテリーボトム
  なくても動作しますが、利便性があがりますので。
 ・MicroSDカード(16G以上、信頼性の高いもの)
@@ -40,7 +50,7 @@ APRS動作のために
 ・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
 ③セットアップ手順(Raspberry Pi Zero2W)
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v1.11/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v2.20/RaspberryPiSetup/readme.txt
 を参照してセットアップを行ってください(verに応じたフォルダを参照ください)。
 主な手順は以下の通りです。
 ・Raspberry Pi Imagerのインストール
@@ -48,11 +58,36 @@ https://github.com/ji1ore/M5CoreHamCAT/blob/main/v1.11/RaspberryPiSetup/readme.t
 ・SSHログイン
 ・必要コマンドの実施(シェルファイルを用意してありますので簡単ですが時間がかかります)
 
-④セットアップ手順(M5CoreS3SE/M5Core2)
-M5CoreS3SE/M5Core2では、M5Burnerを用いてファームウェアの読み込みを行ってください。
-Git上の以下フォルダにソースは公開します。
-https://github.com/ji1ore/M5CoreHamCAT/main/M5CoreHamCAT
+④セットアップ手順(M5CoreS3SE/M5Core2/M5Core2 Tough)
+M5CoreS3SE/M5Core2/M5Core2 Toughでは、M5Burnerを用いてファームウェアの読み込みを行ってください。
+Git上の以下フォルダにソースは機種別に公開します。
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_Core2Tough
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_Core2
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_CoreS3SE
 ソースはVisual Studio Code上のPlatformI/O上でのコンパイルを前提にしています。
+
+●各機種の紹介文（M5Burner掲載用）
+M5Burner上でM5CoreHamCATを検索すると、機種ごとに以下のような紹介文で表示されます。
+
+[M5CoreHamCAT_Core2]
+M5Stack Core2 を無線機（リグ）のリモートコントローラーにするファームウェアです。Raspberry Pi
+（Wifi_Rig_CTRL FastAPIバックエンド）または ICOM WLAN Remote（CI-V over WiFi）経由でリグを操作し、
+周波数・モード・Sメーター表示、受信音声再生、PTT送信、APRSビーコン送受信に対応します。
+Port AにM5純正Unit Encoder（I2C）、Port CにPTTスイッチとステータスLEDを接続します。内蔵マイク/
+スピーカーに加え、外部Module Audioへの切替も可能です。
+
+[M5CoreHamCAT_Core2Tough]
+M5Stack Core2 Tough を無線機（リグ）のリモートコントローラーにするファームウェアです。機能はCore2版
+と共通（Raspberry Pi/CI-V経由のリグ操作、受信音声、PTT送信、APRS送受信）ですが、耐衝撃ボディに合わせ
+てPort Aには機械式2相ロータリーエンコーダを直結（Unit Encoder不要）、起動時に画面を180度回転して表示
+するなど、Core2 Tough専用の調整を行っています。Port CはPTTスイッチとステータスLED用です。
+
+[M5CoreHamCAT_CoreS3SE]
+M5Stack CoreS3 SE を無線機（リグ）のリモートコントローラーにするファームウェアです。Raspberry Pi
+または CI-V直結でリグを操作し、周波数・モード・Sメーター表示、受信音声、PTT送信、APRSビーコン送受信
+に対応します。3機種中もっとも快適に動作します。Port AにUnit Encoder（I2C）、Port BにPTTスイッチと
+ステータスLEDを接続します。内蔵マイク/スピーカーと外部Module Audioを個別に切替可能です。
+
 ファームウェアの読み込み手順は以下のとおりです。
 ・M5Burnerをダウンロードし、インストールします。
 ・M5Burnerを起動します。ユーザー登録を行います。
@@ -75,15 +110,36 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.17）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.20）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v2.17）。
+アプリを v1.30 より公開しています（最新版：v2.20）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
 
-●v2.17 の変更点（v2.16 との比較）
+●v2.20 の変更点（v2.18 との比較）
+【新機能】
+・APRS リグ内蔵モデムモードを追加（FTX-1 等の内蔵 APRS モデムを CAT 経由で制御）
+  - APRS 設定画面に「TX Method」切替を追加（DireWolf / Rig Modem）
+  - Rig Modem 選択時: APRSボタンを押すたびに OFF → AP96（9600baud）→ AP12（1200baud）→ OFF とサイクル
+  - モデム選択（AUTO / MAIN / SUB）・AP96/AP12 それぞれの周波数・ボーレート設定可能
+
 【修正】
+・APRS 受信: Mic-E パケットの東経が西経として表示される問題を修正
+  - FTX-1 ファームウェアが Mic-E D6 に P-Y でなく通常数字を使うバグへの対処
+・APRS 受信: シンボルが文字化けする問題を修正（バイトオフセット修正）
+
+●v2.18 の変更点（v2.17 との比較）
+・versionCode 更新（Google Play 公開バージョン整合）
+  - Pi 側スクリプト変更なし（v2.17 と同一）
+
+●v2.17 の変更点（v2.16 との比較）
+【修正・改善】
+・IC-705 Wifi CI-V 接続の信頼性向上
+  - エフェメラルポート（0）を使用して接続のたびに異なる ctrlMyId を生成
+  - IC-705 が古いセッションを再利用してしまう問題を解消（iOS 動作に合わせて修正）
+  - IAH 未受信時でも ping からの civRemoteId 学習済みなら接続を継続
+
 ・PiP（縮小）モードから復帰した際にパネルボタンが上段 4 つしか表示されない問題を修正
   - onPictureInPictureModeChanged の requestLayout() を post{} 内に移動し、
     ウィンドウが完全に復元されてから GridLayout を再計算するよう変更
@@ -354,6 +410,8 @@ Raspberry Pi のセットアップは M5Core 版と共通です。
 ・BLE CW中継（DualKey-BLE または RemoteKeyer-BLE を Android に BLE 接続して CW キー信号を中継）
 ・FT8/FT4 受信デコード・送信（WebView ベース）
 ・APRS ビーコン送信（DireWolf 経由、スマートフォン GPS 対応）
+・APRS ビーコン送信（リグ内蔵モデム経由 AP96/AP12 切替）
+・APRS 受信局一覧表示（Mic-E 形式対応）
 ・複数プロファイル対応（接続先の切り替え）
 ・API Key 認証対応
 ・WireGuard VPN 経由での外出先接続対応
@@ -374,9 +432,9 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.17/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v2.17.apk をダウンロード
+  1. Wifi_RIG_CTRL_v2.20.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
@@ -384,7 +442,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.17/M5CoreHamCAT_Android
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.17/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/RaspberryPiSetup
 
 v2.03 以降からのアップグレード: アプリの「Update」→「Update Pi」ボタンで自動更新
 v2.12 から Hamlib 4.7.2 対応: アプリの「Update」→「Update Hamlib」ボタンで追加インストール
@@ -397,5 +455,63 @@ v2.02 以前からのアップグレード: 初回のみ手動 scp が必要
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 （v1.40 からの変更なし）
 
-2026/7/7
+⑦ iOS版について（WifiRigCTRL for iOS v2.20）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+M5CoreS3SE の代わりに iPhone / iPad でリグをリモート制御できるアプリです。
+v2.17 よりソースコードをGitHubで公開しています（最新版：v2.20）。
+Android版と同様、M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
+Raspberry Pi のセットアップは M5Core版・Android版と共通です。
+
+●App Storeでの配信について
+2026/7/25 時点では App Store への提出準備中（審査未提出）です。App Store公開まではソースコードを
+Xcodeでビルドしてご利用ください（下記「ビルド方法」参照）。公開でき次第、本readmeにリンクを追記します。
+
+●できること
+・受信周波数・モード・信号強度のリアルタイム表示
+・周波数・モード・パワー・スケルチ・フィルター幅の変更
+・受信音声をスピーカーで再生（ノイズリダクション対応）
+・PTT ON/OFF と音声送信（マイクの音声を無線機に送出）
+・WiFi PTT（M5Atom 等の外部デバイスと連動した PTT 制御）
+・BLE CW中継（DualKey-BLE または RemoteKeyer-BLE を BLE 接続して CW キー信号を中継。USB CW中継はAndroid版のみ対応）
+・FT8/FT4 受信デコード・送信（WebView ベース）
+・APRS ビーコン送信（DireWolf 経由、GPS対応）
+・複数プロファイル対応（接続先の切り替え）
+・API Key 認証対応
+・WireGuard VPN 経由での外出先接続対応
+・直接CI-V接続（IC-705 / IC-9700、Raspberry Pi 不要。周波数・モード・Sメーター・PTT・RF power・SQL・
+  BK-IN・マイク音声TX・受信音声RXに対応。CW送信/BLEキーヤーは制限付き対応、FT8/APRS/NR/WiFi PTTは非対応）
+
+●v2.20 の変更点
+・アプリ内から Raspberry Pi の API / Hamlib をアップデート可能に（管理画面。SSH接続不要）
+・About 画面に Pi API バージョン・rigctld バージョンを表示、バージョン不一致時は警告を表示
+
+●必要なもの
+・iPhone / iPad（iOS 17.0 以上）
+・Raspberry Pi Zero 2W（セットアップ済み）、または Icom IC-705 / IC-9700（直接CI-V接続の場合）
+・WiFi 環境
+
+BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
+・DualKey-BLE: M5AtomS3（Wifi_Rig_CW_DUALKEY Ver1.43 ファームウェア書き込み済み）
+・RemoteKeyer-BLE: M5StackCore 等（Remotekeyer_M5Stack_Server Ver1.43 ファームウェア書き込み済み）
+・iPhone の Bluetooth 設定でペアリング
+
+●ソースコード・ビルド方法
+GitHub の以下フォルダにソースを公開しています。
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_iOS
+
+  1. Xcode 15 以上で WifiRigCTRL_iOS.xcodeproj を開く
+  2. Signing & Capabilities で開発者アカウントを設定
+  3. ターゲットデバイスを iPhone / iPad に設定してビルド
+
+外部ライブラリへの依存はありません（Swift Package Manager / CocoaPods 不使用）。
+
+●Raspberry Pi セットアップ
+M5Core版・Android版と同じ手順でセットアップしてください。
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/RaspberryPiSetup
+
+●外出先からの接続（WireGuard VPN）
+Android版と同様、自宅外から接続する場合は WireGuard のセットアップが必要です。
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
+
+2026/7/25
 以上。

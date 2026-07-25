@@ -17,8 +17,17 @@ In APRS mode, the system switches from the current frequency to a separately con
 
 Note: The baud rate seems to depend on the transmitting radio, and APRS transmission did not work from the IC‑705 via USB.
 
-2026/3/1  
+2026/3/1
 Since M5CoreHamCAT_Speaker can now output audio via Module Audio, it has been discontinued.
+
+2026/7/22
+Version 2.20 publishes source/firmware for M5Core2 / M5Core2 Tough / M5CoreS3SE, each in
+its own folder (M5CoreHamCAT_Core2 / M5CoreHamCAT_Core2Tough / M5CoreHamCAT_CoreS3SE).
+
+2026/7/25
+This README has been refreshed to cover every device shipped in v2.20
+(M5Core2 / M5Core2 Tough / M5CoreS3SE / Android / iOS). Added a short M5Burner-style
+description for each M5 firmware, plus a new section (⑦) introducing WifiRigCTRL for iOS.
 
 Currently, operation has only been confirmed with the Yaesu FT‑991A.
 Operation with other radios, M5CoreS3, M5CoreS3Lite, or other M5Core series devices has not been tested.
@@ -37,6 +46,8 @@ Wi‑Fi router (both devices must be on the same network)
 
 Unit Encoder (M5 genuine, SKU: U135)
 Optional, but improves usability
+(Note: M5Core2 Tough does not use the Unit Encoder — it wires a mechanical 2-phase
+rotary encoder directly to Port A instead, so no Unit Encoder is needed for that board.)
 
 Battery Bottom for M5Stack CoreS3  
 Optional, but increases convenience
@@ -58,7 +69,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v1.11/RaspberryPiSetup/readme.txt (github.com in Bing)
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v2.20/RaspberryPiSetup/readme.txt (github.com in Bing)
 
 Main steps:
 
@@ -72,13 +83,43 @@ SSH login
 Run required commands
 (shell scripts are provided; simple but time‑consuming)
 
-④ Setup Procedure (M5CoreS3SE / M5Core2)
+④ Setup Procedure (M5CoreS3SE / M5Core2 / M5Core2 Tough)
 Use M5Burner to write the firmware.
 
-Source code is available here:
-https://github.com/ji1ore/M5CoreHamCAT/main/M5CoreHamCAT (github.com in Bing)
+Source code is available here, one folder per board:
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_Core2Tough
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_Core2
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_CoreS3SE
 
 The source is intended to be compiled using PlatformIO on Visual Studio Code.
+
+● Board descriptions (as listed in M5Burner)
+Searching for “M5CoreHamCAT” in M5Burner shows one entry per board, with a short
+description along these lines:
+
+[M5CoreHamCAT_Core2]
+Firmware that turns an M5Stack Core2 into a remote controller for your radio (rig).
+Controls the rig via a Raspberry Pi (Wifi_Rig_CTRL FastAPI backend) or directly via
+ICOM WLAN Remote (CI-V over WiFi), with real-time frequency/mode/S-meter display,
+RX audio playback, PTT transmit, and APRS beacon TX/RX. Connect an M5 genuine Unit
+Encoder (I2C) to Port A, and a PTT switch + status LED to Port C. In addition to the
+built-in mic/speaker, an external Module Audio can be selected instead.
+
+[M5CoreHamCAT_Core2Tough]
+Firmware that turns an M5Stack Core2 Tough into a remote controller for your radio.
+Functionally identical to the Core2 build (rig control via Raspberry Pi/CI-V, RX
+audio, PTT transmit, APRS TX/RX), but tuned for the rugged Core2 Tough body: Port A
+wires directly to a mechanical 2-phase rotary encoder (no Unit Encoder required),
+and the display is rotated 180° at startup. Port C is used for the PTT switch and
+status LED.
+
+[M5CoreHamCAT_CoreS3SE]
+Firmware that turns an M5Stack CoreS3 SE into a remote controller for your radio.
+Controls the rig via Raspberry Pi or direct CI-V, with real-time frequency/mode/
+S-meter display, RX audio, PTT transmit, and APRS beacon TX/RX. The smoothest-running
+of the three supported boards. Connect a Unit Encoder (I2C) to Port A, and a PTT
+switch + status LED to Port B. The built-in mic/speaker and an external Module Audio
+can be switched independently.
 
 Firmware installation steps:
 
@@ -113,15 +154,37 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.17)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.20)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.17)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.20)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
 
-● What's New in v2.17 (compared to v2.16)
+● What's New in v2.20 (compared to v2.18)
+
+New features:
+- Added APRS rig modem mode (CAT control of the built-in APRS modem on rigs such as FTX-1)
+  - New "TX Method" toggle in APRS settings screen (DireWolf / Rig Modem)
+  - In Rig Modem mode: APRS button cycles OFF → AP96 (9600 baud) → AP12 (1200 baud) → OFF
+  - Configurable modem select (AUTO / MAIN / SUB) and frequency/baud for each preset
 
 Bug fixes:
+- Fixed East longitude displayed as West in APRS Mic-E received packets
+  (Workaround for FTX-1 firmware bug: D6 encoded as plain digit instead of P-Y range)
+- Fixed symbol corruption in APRS Mic-E received packets (corrected byte offsets)
+
+● What's New in v2.18 (compared to v2.17)
+- versionCode increment for Google Play release alignment
+  - No changes to Pi-side scripts (same as v2.17)
+
+● What's New in v2.17 (compared to v2.16)
+
+Bug fixes & improvements:
+- Improved IC-705 Wi-Fi CI-V connection reliability
+  - Uses ephemeral ports (0) to generate a fresh ctrlMyId on each connection
+  - Resolves issue where IC-705 reused stale sessions (matches iOS behavior)
+  - Connection continues if civRemoteId was learned from pings even when IAH was not received
+
 - Fixed panel buttons showing only the top row (4 buttons) when returning from PiP (minimize) mode
   - Moved requestLayout() inside post{} in onPictureInPictureModeChanged so the GridLayout
     remeasures only after the window has fully restored to its normal size
@@ -400,13 +463,14 @@ FastAPI update (re-run create_api.sh required):
 - USB CW relay (connect M5ATOM / DualKey directly to Android to relay CW key signals)
 - BLE CW relay (connect DualKey-BLE or RemoteKeyer-BLE to Android via BLE to relay CW key signals)
 - FT8/FT4 receive decode and transmit (WebView-based)
-- APRS beacon transmission (via DireWolf, with smartphone GPS support)
+- APRS beacon transmission (via DireWolf or rig built-in modem AP96/AP12, with smartphone GPS support)
+- APRS received station list with distance and bearing (Mic-E format supported)
 - Multiple profile support (switch between connection targets)
 - API Key authentication support
 - Remote access via WireGuard VPN
 
 ● Requirements
-- Android smartphone (Android 8.0 / API 26 or later)
+- Android smartphone (Android 5.0 / API 21 or later)
 - Raspberry Pi Zero 2W (already set up)
 - Wi-Fi environment
 
@@ -421,9 +485,9 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.17/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v2.17.apk
+  1. Download Wifi_RIG_CTRL_v2.20.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
@@ -431,7 +495,7 @@ Source code is also published in the same folder (buildable with Android Studio)
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.17/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/RaspberryPiSetup
 
 Upgrading from v2.03 or later: use the "Update" → "Update Pi" button in the app
 Hamlib 4.7.2 (added in v2.12): use the "Update" → "Update Hamlib" button in the app
@@ -444,4 +508,66 @@ If connecting from outside your home network (e.g., via mobile data), WireGuard 
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 (No changes from v1.40)
 
-2026/7/7
+⑦ iOS Version (WifiRigCTRL for iOS v2.20)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+An iPhone/iPad app that offers the same kind of remote rig control as the M5CoreS3SE,
+with source published on GitHub since v2.17 (latest: v2.20).
+As with the Android app, no M5Core / Module Audio / Unit Encoder hardware is required.
+Raspberry Pi setup is identical to the M5Core and Android versions.
+
+● App Store status
+As of 2026/7/25 this app is still being prepared for App Store submission (not yet under
+review). Until it is published, build it from source with Xcode (see "Build" below). A
+download link will be added here once it is live on the App Store.
+
+● Features
+- Real-time display of RX frequency, mode, and signal strength
+- Change frequency, mode, power, squelch, and filter width
+- Play received audio through the speaker (with noise reduction)
+- PTT ON/OFF and audio transmission (send microphone audio to the radio)
+- Wi-Fi PTT (PTT control via external devices such as M5Atom)
+- BLE CW relay (connect DualKey-BLE or RemoteKeyer-BLE via BLE to relay CW key signals;
+  USB CW relay is Android-only)
+- FT8/FT4 receive decode and transmit (WebView-based)
+- APRS beacon transmission (via DireWolf, with GPS support)
+- Multiple profile support (switch between connection targets)
+- API Key authentication support
+- Remote access via WireGuard VPN
+- Direct CI-V connection (IC-705 / IC-9700, no Raspberry Pi required. Supports frequency,
+  mode, S-meter, PTT, RF power, squelch, BK-IN, mic TX, and RX audio. CW TX/BLE keyer are
+  partially supported; FT8, APRS, NR, and Wi-Fi PTT are not available in this mode)
+
+● What's New in v2.20
+- Update the Raspberry Pi API and Hamlib directly from the app (Admin screen, no SSH needed)
+- About screen now shows Pi API version and rigctld version, with a mismatch warning
+
+● Requirements
+- iPhone / iPad (iOS 17.0 or later)
+- Raspberry Pi Zero 2W (already set up), or an Icom IC-705 / IC-9700 (for direct CI-V)
+- Wi-Fi environment
+
+For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
+- DualKey-BLE: M5AtomS3 with Wifi_Rig_CW_DUALKEY Ver1.43 firmware
+- RemoteKeyer-BLE: M5Stack Core etc. with Remotekeyer_M5Stack_Server Ver1.43 firmware
+- Pair in the iPhone's Bluetooth settings
+
+● Source Code / Build
+Source is published in the following GitHub folder:
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_iOS
+
+  1. Open WifiRigCTRL_iOS.xcodeproj in Xcode 15 or later
+  2. Set your developer account under Signing & Capabilities
+  3. Set the target device to iPhone / iPad and build
+
+No external library dependencies (no Swift Package Manager / CocoaPods).
+
+● Raspberry Pi Setup
+Follow the same setup procedure as for the M5Core and Android versions.
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/RaspberryPiSetup
+
+● Remote Access from Outside Home (WireGuard VPN)
+As with the Android version, WireGuard setup is required to connect from outside your
+home network.
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
+
+2026/7/25

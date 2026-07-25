@@ -1,0 +1,200 @@
+# Wifi_RIG_CTRL for M5Stack CoreS3 SE  Ver 2.20
+
+M5Stack CoreS3 SE を無線機（リグ）のリモートコントローラーにするファームウェアです。
+Raspberry Pi（Wifi_Rig_CTRL FastAPI バックエンド）または ICOM WLAN Remote（CI-V over WiFi）経由でリグを操作し、
+APRSビーコン送出や、Wifi_Rig_PTT（別売のリレー基板）/ Hamlib 経由でのPTT制御に対応します。
+
+by JI1ORE
+
+---
+
+## 1. 同梱ファイル
+
+| ファイル | 内容 |
+|---|---|
+| `src/` `include/` `platformio.ini` `merge_bin.py` | ソース一式（PlatformIO プロジェクト） |
+| `M5CoreHamCAT_CoreS3SE_v2.20.bin` | ビルド済みファームウェア（マージ済み、0x0番地に書き込み可） |
+
+書き込み済み `.bin` を直接使う場合は、esptool等で 0x0 番地に書き込んでください。
+
+```bash
+esptool.py --chip esp32s3 write_flash 0x0 M5CoreHamCAT_CoreS3SE_v2.20.bin
+```
+
+自分でビルドする場合は、PlatformIO（VSCode拡張 または CLI）でこのフォルダをプロジェクトとして開き、
+`Build` / `Upload` を実行してください。
+
+```bash
+pio run             # ビルド
+pio run -t upload    # ビルド＋書き込み
+```
+
+M5Stack Core2 / M5Stack Core2 Tough 向けはそれぞれ別フォルダ（`M5CoreHamCAT_Core2` / `M5CoreHamCAT_Core2Tough`）で公開しています。
+
+---
+
+## 2. ハードウェア接続（Port の役割）
+
+| Port | ピン | 用途 |
+|---|---|---|
+| **Port A** | SDA=G2 / SCL=G1 (+GND/5V) | **ロータリーエンコーダ**（M5純正 I2C エンコーダユニット Unit Encoder / SKU:U135 を接続） |
+| **Port B** | G8 / G9 (+GND/5V) | **PTTキー入力（G8）＋ステータスLED（G9）**。詳細は下記 |
+
+### Port B の配線（重要）
+
+- **G8 ⟷ GND**：外部トグルスイッチ／フットスイッチ／メカニカルキー（M5純正 SK6812 等）のPTT接点をここに接続します。
+  G8は内部プルアップ（`INPUT_PULLUP`）されているため、スイッチはG8とPort BのGND間に接続するだけでOKです（プルアップ抵抗など追加部品は不要）。
+- **G9**：WS2812互換のNeoPixel（1灯）のデータ入力。送受信状態をLEDの色で表示します（後述）。
+
+> **重要な仕様**：実際に送信（PTT ON）されるのは、**画面上の「PTT」ボタンがON（`txEnabled`）** かつ **Port BのG8が閉（LOW）** の**両方が揃ったとき**だけです。
+> 画面の「PTT」ボタンだけをタップしても、Port Bに何も接続していなければ送信されません。
+> 想定運用：画面の「PTT」ボタンで送信を許可（アーム）しておき、実際の送信タイミングは外部スイッチ（フットスイッチ等）で操作する、という2段構えの安全設計です。
+
+### ステータスLED（Port B, G9）の色
+
+| 色 | 状態 |
+|---|---|
+| 赤 | **実際に送信中**（Hamlib / Wifi_Rig_PTT / CI-V いずれの方式でも） |
+| 青 | 送信スタンバイ中（画面のPTTボタンON＝アーム済み、PTT方式=Wifi_Rig_PTT、実送信はしていない） |
+| 緑 | 送信スタンバイ中（画面のPTTボタンON＝アーム済み、PTT方式=Hamlib または CI-V） |
+| 消灯 | 画面のPTTボタンOFF（送信アーム解除中） |
+
+### 画面の向き
+
+CoreS3 SE は画面回転（上下反転）は行わず、通常の向きのまま表示します（画面反転は Core2 Tough 版のみ）。
+
+### オーディオ
+
+CoreS3 SE は内蔵マイク/スピーカーに加え、外部 Module Audio（ES8388、Port A/B とは別のI2C: SDA=G12, SCL=G11）を選べます。
+設定画面（PTT Method 画面）でSPK出力先・Mic入力先をそれぞれ内蔵／Module Audio（外部）から独立して選択できます。
+
+---
+
+## 3. 初回起動〜接続までの流れ
+
+### 3-1. 起動画面（スプラッシュ）
+
+電源を入れると "Wifi_Rig_CTRL" のロゴ表示後、**Normal** / **Skip** の2つのボタンが表示されます。
+
+- **Normal**：通常起動。Wi-Fi選択 → Raspberry Pi/CI-V接続 → リグ選択 → PTT方式選択、の順に毎回設定を確認しながら進みます。
+- **Skip**：前回保存済みの設定（Wi-Fi・Pi接続先・リグ・PTT方式）を使って、確認画面を飛ばして一気にメイン画面まで自動接続します。
+
+画面左上には **「既定:Normal」/「既定:Skip」** の小さいトグルがあります。これをタップして「既定:Skip」にしておくと、
+**8秒間何もタップしなかった場合の自動遷移先がSkipになります**（Normal/Skipボタンをその場でタップした場合はそちらが優先されます）。
+毎回Skipで起動したい場合は、一度この既定値をSkipにしておけば、以後はボタン操作なしで自動的にSkip起動されます。
+
+### 3-2. Wi-Fi接続画面
+
+周囲のWi-Fi（Androidテザリング等）をスキャンして一覧表示します。SSIDをタップしてパスワードを入力し接続します。
+
+### 3-3. Raspberry Pi / CI-V 接続画面
+
+画面右上の **「Pi Mode」/「CI-V」** で接続方式を切り替えます。
+
+- **Pi Mode**（Raspberry Pi + rigctld/FastAPI バックエンド経由）
+  - Hostname（またはIPアドレス。mDNS使用/不使用を切替可）
+  - API Port / Audio Port
+  - API Key（任意。バックエンド側で認証を要求する場合のみ）
+- **CI-V**（ICOM WLAN Remote互換、無線機のWiFiに直結。Pi不要）
+  - Host（無線機のIPアドレス）
+  - Ctrl Port / CIV Port / Addr(hex)（CI-Vアドレス）
+  - Username / Password（無線機側で設定した認証情報）
+  - Timeout（無操作時の画面消灯までの時間）
+
+入力後「Connect」をタップします。
+
+### 3-4. リグ選択画面
+
+接続先（Pi/CI-V）から取得したリグ一覧から操作対象を選択します。
+
+### 3-5. PTT方式選択画面
+
+- **Wifi_PTT**：別売の Wifi_Rig_PTT リレー（Remotekeyer）へWiFi/UDP経由でPTT信号を送る方式。ICOM機でHamlib経由PTTだと変調が乗らない問題を回避するために用意された方式です。
+  - PTT Host（mDNS名 or IPアドレス）、PTT Port を設定
+- **Hamlib**：rigctld 経由で通常のCAT PTT制御を行う方式。
+  - PTT Device（シリアルデバイス）、PTT Type（RTS/DTR）を設定
+
+設定後「OK」でメイン画面へ遷移します。
+
+---
+
+## 4. メイン画面の操作方法
+
+### 上段（ステータス表示）
+
+- 左：接続中の機種名
+- 右上のチップ（左から）：
+  1. **テーマチップ**（例:"OCN"）：タップでデザインテーマを **OCN → AMB → MONO** の順に切替
+  2. **昼夜チップ**（"NGT"/"DAY"）：タップで夜間⇄日中表示に切替。日中モードでは画面輝度を最大にし、明るい場所でも見やすい高コントラスト配色になります
+  3. **TXピル**：送信中は赤（Hamlib）またはオレンジ（APRS送信中）に点灯
+
+  ※ テーマ・昼夜チップは**送信中（PTT ON）でも操作可能**です。
+
+- 周波数表示（大きく表示）：タップで周波数の直接入力画面へ（送信中はタップ無効）
+- Sメーター：受信信号強度をグラデーションで表示
+- ステータスチップ：ST(ステップ幅) / PW(パワー) / MD(モード) / WD(フィルタ幅)
+
+### ボタン（4×3グリッド）
+
+| ボタン | 機能 |
+|---|---|
+| Freq | 周波数を選択（ロータリーエンコーダで増減） |
+| Step | 周波数ステップ幅を選択・変更 |
+| Mode | 運用モード（SSB/CW/FM等）を選択・変更 |
+| Wid | フィルタ幅を選択・変更 |
+| Pow | 送信パワーを選択・変更 |
+| SQL | スケルチレベルを選択・変更 |
+| APRS | **短押し**：APRS送信のON/OFF切替（要:APRS Enabled設定＋GPS位置情報取得済み）。<br>**長押し（0.7秒以上）**：APRS設定画面を開く |
+| PTT | 画面上のPTTアーム状態をON/OFF切替（実際の送信にはPort Bの外部スイッチも必要。上記「Port Bの配線」参照） |
+| Back | 接続を切ってリグ選択画面へ戻る |
+| SPK | スピーカー（受信音声）のON/OFF |
+| DOWN / UP | 選択中の項目（Freq/Step/Mode/Wid/Pow/SQL）の値をボタンでも増減可能 |
+
+### ロータリーエンコーダ（Port A / Unit Encoder）
+
+Freq/Step/Mode/Wid/Pow/SQL のいずれかのボタンで項目を選択した状態で回すと、その項目の値を増減できます。
+
+---
+
+## 5. APRS設定（APRSボタン長押しで表示）
+
+| 項目 | 内容 |
+|---|---|
+| APRS Enabled | APRS機能自体のON/OFF |
+| Use GPS | ONの場合、Android(Tasker)から取得した位置情報を自動使用（手動入力欄はロックされる） |
+| Latitude / Longitude | Use GPS=OFF時の手動位置情報 |
+| APRS TXFreq | APRSビーコン送信周波数 |
+| Baudrate | 1200 / 9600 |
+| TX Interval | ビーコン送信間隔（30/60/120/180/300/600秒） |
+| Callsign / SSID | 自局コールサイン・SSID |
+| Path | WIDE1-1 / WIDE1-1,WIDE2-1 / WIDE2-1 / DIRECT / NONE |
+| Symbol | APRSシンボル（アイコン表示） |
+| Destination | APRS宛先コード（TNC種別） |
+| Sound Device | Pi側で使用するサウンドデバイス |
+
+**GPS位置情報について**：Use GPS=ON時は、Android側でTasker HTTPサーバー（設定画面下部に表示されるポート・パスを参照）を起動しておく必要があります。
+M5はWiFi接続後、定期的にAndroidへ位置情報を取りに行き、取得できていない状態でAPRS送信を開始しようとすると「GPS位置情報未取得」の警告が出て開始できません（その場合はその場で自動的に一度再取得を試みます）。
+
+---
+
+## 6. 配色テーマ
+
+| テーマ | 特徴 |
+|---|---|
+| OCN (Ocean) | 標準配色（ティール/ブルー系） |
+| AMB (Amber) | 真空管・VFD風の琥珀色。夜間運用向けの落ち着いた配色 |
+| MONO | 無彩色・最大コントラスト。視認性重視 |
+
+各テーマとも昼間モード（明るい背景・高コントラスト）／夜間モード（暗い背景）を持ち、画面右上のチップで独立して切替できます。設定は本体に保存され、再起動後も保持されます。
+
+---
+
+## 7. v2.20 での変更点（v2.18 との比較）
+
+- バージョン表記を 2.20 に更新
+- CI-Vモード時のポーリング間隔を緩和（200ms→500ms）し、無線機側の負荷によるWiFi切断を回避
+- CI-Vモード時のPTT OFFにリトライ処理を追加（送信固着防止）
+- VFO A/B・MAIN/SUBの自動判別・表示に対応
+- APRS受信ビーコン一覧画面（距離・方位表示）を追加
+- streamTask強制終了処理・ENOMEM対策など安定性改善
+- PTT Method画面からリグ選択画面へ戻った際、CATデバイス／機種の未保存の選択が保存済みの値に戻ってしまう不具合を修正

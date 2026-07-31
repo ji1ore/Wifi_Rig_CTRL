@@ -1,8 +1,8 @@
-# Wifi RIG CTRL for Android — v2.32
+# Wifi RIG CTRL for Android — v2.30
 
 Android スマートフォンからアマチュア無線機をWi-Fi経由でリモート操作するコントローラーアプリ。
 
-> **English summary** — Wifi RIG CTRL is an Android controller app for amateur (ham) radio operators. It connects to a transceiver over Wi-Fi via a Raspberry Pi (Hamlib/FastAPI) or directly to an IC-705 / IC-9700 (CI-V). Features: RX audio, PTT/mic TX, CW decode & send, USB/BLE CW keyer, FT8/FT4, APRS beacon (DireWolf + Rig modem AP96/AP12), APRS receive with Mic-E decode, Picture-in-Picture, multiple profiles, band memory (MEM), repeater settings (tone, offset).
+> **English summary** — Wifi RIG CTRL is an Android controller app for amateur (ham) radio operators. It connects to a transceiver over Wi-Fi via a Raspberry Pi (Hamlib/FastAPI) or directly to an IC-705 / IC-9700 (CI-V). Features: RX audio, PTT/mic TX, CW decode & send, USB/BLE CW keyer, FT8/FT4, APRS beacon (DireWolf + Rig modem AP96/AP12), APRS receive with Mic-E decode, Picture-in-Picture, multiple profiles.
 
 ---
 
@@ -32,7 +32,6 @@ Android スマートフォンからアマチュア無線機をWi-Fi経由でリ�
 | 送信出力（RF Power）変更 | ○ | ○ |
 | スケルチ変更 | ○ | ○ |
 | ブレークイン（BK-IN）ON/OFF | ○ | ○ |
-| レピータ設定（トーン・オフセット） | × | ○ |
 | PTT ON/OFF | ○ | ○ |
 | マイク音声 TX（PTT中ストリーミング） | ○ | × |
 | 受信音声 RX（スピーカー再生） | ○ | × |
@@ -47,11 +46,10 @@ Android スマートフォンからアマチュア無線機をWi-Fi経由でリ�
 | APRS ビーコン送信（DireWolf） | ○ | × |
 | APRS ビーコン送信（リグ内蔵モデム AP96/AP12） | ○ | × |
 | APRS 受信・局表示（Mic-E対応） | ○ | × |
-| バンドメモリー（MEM） | ○ | ○ |
 
 ○: 対応　×: 非対応
 
-> iOS版と異なり、Android版のCI-V接続は周波数・モード・Sメーター・PTT・RF power・SQL・BK-IN・レピータ設定のみ対応。音声・CW送信・FT8・APRSはRaspberry Pi経由でのみ使用可能。
+> iOS版と異なり、Android版のCI-V接続は周波数・モード・Sメーター・PTT・RF power・SQL・BK-INのみ対応。音声・CW送信・FT8・APRSはRaspberry Pi経由でのみ使用可能。
 
 ---
 
@@ -62,20 +60,6 @@ Android スマートフォンからアマチュア無線機をWi-Fi経由でリ�
 - 周波数変更（ステップ: 1Hz / 10Hz / 100Hz / 500Hz / 1kHz / 5kHz / 10kHz / 20kHz）
 - モード・送信出力・スケルチ・フィルタ幅の変更（◀▶ ボタンで ±1% / ±100Hz 調整）
 - ノイズリダクション（レベル 0〜5、SQL ボタン長押しで循環）
-
-### バンドメモリー（MEM）
-- **P/W/S ボタン**: POW・WIDTH・SQL を1ボタンに統合（タップで循環選択）
-- **MEM ボタン**: バンドメモリー呼び出し・管理
-  - プリセットメモリー（160m〜70cmの代表周波数、読み取り専用）
-  - ユーザーメモリー（周波数・モード・ステップを自由に登録・編集・削除）
-  - POTA / SOTA スポットをリアルタイム取得・フィルタリング・適用
-  - 全プロファイル共通で利用可能
-
-### レピータ設定（v2.32 新機能 — CI-V 直接接続）
-- **CTCSS トーン設定**: トーンモード（None / Tone / TSQL）とトーン周波数を設定
-- **オフセット設定**: 送受信オフセット方向（+/-）と周波数を設定
-- **TX周波数表示**: 送信中にオフセット適用後の実際のTX周波数を表示
-- 設定はアプリ終了後も保持
 
 ### 音声
 - 受信音声のスピーカー再生（サンプリングレート選択可: 8k〜48kHz）
@@ -102,13 +86,16 @@ Android スマートフォンからアマチュア無線機をWi-Fi経由でリ�
 - コールサイン・SSID・パス・シンボル・コメント設定
 - 送信間隔・ボーレート（1200 / 9600）設定
 
-#### 送信（リグ内蔵モデム モード）
+#### 送信（リグ内蔵モデム モード）— v2.20 新機能
 - FTX-1 等リグの内蔵APRSモデムを制御
 - APRSボタンを押すたびに OFF → AP96（9600baud）→ AP12（1200baud）→ OFF とサイクル
+- モデム選択（AUTO / MAIN / SUB）・AP96 / AP12 それぞれの周波数・ボーレート設定可能
 
 #### 受信
 - APRS受信局の一覧表示・距離・方位表示
-- Mic-E 形式パケットのデコード対応
+- Mic-E 形式パケットのデコード対応（v2.20 改善）
+  - 東経の正常表示（FTX-1 ファームウェアのエンコードバグ回避）
+  - シンボルの正常表示
 
 ### 接続・認証
 - 複数プロファイル対応（接続先ごとに保存・切替）
@@ -156,11 +143,11 @@ M5CoreHamCAT_Android/
 │   │   │   ├── NtpClient.kt             # NTP時刻同期
 │   │   │   ├── ProfileConfig.kt         # プロファイル定義・永続化
 │   │   │   ├── AppPrefs.kt              # SharedPreferences ラッパー
-│   │   │   └── Models.kt                # データモデル・定数（MemoryEntry・PRESET_MEMORIES）
+│   │   │   └── Models.kt                # データモデル・定数
 │   │   └── viewmodel/
 │   │       └── MainViewModel.kt         # メインViewModel（全状態管理）
 │   └── res/layout/                      # XMLレイアウト
-├── Wifi_RIG_CTRL_v2.32.apk              # 署名済みAPK
+├── Wifi_RIG_CTRL_v2.30.apk              # 署名済みAPK
 └── README.md
 ```
 
@@ -197,10 +184,10 @@ Android
 APK を GitHub からダウンロードしてインストールしてください。
 
 ```
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.30/M5CoreHamCAT_Android
 ```
 
-1. `Wifi_RIG_CTRL_v2.32.apk` をダウンロード
+1. `Wifi_RIG_CTRL_v2.30.apk` をダウンロード
 2. Android の設定から「提供元不明のアプリ」を許可
 3. APK をタップしてインストール
 
@@ -232,7 +219,7 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 
 ## Raspberry Pi セットアップ
 
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.30/RaspberryPiSetup
 
 | アップグレード元 | 方法 |
 |---|---|
@@ -258,32 +245,89 @@ ssh <username>@raspizero "sudo systemctl restart fastapi"
 
 ## バージョン履歴
 
-### v2.32（2026-07-31）
-**新機能（CI-V 直接接続）**
-- レピータ設定機能追加
-  - CTCSS トーン：モード（None / Tone / TSQL）とトーン周波数を設定
-  - オフセット方向（+/-）とオフセット周波数（プリセット or カスタム）を設定
-  - 送信中にオフセット適用後の実際の TX 周波数を周波数ディスプレイに表示
-  - 設定はアプリ終了後も保持
-
-**注記**
-- Pi 側スクリプト変更なし（v2.30 と同一）
-
-### v2.31（2026-07-27）
-**新機能**
-- P/W/S ボタン（POW・WIDTH・SQL を1ボタンに統合）
-- MEM バンドメモリー機能追加（プリセット・ユーザー・POTA・SOTA）
-
-### v2.30（2026-07-26）
+### v2.30（2026-07-27）
 **Pi側API更新**
 - モード一覧を機種ごとの動的検出に変更（`api.py`）
+  - 従来 `/radio/modes`・`/radio/caps` は機種によらず固定の汎用モードリストのみを
+    返していたため、FT-991 の C4FM や IC-705 の D-STAR など機種固有のデジタル
+    モードを選択できなかった
+  - `/radio/open` 時にバックグラウンドで rigctld へ `\dump_caps` を送り、
+    "Mode list:" 行から接続中の機種が実際にサポートするモード一覧を検出して
+    使用するよう変更（VFO A/B・MAIN/SUB自動判別と同じ仕組みを再利用）。
+    検出前・失敗時は従来の固定リストにフォールバック
+  - アプリ側（本アプリ・iOS・M5）は `/radio/caps` の返り値をそのまま選択肢と
+    して表示する実装のため、アプリ自体の変更は不要
+- `EXPECTED_PI_API_VERSION` を 2.30 に更新
+- 反映には Pi 側の更新が必要:「Update」→「Update Pi」ボタンで自動更新
+  （M5のみで運用している場合も、本アプリを一度使って Update Pi を実行してください）
 
+**改善**
+- プロファイル自動保存
+  - 接続ボタン押下時・リグを開く時に、アクティブなプロファイルへ現在の設定を
+    自動保存（接続後に手動でプロファイル保存する手順が不要に）
+- APRS 設定の安定化（リグモデム AP96/AP12 の信頼性向上）
+  - サーバーとの設定不整合を防ぐため、30秒ごとに APRS 設定を自動再送するよう変更
+  - AP96/AP12 稼働中のハートビート送信を追加し、Pi 側ウォッチドッグによる
+    ビーコン途絶を防止（v2.20 では 15 秒後にビーコンが自動停止する問題があった）
+  - APRS 設定画面の OK ボタンで「APRS Enabled OFF」または「TX Method 変更」時に
+    稼働中のビーコンを自動停止するよう改善
+
+**修正（CI-V直結モード）**
+- D-STAR 選択時にリグへ USB (0x01) が誤って送信されていた不具合を修正
+  - `CivTcpService.kt` の `setMode()` に D-STAR→0x17 の対応が抜けていた
+    （モード一覧には表示されるのに、実際に選択すると USB が送られていた）
+  - M5版のCI-V直結モードにも D-STAR・WFM を選択肢として追加（従来は本アプリ・
+    iOS版のみ対応）
+
+**新機能（アプリ）**
+- カラーテーマセレクター追加
+  - メインコントロール画面の TX インジケーター左横に OCEAN / AMBER / MONO / AQUA
+    の4テーマを切替えるボタンを追加
+  - タップするたびに OCEAN → AMBER → MONO → AQUA → OCEAN とサイクル
+  - 背景・周波数パネル・周波数テキスト・ボタン色を一括変更、選択テーマは
+    再起動後も保持（SharedPreferences に永続保存）
+- FM ボタンのデジタルモード動的追加
+  - Pi 側 dump_caps で検出した機種固有モードリストに C4FM・FMN・FM-D・D-STAR が
+    含まれる場合、FM ボタンタップで FM → それらのデジタルモード → FM と循環
+    （どのデジタルモードが追加されるかは機種に依存）
+
+### v2.20（2026-07-24）
 **新機能**
-- カラーテーマセレクター（OCEAN / AMBER / MONO / AQUA）
-- FM ボタンのデジタルモード動的追加（C4FM・FMN・FM-D・D-STAR）
+- APRS: リグ内蔵モデムモードを追加（FTX-1 等の内蔵APRSモデムをCAT制御）
+  - APRSボタン: OFF → AP96（9600baud）→ AP12（1200baud）→ OFF とサイクル
+  - TX Method 設定（DireWolf / Rig Modem）を APRS 設定画面に追加
+  - モデム選択（AUTO / MAIN / SUB）・各プリセットの周波数・ボーレード設定
 
-### v2.20〜v2.10
-- 詳細は M5Files/Wifi_Rig_CTRL/readme.txt を参照
+**修正**
+- APRS 受信: Mic-E パケットの東経が西経として表示される問題を修正
+  - FTX-1 ファームウェアが D6 に P-Y でなく通常数字を使うバグへの対処
+- APRS 受信: シンボルが文字化けする問題を修正（バイトオフセット修正）
+- M5Core2 / M5Core2 Tough / M5CoreS3SE 向けの M5 ファームウェアを v2.20 に更新
+
+### v2.18（2026-07-10）
+**その他**
+- versionCode を 51 に更新（Google Play 公開バージョン整合）
+- Pi 側スクリプト変更なし（v2.17 と同一）
+
+### v2.17（2026-07-07）
+**修正・改善**
+- IC-705 Wifi CI-V 接続の信頼性向上
+- PiP（縮小）モードから復帰した際のレイアウト修正
+
+### v2.16〜v2.14
+- CI-V 直接接続の正式対応・ラベル修正
+
+### v2.13
+- PiP 対応・エッジ・ツー・エッジ表示
+
+### v2.12
+- Hamlib 4.7.2 対応・Update 管理画面
+
+### v2.11
+- BLE CWキーヤー対応（DualKey-BLE / RemoteKeyer-BLE）
+
+### v2.10 以前
+- CW デコード・送信・FT8・APRS 送信（各バージョンで段階的に追加）
 
 ---
 

@@ -125,19 +125,6 @@ rig_vfo_mode = None  # "mainsub" | "ab" | None(未検出)
 current_mode_list = None  # 検出できるまではNone → /radio/modes等は静的な汎用リストにフォールバック
 _FALLBACK_MODE_LIST = ["LSB", "USB", "CW", "CWR", "AM", "FM", "DIGL", "DIGU", "PKTLSB", "PKTUSB", "PKTFM"]
 
-# Hamlibが理論値として報告するが実際のアマチュア無線機では使用できないモード。
-# /radio/caps の mode list から除外してアプリのモード選択を整理する。
-_HAMLIB_NOISE_MODES = {
-    "ECSSUSB", "ECSSLSB",          # ECSS (Exalted Carrier SS) — 実機非対応
-    "FAX",                           # HF FAX — アマチュア機では通常使用しない
-    "SAM", "SAL", "SAH",             # Synchronous AM variants — 実機非対応
-    "DSB",                           # Double Sideband — 実機非対応
-    "AM-D", "AMN", "AMS",            # AM variants — 実機非対応
-    "P25", "DPMR", "NXDN-VN", "NXDN-N", "DCR",  # 業務用デジタル規格 — アマチュア機非対応
-    "PSK", "PSKR",                   # PSK31等はPKTUSB/PKTLSBで運用するため除外
-}
-
-
 _last_tx_debug: dict = {"status": "none", "aplay_rc": None, "aplay_err": "", "chunks": 0, "dev": ""}
 
 aprs_running = False
@@ -154,7 +141,6 @@ aprs_use_gps = True
 aprs_manual_lat = 0.0
 aprs_manual_lon = 0.0
 aprs_cfg = None
-_last_rig_aprs_key: tuple | None = None  # (freq, baud, modem_sel) — 前回適用済みの値
 
 # ---- APRS受信(ビーコン受信表示) ----
 # ★ 受信はTX方式(DireWolf/FTX-1内蔵モデム)とは無関係に、常にPiのUSBオーディオを
@@ -795,16 +781,11 @@ def _detect_vfo_mode():
     print(f"[vfo_mode] detected: {rig_vfo_mode} (line: '{vfo_line.strip()}')", flush=True)
 
     if ":" in mode_line:
-        raw_modes = [m for m in mode_line.split(":", 1)[1].split() if m]
+        modes = [m for m in mode_line.split(":", 1)[1].split() if m]
     else:
-        raw_modes = []
-
-    # ノイズモードのフィルタリング
-    modes = [m for m in raw_modes if m not in _HAMLIB_NOISE_MODES]
-
+        modes = []
     current_mode_list = modes if modes else None
-    print(f"[mode_list] raw={raw_modes}", flush=True)
-    print(f"[mode_list] filtered: {current_mode_list}", flush=True)
+    print(f"[mode_list] detected: {current_mode_list} (line: '{mode_line.strip()}')", flush=True)
 
 
 def poll_rig():
@@ -2631,7 +2612,6 @@ def _rig_aprs_watch_loop():
 @app.post("/aprs_config")
 def update_aprs_config(cfg: AprsConfig):
     global aprs_use_gps, aprs_manual_lat, aprs_manual_lon, aprs_cfg, aprs_notify_suppress_sec
-    global _last_rig_aprs_key
     aprs_use_gps = cfg.use_gps
     aprs_manual_lat = cfg.manual_lat
     aprs_manual_lon = cfg.manual_lon
@@ -2643,11 +2623,7 @@ def update_aprs_config(cfg: AprsConfig):
         # ★ CAT設定コマンドはタイムアウト・リトライを挟むと数秒かかることがあり、
         #   同期的に実行するとM5側のHTTPタイムアウトより長引いて失敗と誤判定される。
         #   DireWolf方式(direwolf再起動)と同様にバックグラウンドスレッドで実行する。
-        # ★ 定期再送時に同じ設定で繰り返しCATコマンドを送らないよう、変更があった時だけ実行する。
-        rig_key = (cfg.freq, cfg.baud, cfg.modem_sel)
-        if rig_key != _last_rig_aprs_key:
-            _last_rig_aprs_key = rig_key
-            threading.Thread(target=_rig_aprs_configure, args=(cfg,), daemon=True).start()
+        threading.Thread(target=_rig_aprs_configure, args=(cfg,), daemon=True).start()
         # ★ TXはCAT制御でもRXは別問題(オーディオデコード)なので、受信専用direwolfは
         #   別スレッドで独立に用意する。
         threading.Thread(target=_ensure_aprs_rx, args=(cfg,), daemon=True).start()
@@ -2775,19 +2751,13 @@ def aprs_start(cfg: AprsStart):
 @app.post("/aprs_stop")
 def aprs_stop():
     global aprs_running, poll_enabled, tx_watch_running, last_ptt_state, aprs_seq, aprs_rx_running
-    global _last_rig_aprs_key
     poll_enabled = True
     aprs_running = False
     tx_watch_running = False
     aprs_seq += 1  # 実行中/待機中のstartワーカーを無効化(ビーコンONで上書きされるのを防ぐ)
-    _last_rig_aprs_key = None  # 次回 start 時に必ずCAT設定を再適用する
-
-    # リグ内蔵APRSモデムのAUTO BEACONを常に無効化する。
-    # use_rig_modem/aprs_cfg の状態によらず送信する。サーバー状態の不整合時も確実に止めるため。
-    # 非FTX-1機種ではコマンドが失敗するがログ出力のみで副作用なし。
-    _rig_ex_set(7, 1, 1, 0)  # APRS BEACON > BEACON SET. > BEACON TYPE = 0:OFF
 
     if aprs_cfg is not None and aprs_cfg.use_rig_modem:
+        _rig_ex_set(7, 1, 1, 0)  # APRS BEACON > BEACON SET. > BEACON TYPE = 0:OFF
         # DireWolf TX モードから切り替えた場合に残存する PTT 制御を解除する。
         rigctl_cmd_priority("T 0")
         subprocess.run(["pkill", "-9", "direwolf"], capture_output=True)

@@ -1747,60 +1747,6 @@ class CivTcpService {
         return exchange(buildCivFrame(0x16, 0x47, if (on) 0x01 else 0x00), 0xFB) != null
     }
 
-    // ── Repeater / Tone ──
-
-    // CI-V 0x16 0x42: CTCSS tone type  (0x00=OFF 0x01=Tone 0x02=TSQL)
-    private fun setToneType(type: Int): Boolean =
-        exchange(buildCivFrame(0x16, 0x42, type), 0xFB) != null
-
-    // CI-V 0x1B 0x00: CTCSS tone freq for encode (Tone mode) — BCD, Hz×10 in 2 bytes
-    private fun setCtcssToneFreq(hz: Double): Boolean {
-        val t = (hz * 10).toInt()
-        val b0 = (t / 1000 shl 4) or ((t / 100) % 10)
-        val b1 = ((t / 10) % 10 shl 4) or (t % 10)
-        return exchange(buildCivFrame(0x1B, 0x00, b0, b1), 0xFB) != null
-    }
-
-    // CI-V 0x1B 0x01: CTCSS squelch freq for decode (TSQL mode) — same BCD format
-    private fun setCtcssSqlFreq(hz: Double): Boolean {
-        val t = (hz * 10).toInt()
-        val b0 = (t / 1000 shl 4) or ((t / 100) % 10)
-        val b1 = ((t / 10) % 10 shl 4) or (t % 10)
-        return exchange(buildCivFrame(0x1B, 0x01, b0, b1), 0xFB) != null
-    }
-
-    // CI-V 0x0F: Duplex direction  (0x00=Simplex 0x10=DUP- 0x11=DUP+)
-    private fun setDuplex(dir: String): Boolean {
-        val code = when (dir) { "+" -> 0x11; "-" -> 0x10; else -> 0x00 }
-        return exchange(buildCivFrame(0x0F, code), 0xFB) != null
-    }
-
-    // CI-V 0x0D: Repeater offset frequency — 5 BCD bytes, same encoding as main freq
-    private fun setOffsetFreq(hz: Long): Boolean {
-        var f = hz
-        val bcd = IntArray(5) { val lo = (f % 10).toInt(); f /= 10; val hi = (f % 10).toInt(); f /= 10; (hi shl 4) or lo }
-        return exchange(buildCivFrame(0x0D, bcd[0], bcd[1], bcd[2], bcd[3], bcd[4]), 0xFB) != null
-    }
-
-    /** メモリまたはダイアログから呼ばれる — トーン・オフセットを一括送信 */
-    fun sendRepeaterSettings(toneMode: String, toneHz: Double, offsetDir: String, offsetHz: Long) {
-        if (!isConnected) return
-        when (toneMode) {
-            "Tone" -> {
-                setCtcssToneFreq(toneHz)
-                setToneType(0x01)
-            }
-            "TSQL" -> {
-                setCtcssToneFreq(toneHz)
-                setCtcssSqlFreq(toneHz)
-                setToneType(0x02)
-            }
-            else -> setToneType(0x00)   // "DTCS" / "" → Tone OFF (DTCS は別途対応が必要)
-        }
-        setDuplex(offsetDir)
-        if (offsetHz > 0L) setOffsetFreq(offsetHz)
-    }
-
     // ── Model / Modes ──
     fun getModelFromCivAddress(): String = when (civAddress) {
         0xA4 -> "IC-705"; 0x90 -> "IC-7300"; 0xA2 -> "IC-9700"

@@ -84,26 +84,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val sharedMicGain = MutableLiveData(prefs.micGain)
     val sharedBkIn = MutableLiveData(false)
 
-    // リピーター設定
-    val repeaterToneMode  = MutableLiveData(prefs.repeaterToneMode)
-    val repeaterToneHz    = MutableLiveData(prefs.repeaterToneHz)
-    val repeaterOffsetDir = MutableLiveData(prefs.repeaterOffsetDir)
-    val repeaterOffsetHz  = MutableLiveData(prefs.repeaterOffsetHz)
-
-    fun setRepeater(toneMode: String, toneHz: Double, offsetDir: String, offsetHz: Long) {
-        repeaterToneMode.value  = toneMode;  prefs.repeaterToneMode  = toneMode
-        repeaterToneHz.value    = toneHz;    prefs.repeaterToneHz    = toneHz
-        repeaterOffsetDir.value = offsetDir; prefs.repeaterOffsetDir = offsetDir
-        repeaterOffsetHz.value  = offsetHz;  prefs.repeaterOffsetHz  = offsetHz
-        if (useCIV.value == true && civ.isConnected) {
-            viewModelScope.launch(Dispatchers.IO) {
-                civ.sendRepeaterSettings(toneMode, toneHz, offsetDir, offsetHz)
-            }
-        }
-    }
-
-    fun clearRepeater() = setRepeater("", 0.0, "", 0L)
-
     // ノイズリダクション (0=OFF, 1=Light, 2=Medium, 3=Strong)
     val noiseReductionLevel = MutableLiveData(prefs.nrLevel)
 
@@ -392,7 +372,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             savedRigId = prefs.savedRigId,
             savedCat = prefs.savedCat,
             savedPttDevice = selectedPttDevice.value ?: "NONE",
-            savedPttType = selectedPttType.value ?: "RIG",
+            savedPttType = selectedPttType.value ?: "RTS",
             savedBaudIndex = selectedBaudIndex.value ?: 2,
             savedSamplingIndex = selectedSamplingIndex.value ?: 1,
             savedTxSamplingIndex = selectedTxSamplingIndex.value ?: 1,
@@ -617,7 +597,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             val ptt = selectedPttDevice.value ?: "NONE"
-            val pttType = selectedPttType.value ?: "RIG"
+            val pttType = selectedPttType.value ?: "RTS"
             prefs.savedRigId = rig.id
             prefs.savedCat = cat
             prefs.savedPttDevice = ptt

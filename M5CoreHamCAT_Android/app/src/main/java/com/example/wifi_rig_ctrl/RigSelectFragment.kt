@@ -90,7 +90,7 @@ class RigSelectFragment : Fragment() {
 
         // PTT type tap → cycle RTS/DTR/RIG
         binding.tvPttType.setOnClickListener {
-            val cur = vm.selectedPttType.value ?: "RIG"
+            val cur = vm.selectedPttType.value ?: "RTS"
             vm.selectedPttType.value = when (cur) { "RTS" -> "DTR"; "DTR" -> "RIG"; else -> "RTS" }
             updateUI()
         }

@@ -207,35 +207,6 @@ last_ptt_state = 0
 
 rigctld_process = None
 _rigctld_restarting = False
-_timeout_streak = 0  # poll_rig タイムアウト連続回数（グローバル化してリスタート時にリセット）
-
-# ---------------------------------------------------------------------------
-# UDP ブロードキャストによるデバイス発見 (ポート 5001)
-# Android アプリの「スキャン」ボタンからの検索要求に応答する
-# ---------------------------------------------------------------------------
-_UDP_DISCOVERY_PORT = 5001
-
-def _udp_discovery_server():
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(('', _UDP_DISCOVERY_PORT))
-        hostname = socket.gethostname()
-        api_port   = int(os.environ.get("API_PORT",   8210))
-        audio_port = int(os.environ.get("AUDIO_PORT", 8211))
-        resp = f"WIFI_RIG_CTRL_HERE:{hostname}:{api_port}:{audio_port}".encode()
-        print(f"[discovery] UDP listening on port {_UDP_DISCOVERY_PORT}", flush=True)
-        while True:
-            try:
-                data, addr = sock.recvfrom(256)
-                if data.strip() == b"WIFI_RIG_CTRL_DISCOVER":
-                    sock.sendto(resp, addr)
-            except Exception:
-                pass
-    except Exception as e:
-        print(f"[discovery] error: {e}", flush=True)
-
-threading.Thread(target=_udp_discovery_server, daemon=True).start()
 
 # ---- VFO A/B or MAIN/SUB 判定(機種選択・接続のたびにrigctld再起動後に自動検出) ----
 rig_vfo_mode = None  # "mainsub" | "ab" | None(未検出)
@@ -243,19 +214,6 @@ rig_vfo_mode = None  # "mainsub" | "ab" | None(未検出)
 # ---- 機種固有のモード一覧(dump_capsの"Mode list:"から検出。C4FM/DSTAR等はここに含まれる) ----
 current_mode_list = None  # 検出できるまではNone → /radio/modes等は静的な汎用リストにフォールバック
 _FALLBACK_MODE_LIST = ["LSB", "USB", "CW", "CWR", "AM", "FM", "DIGL", "DIGU", "PKTLSB", "PKTUSB", "PKTFM"]
-
-# Hamlibが理論値として報告するが実際のアマチュア無線機では使用できないモード。
-# /radio/caps の mode list から除外してアプリのモード選択を整理する。
-_HAMLIB_NOISE_MODES = {
-    "ECSSUSB", "ECSSLSB",          # ECSS (Exalted Carrier SS) — 実機非対応
-    "FAX",                           # HF FAX — アマチュア機では通常使用しない
-    "SAM", "SAL", "SAH",             # Synchronous AM variants — 実機非対応
-    "DSB",                           # Double Sideband — 実機非対応
-    "AM-D", "AMN", "AMS",            # AM variants — 実機非対応
-    "P25", "DPMR", "NXDN-VN", "NXDN-N", "DCR",  # 業務用デジタル規格 — アマチュア機非対応
-    "PSK", "PSKR",                   # PSK31等はPKTUSB/PKTLSBで運用するため除外
-}
-
 
 _last_tx_debug: dict = {"status": "none", "aplay_rc": None, "aplay_err": "", "chunks": 0, "dev": ""}
 
@@ -273,7 +231,6 @@ aprs_use_gps = True
 aprs_manual_lat = 0.0
 aprs_manual_lon = 0.0
 aprs_cfg = None
-_last_rig_aprs_key: tuple | None = None  # (freq, baud, modem_sel) — 前回適用済みの値
 
 # ---- APRS受信(ビーコン受信表示) ----
 # ★ 受信はTX方式(DireWolf/FTX-1内蔵モデム)とは無関係に、常にPiのUSBオーディオを
@@ -772,76 +729,25 @@ def start_rigctld(model, cat, baud, ptt="", ptt_type="RTS", release_ptt=True):
         cmd += ["-p", f"/dev/{ptt}", "-P", effective_ptt_type]
     print(f"starting rigctld: {' '.join(cmd)}")
     rigctld_process = subprocess.Popen(cmd, stderr=subprocess.PIPE)
-    # Phase 1: ポート 4532 が TCP 接続を受け付けるまで待つ。
-    _alive_deadline = time.time() + 5.0
-    _port_ready = False
-    while time.time() < _alive_deadline:
-        if rigctld_process.poll() is not None:
-            err = rigctld_process.stderr.read().decode(errors="replace")
-            print(f"rigctld exited early: {err.strip()}", flush=True)
-            break
-        if rigctl_alive():
-            print(f"rigctld port open pid={rigctld_process.pid}", flush=True)
-            _port_ready = True
-            break
-        time.sleep(0.2)
+    time.sleep(1.5)
+    if rigctld_process.poll() is not None:
+        err = rigctld_process.stderr.read().decode(errors="replace")
+        print(f"rigctld exited early: {err}")
     else:
-        print(f"rigctld port-open timeout (5s): pid={rigctld_process.pid if rigctld_process else '?'}", flush=True)
-    # Phase 2: rigctld が実際にコマンドに応答するまで待つ。
-    # ポートが開いただけでは CAT 接続確立前にクラッシュすることがある。
-    # その短い窓で _rigctld_restarting = False にすると poll_rig のストリークが
-    # 即座に溜まり再起動ループが発生する。応答確認後にのみ False にする。
-    if _port_ready and rigctld_process and rigctld_process.poll() is None:
-        _resp_deadline = time.time() + 6.0
-        while time.time() < _resp_deadline:
-            if rigctld_process.poll() is not None:
-                err = rigctld_process.stderr.read().decode(errors="replace")
-                print(f"rigctld exited during CAT init: {err.strip()}", flush=True)
-                break
-            _rs = None
-            try:
-                _rs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                _rs.settimeout(2.0)
-                _rs.connect(("localhost", 4532))
-                _rs.sendall(b"t\n")
-                _resp = _rs.recv(4096).decode(errors="replace").strip()
-                if _resp:
-                    print(f"rigctld running pid={rigctld_process.pid} (t='{_resp}')", flush=True)
-                    break
-            except Exception:
-                pass
-            finally:
-                try:
-                    if _rs:
-                        _rs.close()
-                except Exception:
-                    pass
-            time.sleep(0.3)
-        else:
-            print(f"rigctld CAT-ready timeout (6s): pid={rigctld_process.pid if rigctld_process else '?'}", flush=True)
+        print(f"rigctld running pid={rigctld_process.pid}")
     # Hamlib RIG/RTS PTT modes can accidentally assert PTT during rig_open() initialization.
     # Explicitly release PTT and reset TX state after every rigctld start.
     # release_ptt=False skips this during audio TX recovery (IC-705 stays in TX mode after USB reset).
     if release_ptt:
         radio_cache["tx"] = False
         global last_ptt_state
-        if last_ptt_state == 0:
-            # アクティブなTXなし: T 0 を送って RTS などの誤アサートを解除する。
-            # -P RTS 使用時: rig_open() でシリアルポートが開く際に RTS が一瞬
-            # HIGH になることがある。即座に T 0 で LOW に戻す。
-            # last_ptt_state==1 のとき(Androidがリトライして T 1 を送信中)は
-            # T 0 を送ってはいけない — アクティブな送信を中断してしまう。
-            time.sleep(0.3)
-            try:
-                result = rigctl_cmd_priority("T 0")
-                print(f"[{_ts()}] [start_rigctld] PTT release: T 0 -> '{result}'", flush=True)
-            except Exception as e:
-                print(f"[{_ts()}] [start_rigctld] PTT release failed: {e}", flush=True)
-        else:
-            print(f"[{_ts()}] [start_rigctld] PTT release skipped (TX active, last_ptt_state=1)", flush=True)
         last_ptt_state = 0
-    global _timeout_streak
-    _timeout_streak = 0  # リスタート中に積み増したカウントをリセット
+        time.sleep(0.3)
+        try:
+            result = rigctl_cmd_priority("T 0")
+            print(f"[{_ts()}] [start_rigctld] PTT release: T 0 -> '{result}'", flush=True)
+        except Exception as e:
+            print(f"[{_ts()}] [start_rigctld] PTT release failed: {e}", flush=True)
     _rigctld_restarting = False
 
 
@@ -884,15 +790,8 @@ def _detect_vfo_mode():
     current_mode_listに保存する。
     /radio/openのたびにバックグラウンドで呼ばれ、rig_vfo_mode / current_mode_list を更新する。"""
     global rig_vfo_mode, current_mode_list
-    # rigctld のポートが開くまで待つ(dump_caps はリグ接続不要でHamlibの内部データを返すため
-    # ポートが開けば即実行できる)。
-    for _ in range(30):
-        if rigctl_alive():
-            break
-        time.sleep(0.5)
-    # dump_caps は独立したソケット接続を開くため rig_lock は不要。
-    # rig_lock を保持したまま実行すると poll_rig の周波数/モード取得が最大3秒ブロックされる。
-    text = _dump_caps_text()
+    with rig_lock:
+        text = _dump_caps_text()
     if not text:
         rig_vfo_mode = "ab"  # 判定不能時は最も一般的なA/B型として扱う
         current_mode_list = None  # 検出失敗時は/radio/modes等が静的リストにフォールバック
@@ -914,28 +813,23 @@ def _detect_vfo_mode():
     print(f"[vfo_mode] detected: {rig_vfo_mode} (line: '{vfo_line.strip()}')", flush=True)
 
     if ":" in mode_line:
-        raw_modes = [m for m in mode_line.split(":", 1)[1].split() if m]
+        modes = [m for m in mode_line.split(":", 1)[1].split() if m]
     else:
-        raw_modes = []
-
-    # ノイズモードのフィルタリング
-    modes = [m for m in raw_modes if m not in _HAMLIB_NOISE_MODES]
-
+        modes = []
     current_mode_list = modes if modes else None
-    print(f"[mode_list] raw={raw_modes}", flush=True)
-    print(f"[mode_list] filtered: {current_mode_list}", flush=True)
+    print(f"[mode_list] detected: {current_mode_list} (line: '{mode_line.strip()}')", flush=True)
 
 
 def poll_rig():
-    global poll_enabled, last_user_freq_change, last_user_mode_change, _rig_tx_latch_until, _timeout_streak
+    global poll_enabled, last_user_freq_change, last_user_mode_change, _rig_tx_latch_until
     print("[poll_rig] waiting for rigctld...")
     for _ in range(30):
         if rigctl_alive():
             break
         time.sleep(0.5)
     last_bkin_rig = 0
-    _m_skip_remaining = 0  # C4FM モード検出時、m クエリを数サイクルスキップ
     print("[poll_rig] rigctld ready, starting poll loop")
+    _timeout_streak = 0
     while True:
         # ★ APRS送信中は "t" 問い合わせ自体を止める。tx_raw の結果で radio_cache["tx"] を
         #   毎回上書きしてしまうため、tx_in_progress 側で立てた値がすぐ書き戻されていた。
@@ -957,17 +851,10 @@ def poll_rig():
                 # timeout: keep last TX state so watchdog can fire if needed
                 tx = int(radio_cache.get("tx", False))
                 # Don't restart rigctld during TX: DTR reset would cut transmission
-                # Don't count timeouts while a restart is in progress (_rigctld_restarting=True);
-                # start_rigctld resets _timeout_streak when it finishes.
-                if not tx and not _rigctld_restarting:
+                if not tx:
                     _timeout_streak += 1
-                    # rigctld プロセスが終了していれば即再起動。
-                    # プロセスは生きているが応答しない場合は 4 回連続失敗してから再起動
-                    # (FT-991 C4FM モードでは 'm' がタイムアウトしても 't' は正常に応答するため
-                    #  閾値を低くすると誤再起動 → T 0 送信 → brief TX が発生する)。
-                    _proc_dead = rigctld_process is not None and rigctld_process.poll() is not None
-                    if (_proc_dead or _timeout_streak >= 4) and current_model and current_cat:
-                        print(f"[{_ts()}] [poll_rig] {_timeout_streak} consecutive timeouts (proc_dead={_proc_dead}) — restarting rigctld", flush=True)
+                    if _timeout_streak >= 2 and current_model and current_cat and not _rigctld_restarting:
+                        print(f"[{_ts()}] [poll_rig] {_timeout_streak} consecutive timeouts — restarting rigctld", flush=True)
                         _timeout_streak = 0
                         threading.Thread(
                             target=lambda: start_rigctld(current_model, current_cat, current_baud,
@@ -979,9 +866,7 @@ def poll_rig():
             radio_cache["tx"] = False
             _timeout_streak = 0
 
-        if tx and last_ptt_state == 1:
-            # サーバーがPTTを命令した場合のみポーリングをスキップ。
-            # last_ptt_state=0 のとき(Hamlibの誤検知など)はスキップしない。
+        if tx:
             time.sleep(1.0)  # TX中はrigctld負荷を軽減
             continue
 
@@ -1009,21 +894,12 @@ def poll_rig():
             pass
 
         try:
-            if _m_skip_remaining > 0:
-                # C4FM モードでは FT-991 が m クエリに応答しないため 2 秒タイムアウト
-                # が発生し、並行する T 1 (PTT) もブロックされてラグが生じる。
-                # タイムアウト後は数サイクルスキップして T 1 のブロックを防ぐ。
-                _m_skip_remaining -= 1
-            else:
-                mode_raw = rigctl_cmd("m")
-                parts = mode_raw.split() if mode_raw else []
-                if parts and time.time() - last_user_mode_change > 0.5:
-                    radio_cache["mode"] = parts[0]
-                    if len(parts) >= 2 and parts[1].lstrip("-").isdigit():
-                        radio_cache["width"] = int(parts[1])
-                if not mode_raw:
-                    # タイムアウト: 次の 2 サイクルをスキップして T 1 のブロックを防ぐ
-                    _m_skip_remaining = 2
+            mode_raw = rigctl_cmd("m")
+            parts = mode_raw.split() if mode_raw else []
+            if parts and time.time() - last_user_mode_change > 0.5:
+                radio_cache["mode"] = parts[0]
+                if len(parts) >= 2 and parts[1].lstrip("-").isdigit():
+                    radio_cache["width"] = int(parts[1])
         except Exception:
             pass
 
@@ -1092,11 +968,7 @@ def poll_signal():
 def watchdog_heartbeat():
     global last_heartbeat, last_ptt_state
     while True:
-        # last_ptt_state=1 のときのみ watchdog を発動する。
-        # last_ptt_state=0 のとき(Hamlibの誤検知・外部PTT等)は T 0 を送らない。
-        # FT-991 の C4FM モードで rigctl t が誤って 1 を返す場合、
-        # watchdog が T 0 を送り続けて断続送信を引き起こすのを防ぐ。
-        if radio_cache.get("tx", False) and last_ptt_state == 1:
+        if radio_cache.get("tx", False):
             # APRS TX 中は direwolf が PTT を管理するので watchdog を抑制
             if not tx_in_progress and time.time() - last_heartbeat > 5.0:
                 print(f"[{_ts()}] *** [PTT OFF] watchdog: heartbeat lost -> TX OFF", flush=True)
@@ -1332,31 +1204,10 @@ def set_freq(f: int = Form(...)):
 @app.post("/radio/setmode")
 def set_mode(mode: str = Form(...), width: int = Form(...)):
     global last_user_mode_change
-    _prev_mode = radio_cache.get("mode")
-    _prev_width = radio_cache.get("width", 0)
     radio_cache["mode"] = mode
     radio_cache["width"] = width
     last_user_mode_change = time.time()
-    def _set_and_check():
-        global last_user_mode_change
-        result = rigctl_cmd(f"M {mode} {width}")
-        if result and result.startswith("RPRT") and result != "RPRT 0":
-            # C4FM: FT-991A はモード切替中に CAT 応答が遅れ RPRT -14(BUSBUSY) を返すが、
-            # リグは実際に C4FM へ切り替わっている(直後の 'm' タイムアウトで確認済み)。
-            # BUSBUSY は成功として扱い、キャッシュを C4FM のまま維持する。
-            if mode == "C4FM" and result == "RPRT -14":
-                last_user_mode_change = time.time()
-                print(f"[{_ts()}] [setmode] C4FM BUSBUSY treated as success", flush=True)
-                return
-            radio_cache["mode"] = _prev_mode
-            radio_cache["width"] = _prev_width
-            print(f"[{_ts()}] [setmode] '{mode}' failed ({result}), cache reverted to '{_prev_mode}'", flush=True)
-        else:
-            # M コマンド完了後にガードタイマーをリセット。
-            # リクエスト受信時点(0.5s前)からではなく、コマンド完了後からポーリングを抑制することで、
-            # リグの切替完了前に m クエリが古いモードを返してキャッシュを上書きするのを防ぐ。
-            last_user_mode_change = time.time()
-    threading.Thread(target=_set_and_check, daemon=True).start()
+    threading.Thread(target=lambda: rigctl_cmd(f"M {mode} {width}"), daemon=True).start()
     return {"status": "ok", "mode": mode, "width": width}
 
 
@@ -1364,17 +1215,12 @@ def set_mode(mode: str = Form(...), width: int = Form(...)):
 def ptt(state: int = Form(...)):
     global last_ptt_state, last_heartbeat, _ft8_tx_active
     if state == 0:
-        if last_ptt_state == 1:
-            # サーバーが TX を命令していた場合のみ T 0 を送る。
-            # last_ptt_state=0 の場合に T 0 を送ると C4FM モードで brief TX が発生する。
-            result = rigctl_cmd_priority("T 0")
-            if not result or "RPRT -1" in result:
-                # T 0 failed (timeout or RPRT -1 = IC-705 USB reset): wait and retry
-                print(f"[{_ts()}] *** [PTT OFF] T 0 failed ('{result}'), retrying in 1s...", flush=True)
-                time.sleep(1.0)
-                rigctl_cmd_priority("T 0")
-        else:
-            print(f"[{_ts()}] [PTT OFF] T 0 skipped (last_ptt_state was already 0)", flush=True)
+        result = rigctl_cmd_priority("T 0")
+        if not result or "RPRT -1" in result:
+            # T 0 failed (timeout or RPRT -1 = IC-705 USB reset): wait and retry
+            print(f"[{_ts()}] *** [PTT OFF] T 0 failed ('{result}'), retrying in 1s...", flush=True)
+            time.sleep(1.0)
+            rigctl_cmd_priority("T 0")
         radio_cache["tx"] = False
         last_ptt_state = 0
         _ft8_tx_active = False
@@ -2750,7 +2596,6 @@ def _rig_aprs_watch_loop():
 @app.post("/aprs_config")
 def update_aprs_config(cfg: AprsConfig):
     global aprs_use_gps, aprs_manual_lat, aprs_manual_lon, aprs_cfg, aprs_notify_suppress_sec
-    global _last_rig_aprs_key
     aprs_use_gps = cfg.use_gps
     aprs_manual_lat = cfg.manual_lat
     aprs_manual_lon = cfg.manual_lon
@@ -2762,11 +2607,7 @@ def update_aprs_config(cfg: AprsConfig):
         # ★ CAT設定コマンドはタイムアウト・リトライを挟むと数秒かかることがあり、
         #   同期的に実行するとM5側のHTTPタイムアウトより長引いて失敗と誤判定される。
         #   DireWolf方式(direwolf再起動)と同様にバックグラウンドスレッドで実行する。
-        # ★ 定期再送時に同じ設定で繰り返しCATコマンドを送らないよう、変更があった時だけ実行する。
-        rig_key = (cfg.freq, cfg.baud, cfg.modem_sel)
-        if rig_key != _last_rig_aprs_key:
-            _last_rig_aprs_key = rig_key
-            threading.Thread(target=_rig_aprs_configure, args=(cfg,), daemon=True).start()
+        threading.Thread(target=_rig_aprs_configure, args=(cfg,), daemon=True).start()
         # ★ TXはCAT制御でもRXは別問題(オーディオデコード)なので、受信専用direwolfは
         #   別スレッドで独立に用意する。
         threading.Thread(target=_ensure_aprs_rx, args=(cfg,), daemon=True).start()
@@ -2826,9 +2667,6 @@ def aprs_start(cfg: AprsStart):
     my_seq = aprs_seq
 
     if aprs_cfg.use_rig_modem:
-        # DireWolf TX モードから切り替えた場合に残存する direwolf プロセスを停止する。
-        # (direwolf は PTT RIG 経由でリグを制御するため、kill しないとリグ側の PTT が残る)
-        subprocess.run(["pkill", "-9", "direwolf"], capture_output=True)
         # 無線機内蔵モデムのAUTOビーコンを開始する。direwolf/aprs_loopのKISS送出は使わない。
         # ★ CAT設定4連続はタイムアウト・リトライを挟むと合計で数秒〜10秒近くかかることがあり、
         #   同期実行するとM5側のHTTPタイムアウトで失敗と誤判定されるため、バックグラウンドで実行する。
@@ -2894,23 +2732,13 @@ def aprs_start(cfg: AprsStart):
 @app.post("/aprs_stop")
 def aprs_stop():
     global aprs_running, poll_enabled, tx_watch_running, last_ptt_state, aprs_seq, aprs_rx_running
-    global _last_rig_aprs_key
     poll_enabled = True
     aprs_running = False
     tx_watch_running = False
     aprs_seq += 1  # 実行中/待機中のstartワーカーを無効化(ビーコンONで上書きされるのを防ぐ)
-    _last_rig_aprs_key = None  # 次回 start 時に必ずCAT設定を再適用する
-
-    # リグ内蔵APRSモデムのAUTO BEACONを常に無効化する。
-    # use_rig_modem/aprs_cfg の状態によらず送信する。サーバー状態の不整合時も確実に止めるため。
-    # 非FTX-1機種ではコマンドが失敗するがログ出力のみで副作用なし。
-    _rig_ex_set(7, 1, 1, 0)  # APRS BEACON > BEACON SET. > BEACON TYPE = 0:OFF
 
     if aprs_cfg is not None and aprs_cfg.use_rig_modem:
-        # DireWolf TX モードから切り替えた場合に残存する PTT 制御を解除する。
-        rigctl_cmd_priority("T 0")
-        subprocess.run(["pkill", "-9", "direwolf"], capture_output=True)
-        last_ptt_state = 0
+        _rig_ex_set(7, 1, 1, 0)  # APRS BEACON > BEACON SET. > BEACON TYPE = 0:OFF
         radio_cache["tx"] = False
         # ★ TXは止めるが、APRS機能自体(cfg.enabled)がONならAUTO BEACON以外の局からの
         #   受信は引き続き拾えるよう、受信専用direwolfへ切り替えて維持する。

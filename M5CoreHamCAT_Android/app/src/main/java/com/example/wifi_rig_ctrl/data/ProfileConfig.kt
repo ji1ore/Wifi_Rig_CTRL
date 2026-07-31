@@ -10,7 +10,7 @@ data class ProfileConfig(
     val savedRigId: Int = -1,
     val savedCat: String = "",
     val savedPttDevice: String = "NONE",
-    val savedPttType: String = "RIG",
+    val savedPttType: String = "RTS",
     val savedBaudIndex: Int = 2,
     val savedSamplingIndex: Int = 1,
     val savedTxSamplingIndex: Int = 1,

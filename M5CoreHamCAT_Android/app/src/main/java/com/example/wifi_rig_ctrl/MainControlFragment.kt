@@ -27,9 +27,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.ji1ore.wifi_rig_ctrl.data.AprsHeardStation
 import com.ji1ore.wifi_rig_ctrl.data.aprsSymbolByCode
-import com.ji1ore.wifi_rig_ctrl.data.MemoryEntry
 import com.ji1ore.wifi_rig_ctrl.data.MenuItem
-import com.ji1ore.wifi_rig_ctrl.data.PRESET_MEMORIES
 import com.ji1ore.wifi_rig_ctrl.data.SAMPLING_RATES
 import com.ji1ore.wifi_rig_ctrl.data.SCREEN_TIMEOUT_OPTIONS
 import com.ji1ore.wifi_rig_ctrl.data.STEP_LIST
@@ -189,27 +187,16 @@ class MainControlFragment : Fragment() {
         }
     }
 
-    private fun updateFreqDisplay() {
-        val freq   = vm.sharedFreq.value ?: 0L
-        val tx     = vm.txEnabled.value == true
-        val dir    = vm.repeaterOffsetDir.value ?: ""
-        val offset = vm.repeaterOffsetHz.value ?: 0L
-        val displayFreq = if (tx && dir.isNotEmpty() && offset > 0L) {
-            if (dir == "-") freq - offset else freq + offset
-        } else freq
-        val mhz = displayFreq / 1_000_000.0
-        binding.tvFreq.text = "%.5f".format(mhz)
-        cwSheetFreqView?.text = "%.5f".format(mhz)
-    }
-
     private fun setupObservers() {
-        vm.sharedFreq.observe(viewLifecycleOwner) { updateFreqDisplay() }
+        vm.sharedFreq.observe(viewLifecycleOwner) { freq ->
+            val mhz = freq / 1_000_000.0
+            binding.tvFreq.text = "%.5f".format(mhz)
+            cwSheetFreqView?.text = "%.5f".format(mhz)
+        }
         vm.sharedMode.observe(viewLifecycleOwner) { updateInfoRow(); updateButtonHighlights() }
         vm.sharedPower.observe(viewLifecycleOwner) { updateInfoRow() }
         vm.sharedSQL.observe(viewLifecycleOwner) { updateInfoRow() }
         vm.sharedBkIn.observe(viewLifecycleOwner) { updateInfoRow(); updateButtonHighlights() }
-        vm.repeaterOffsetDir.observe(viewLifecycleOwner) { updateInfoRow(); updateFreqDisplay() }
-        vm.repeaterToneMode.observe(viewLifecycleOwner) { updateInfoRow() }
         vm.sharedWidth.observe(viewLifecycleOwner) { updateInfoRow() }
         vm.sharedSignal.observe(viewLifecycleOwner) { updateSMeter(it) }
         vm.sharedModel.observe(viewLifecycleOwner) { updateModelDisplay() }
@@ -224,7 +211,6 @@ class MainControlFragment : Fragment() {
         vm.txEnabled.observe(viewLifecycleOwner) { _ ->
             updateButtonHighlights()
             updateTxIndicator()
-            updateFreqDisplay()
         }
         vm.aprsTxInProgress.observe(viewLifecycleOwner) { _ ->
             updateTxIndicator()
@@ -368,18 +354,8 @@ class MainControlFragment : Fragment() {
         binding.tvPow.text = "Pow\n${((vm.sharedPower.value ?: 0f) * 100).toInt()}"
         binding.tvSQL.text = "SQL\n${((vm.sharedSQL.value ?: 0f) * 100).toInt()}"
         val bkOn = vm.sharedBkIn.value ?: false
-        val rptDir  = vm.repeaterOffsetDir.value ?: ""
-        val rptTone = vm.repeaterToneMode.value ?: ""
-        val rptActive = rptDir.isNotEmpty() || rptTone.isNotEmpty()
-        if (rptActive) {
-            val dirStr  = if (rptDir.isNotEmpty()) rptDir else "-"
-            val toneStr = if (rptTone.isNotEmpty()) rptTone else "-"
-            binding.tvBkIn.text = "RPT\n$dirStr $toneStr"
-            binding.tvBkIn.setTextColor(0xFFFFD600.toInt())
-        } else {
-            binding.tvBkIn.text = "BK-IN\n${if (bkOn) "ON" else "OFF"}"
-            binding.tvBkIn.setTextColor(if (bkOn) 0xFF00E676.toInt() else 0xFF666666.toInt())
-        }
+        binding.tvBkIn.text = "BK-IN\n${if (bkOn) "ON" else "OFF"}"
+        binding.tvBkIn.setTextColor(if (bkOn) 0xFF00E676.toInt() else 0xFF666666.toInt())
     }
 
     private fun updateTxIndicator() {
@@ -407,14 +383,14 @@ class MainControlFragment : Fragment() {
         val freqActive = sel == MenuItem.FREQ || sel == MenuItem.STEP
         binding.btnFreq.backgroundTintList = tint(if (freqActive) 0xFF00BCD4.toInt() else theme.ctrlRowTint)
         binding.btnFreq.text = if (sel == MenuItem.STEP) "Step" else "FREQ"
-        val powWidSqlActive = sel == MenuItem.POW || sel == MenuItem.WIDTH || sel == MenuItem.SQL
-        binding.btnPowWidSql.backgroundTintList = tint(if (powWidSqlActive) 0xFF00BCD4.toInt() else theme.ctrlRowTint)
-        binding.btnPowWidSql.text = when (sel) {
-            MenuItem.POW   -> "P/W/S\nPower"
-            MenuItem.WIDTH -> "P/W/S\nWidth"
-            MenuItem.SQL   -> "P/W/S\nSQL"
-            else           -> "P/W/S"
+        val widSqlActive = sel == MenuItem.WIDTH || sel == MenuItem.SQL
+        binding.btnWidSql.backgroundTintList = tint(if (widSqlActive) 0xFF00BCD4.toInt() else theme.ctrlRowTint)
+        binding.btnWidSql.text = when (sel) {
+            MenuItem.WIDTH -> "Wid"
+            MenuItem.SQL   -> "SQL"
+            else           -> "WD/SQ"
         }
+        binding.btnPow.backgroundTintList   = tint(if (sel == MenuItem.POW) 0xFF00BCD4.toInt() else theme.ctrlRowTint)
         val nrLevel = vm.noiseReductionLevel.value ?: 0
 
         // VFO toggle button
@@ -492,27 +468,20 @@ class MainControlFragment : Fragment() {
         val textActive   = 0xFF000000.toInt()  // 黒: 選択時（明るい背景に対してコントラスト確保）
         val textInactive = 0xFF6677CC.toInt()  // 淡青: 非選択時
 
-        // btnModeLsb = SSB統合ボタン（LSB/USB/PKTLSB/PKTUSB）
-        val lsbUsbActive = curMode == "LSB" || curMode == "PKTLSB" || curMode == "USB" || curMode == "PKTUSB"
-        binding.btnModeLsb.backgroundTintList = tint(when (curMode) {
-            "LSB", "USB" -> modeBase; "PKTLSB", "PKTUSB" -> modePkt; else -> modeOff
-        })
-        binding.btnModeLsb.text = when (curMode) {
-            "USB" -> "USB"; "PKTUSB" -> "PKT-U"; "PKTLSB" -> "PKT-L"; "LSB" -> "LSB"; else -> "SSB"
-        }
-        binding.btnModeLsb.setTextColor(if (lsbUsbActive) textActive else textInactive)
+        val lsbActive = curMode == "LSB" || curMode == "PKTLSB"
+        binding.btnModeLsb.backgroundTintList = tint(when (curMode) { "LSB" -> modeBase; "PKTLSB" -> modePkt; else -> modeOff })
+        binding.btnModeLsb.text = if (curMode == "PKTLSB") "PKT-L" else "LSB"
+        binding.btnModeLsb.setTextColor(if (lsbActive) textActive else textInactive)
 
-        // btnModeUsb = CWボタン（USBの位置）
+        val usbActive = curMode == "USB" || curMode == "PKTUSB"
+        binding.btnModeUsb.backgroundTintList = tint(when (curMode) { "USB" -> modeBase; "PKTUSB" -> modePkt; else -> modeOff })
+        binding.btnModeUsb.text = if (curMode == "PKTUSB") "PKT-U" else "USB"
+        binding.btnModeUsb.setTextColor(if (usbActive) textActive else textInactive)
+
         val cwActive = curMode == "CW" || curMode == "CWR"
-        binding.btnModeUsb.backgroundTintList = tint(when (curMode) { "CW" -> modeBase; "CWR" -> modePkt; else -> modeOff })
-        binding.btnModeUsb.text = if (curMode == "CWR") "CWR" else "CW"
-        binding.btnModeUsb.setTextColor(if (cwActive) textActive else textInactive)
-
-        // btnModeCw = AMボタン（CWの位置）
-        val amActive = curMode == "AM" || curMode == "SAM" || curMode == "AMS"
-        binding.btnModeCw.backgroundTintList = tint(if (amActive) modeBase else modeOff)
-        binding.btnModeCw.text = when (curMode) { "SAM" -> "SAM"; "AMS" -> "AMS"; else -> "AM" }
-        binding.btnModeCw.setTextColor(if (amActive) textActive else textInactive)
+        binding.btnModeCw.backgroundTintList  = tint(when (curMode) { "CW" -> modeBase; "CWR" -> modePkt; else -> modeOff })
+        binding.btnModeCw.text = if (curMode == "CWR") "CWR" else "CW"
+        binding.btnModeCw.setTextColor(if (cwActive) textActive else textInactive)
 
         val fmActive = curMode == "FM" || curMode == "FM-D" || curMode == "PKTFM" ||
             curMode == "C4FM" || curMode == "DSTAR" || curMode == "D-STAR"
@@ -586,26 +555,31 @@ class MainControlFragment : Fragment() {
             }
         }
 
-        // PO/WD/SQ button: cycles POW → WIDTH → SQL → NONE
-        binding.btnPowWidSql.setOnClickListener {
+        // WD/SQ button: cycles WIDTH → SQL → NONE
+        binding.btnWidSql.setOnClickListener {
             if (vm.txEnabled.value == true) return@setOnClickListener
             vm.selectedMenuItem.value = when (vm.selectedMenuItem.value) {
-                MenuItem.POW   -> MenuItem.WIDTH
                 MenuItem.WIDTH -> MenuItem.SQL
                 MenuItem.SQL   -> MenuItem.NONE
-                else           -> MenuItem.POW
+                else           -> MenuItem.WIDTH
             }
         }
-
-        // MEM button: short tap = show memory list, long tap = manage
-        binding.btnMem.apply { text = "MEM\nSET"; maxLines = 2; textSize = 10f }
-        binding.btnMem.setOnClickListener { showMemoryPanel() }
-        binding.btnMem.setOnLongClickListener { showMemoryManagePanel(); true }
 
         // VFO toggle grid button
         binding.btnVfoToggle.setOnClickListener {
             if (vm.txEnabled.value == true) return@setOnClickListener
             vm.toggleVfo()
+        }
+
+        // Other select menu buttons
+        listOf(
+            binding.btnPow to MenuItem.POW
+        ).forEach { (btn, item) ->
+            btn.setOnClickListener {
+                if (vm.txEnabled.value == true && item != MenuItem.NONE) return@setOnClickListener
+                vm.selectedMenuItem.value =
+                    if (vm.selectedMenuItem.value == item) MenuItem.NONE else item
+            }
         }
 
         // Info row taps: Step / Width それぞれ独立して選択/解除
@@ -652,9 +626,9 @@ class MainControlFragment : Fragment() {
             AlertDialog.Builder(requireContext()).setTitle("Mode")
                 .setSingleChoiceItems(modes.toTypedArray(), cur) { dlg, which ->
                     val m = modes[which]
-                    val w = modeDefaultWidth(m)
+                    val w = if (m.contains("CW", ignoreCase = true)) 500 else (vm.sharedWidth.value ?: 0)
                     vm.sendMode(m, w)
-                    if (w > 0) vm.sharedWidth.value = w
+                    if (m.contains("CW", ignoreCase = true)) vm.sharedWidth.value = w
                     vm.selectedStep.value = vm.prefs.getModeStep(m)
                     dlg.dismiss()
                 }.setNegativeButton("Cancel", null).show()
@@ -710,9 +684,6 @@ class MainControlFragment : Fragment() {
             val msg = if (decoding) "CW Decode ON (yellow=RX  blue=TX)" else "CW Decode OFF"
             Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
         }
-
-        // PTT long press: repeater settings
-        binding.btnPtt.setOnLongClickListener { showRepeaterDialog(); true }
 
         // PTT toggle
         binding.btnPtt.setOnClickListener {
@@ -884,9 +855,9 @@ class MainControlFragment : Fragment() {
         }
 
         // Mode quick-select buttons (Row 4)
-        binding.btnModeLsb.setOnClickListener { quickSetMode("SSB") }
-        binding.btnModeUsb.setOnClickListener { quickSetMode("CW") }
-        binding.btnModeCw.setOnClickListener  { quickSetMode("AM") }
+        binding.btnModeUsb.setOnClickListener { quickSetMode("USB") }
+        binding.btnModeLsb.setOnClickListener { quickSetMode("LSB") }
+        binding.btnModeCw.setOnClickListener  { quickSetMode("CW") }
         binding.btnModeFm.setOnClickListener  { quickSetMode("FM") }
         binding.btnModeFm.setOnLongClickListener { showFmDigitalSettings(); true }
 
@@ -902,18 +873,9 @@ class MainControlFragment : Fragment() {
         if (vm.txEnabled.value == true) return
         val current = vm.sharedMode.value ?: ""
         val target = when (key) {
-            "SSB" -> {
-                val supported = vm.supportedModes.value ?: emptyList()
-                val cycle = buildList {
-                    add("LSB"); add("USB")
-                    if (supported.isEmpty() || "PKTLSB" in supported) add("PKTLSB")
-                    if (supported.isEmpty() || "PKTUSB" in supported) add("PKTUSB")
-                }
-                val idx = cycle.indexOf(current)
-                if (idx in 0 until cycle.size - 1) cycle[idx + 1] else "LSB"
-            }
+            "LSB" -> if (current == "LSB") "PKTLSB" else "LSB"
+            "USB" -> if (current == "USB") "PKTUSB" else "USB"
             "CW"  -> if (current == "CW")  "CWR"    else "CW"
-            "AM"  -> "AM"
             // FM ボタンサイクル: supportedModes から FM 系モードを全て動的に収集する。
             // FM を先頭に固定し、それ以外の FM 系モード(FMN/FM-D/C4FM/PKTFM 等)を
             // supportedModes の順序で追加。DSTAR/D-STAR は設定有効時のみ末尾に追加。
@@ -937,83 +899,13 @@ class MainControlFragment : Fragment() {
             }
             else  -> key
         }
-        val w = modeDefaultWidth(target)
+        val w = when (target) {
+            "FM", "PKTFM"    -> 12000
+            "FMN"            -> 9000
+            else -> if (target.startsWith("CW")) 500 else 0
+            // C4FM/FM-D 等は Hamlib フィルターテーブルに固定値がないため 0(normal)
+        }
         vm.sendMode(target, w)
-    }
-
-    private fun showRepeaterDialog() {
-        val ctx = requireContext()
-        val toneModes = arrayOf("None", "Tone", "TSQL", "DTCS")
-        val ctcssTones = doubleArrayOf(
-            67.0, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8,
-            97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3, 131.8,
-            136.5, 141.3, 146.2, 151.4, 156.7, 162.2, 167.9, 173.8, 179.9, 186.2,
-            192.8, 203.5, 210.7, 218.1, 225.7, 233.6, 241.8, 250.3, 254.1
-        )
-        val toneLabels = ctcssTones.map { "%.1f Hz".format(it) }.toTypedArray()
-        val offsetDirs = arrayOf("None", "+", "-")
-        val offsetPresets = longArrayOf(0L, 100_000L, 600_000L, 1_000_000L, 1_600_000L, 5_000_000L, 7_600_000L)
-        val offsetLabels = arrayOf("Custom", "100 kHz", "600 kHz", "1 MHz", "1.6 MHz", "5 MHz", "7.6 MHz")
-
-        val curToneMode  = vm.repeaterToneMode.value ?: ""
-        val curToneHz    = vm.repeaterToneHz.value ?: 0.0
-        val curOffsetDir = vm.repeaterOffsetDir.value ?: ""
-        val curOffsetHz  = vm.repeaterOffsetHz.value ?: 0L
-
-        val root = android.widget.LinearLayout(ctx).apply {
-            orientation = android.widget.LinearLayout.VERTICAL; setPadding(56, 16, 56, 8)
-        }
-        fun label(t: String) = android.widget.TextView(ctx).apply {
-            text = t; setTextColor(0xFF888888.toInt()); textSize = 11f; setPadding(0, 8, 0, 2)
-        }
-        val spnToneMode = android.widget.Spinner(ctx).apply {
-            adapter = android.widget.ArrayAdapter(ctx, android.R.layout.simple_spinner_dropdown_item, toneModes)
-            setSelection(when (curToneMode.orEmpty()) { "Tone" -> 1; "TSQL" -> 2; "DTCS" -> 3; else -> 0 })
-        }
-        val nearestToneIdx = ctcssTones.indices.minByOrNull { Math.abs(ctcssTones[it] - curToneHz) } ?: 7
-        val spnToneHz = android.widget.Spinner(ctx).apply {
-            adapter = android.widget.ArrayAdapter(ctx, android.R.layout.simple_spinner_dropdown_item, toneLabels)
-            setSelection(nearestToneIdx)
-        }
-        val spnOffsetDir = android.widget.Spinner(ctx).apply {
-            adapter = android.widget.ArrayAdapter(ctx, android.R.layout.simple_spinner_dropdown_item, offsetDirs)
-            setSelection(when (curOffsetDir.orEmpty()) { "+" -> 1; "-" -> 2; else -> 0 })
-        }
-        val presetIdx = offsetPresets.indexOfFirst { it == curOffsetHz }.let { if (it <= 0) 0 else it }
-        val spnOffsetPreset = android.widget.Spinner(ctx).apply {
-            adapter = android.widget.ArrayAdapter(ctx, android.R.layout.simple_spinner_dropdown_item, offsetLabels)
-            setSelection(presetIdx)
-        }
-        val etOffsetKhz = android.widget.EditText(ctx).apply {
-            hint = "Offset (kHz)"
-            setText(if (curOffsetHz > 0) (curOffsetHz / 1000).toString() else "")
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
-        }
-        spnOffsetPreset.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p: android.widget.AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
-                if (pos > 0) etOffsetKhz.setText((offsetPresets[pos] / 1000).toString())
-            }
-            override fun onNothingSelected(p: android.widget.AdapterView<*>?) {}
-        }
-
-        root.addView(label("Tone Mode")); root.addView(spnToneMode)
-        root.addView(label("CTCSS/Tone (Hz)")); root.addView(spnToneHz)
-        root.addView(label("Offset Direction")); root.addView(spnOffsetDir)
-        root.addView(label("Offset Preset")); root.addView(spnOffsetPreset)
-        root.addView(label("Offset (kHz)")); root.addView(etOffsetKhz)
-
-        AlertDialog.Builder(ctx).setTitle("Repeater Settings")
-            .setView(root)
-            .setPositiveButton("Apply") { _, _ ->
-                val toneMode = when (spnToneMode.selectedItemPosition) { 1 -> "Tone"; 2 -> "TSQL"; 3 -> "DTCS"; else -> "" }
-                val toneHz   = if (toneMode.isNotEmpty()) ctcssTones[spnToneHz.selectedItemPosition] else 0.0
-                val offsetDir = when (spnOffsetDir.selectedItemPosition) { 1 -> "+"; 2 -> "-"; else -> "" }
-                val offsetHz = (etOffsetKhz.text.toString().toLongOrNull() ?: 0L) * 1000L
-                vm.setRepeater(toneMode, toneHz, offsetDir, offsetHz)
-            }
-            .setNeutralButton("Clear") { _, _ -> vm.clearRepeater() }
-            .setNegativeButton("Cancel", null)
-            .show()
     }
 
     private fun showFmDigitalSettings() {
@@ -1678,9 +1570,9 @@ class MainControlFragment : Fragment() {
                 var idx = modes.indexOf(curMode).takeIf { it >= 0 } ?: 0
                 idx = ((idx + dir) + modes.size) % modes.size
                 val newMode = modes[idx]
-                val w = modeDefaultWidth(newMode)
+                val w = if (newMode.contains("CW", ignoreCase = true)) 500 else (vm.sharedWidth.value ?: 0)
                 vm.sendMode(newMode, w)
-                if (w > 0) vm.sharedWidth.value = w
+                if (newMode.contains("CW", ignoreCase = true)) vm.sharedWidth.value = w
                 val savedStep = vm.prefs.getModeStep(newMode)
                 vm.selectedStep.value = savedStep
             }
@@ -1954,23 +1846,6 @@ class MainControlFragment : Fragment() {
     private fun aprsToastCompassDir(bearing: Double): String {
         val dirs = arrayOf("N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW")
         return dirs[((bearing + 11.25) / 22.5).toInt() % 16]
-    }
-
-    private fun modeDefaultWidth(mode: String): Int = when {
-        mode == "FM" || mode == "PKTFM" -> 12000
-        mode == "FMN"                   -> 9000
-        mode.startsWith("CW")           -> vm.prefs.defaultCwWidth
-        mode == "USB" || mode == "LSB"  -> vm.prefs.defaultSsbWidth
-        else                            -> 0
-    }
-
-    private fun showMemoryPanel() {
-        MemoryDialogFragment.newInstance().show(parentFragmentManager, "memory_dialog")
-    }
-
-    private fun showMemoryManagePanel() {
-        // Long-press: open directly on User tab
-        MemoryDialogFragment.newInstance(startTab = 1).show(parentFragmentManager, "memory_dialog")
     }
 
     private fun applyScreenTimeout() {

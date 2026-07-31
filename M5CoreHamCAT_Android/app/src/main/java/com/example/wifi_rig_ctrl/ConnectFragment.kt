@@ -48,8 +48,6 @@ class ConnectFragment : Fragment() {
         binding.editAudioPort.setText(vm.audioPort.value?.toString() ?: "8211")
         binding.editApiKey.setText(vm.apiKey.value)
         binding.editMyCall.setText(vm.prefs.ft8MyCall)
-        binding.editSsbWidth.setText(vm.prefs.defaultSsbWidth.toString())
-        binding.editCwWidth.setText(vm.prefs.defaultCwWidth.toString())
         binding.switchMdns.isChecked = vm.useMDNS.value ?: false
         binding.switchCiv.isChecked = isCiv
         binding.editCivPort.setText((vm.civPort.value ?: 50001).toString())
@@ -94,8 +92,6 @@ class ConnectFragment : Fragment() {
 
             val myCall = binding.editMyCall.text.toString().trim().uppercase()
             vm.prefs.ft8MyCall = myCall
-            vm.prefs.defaultSsbWidth = binding.editSsbWidth.text.toString().toIntOrNull()?.coerceIn(100, 10000) ?: 3000
-            vm.prefs.defaultCwWidth  = binding.editCwWidth.text.toString().toIntOrNull()?.coerceIn(50, 3000)   ?: 500
 
             if (civMode) {
                 val civPort = binding.editCivPort.text.toString().toIntOrNull() ?: 50001

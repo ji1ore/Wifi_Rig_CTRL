@@ -82,7 +82,7 @@ class AppPrefs(context: Context) {
         savedRigId = p.getInt("rigId", -1),
         savedCat = p.getString("cat", "") ?: "",
         savedPttDevice = p.getString("pttDevice", "NONE") ?: "NONE",
-        savedPttType = p.getString("pttType", "RIG") ?: "RIG",
+        savedPttType = p.getString("pttType", "RTS") ?: "RTS",
         savedBaudIndex = p.getInt("baudIndex", 2),
         savedSamplingIndex = p.getInt("samplingIndex", 1),
         savedTxSamplingIndex = p.getInt("txSamplingIndex", 1),
@@ -119,7 +119,7 @@ class AppPrefs(context: Context) {
     var savedTimeoutIndex: Int get() = p.getInt("timeoutIndex", 2); set(v) = p.edit().putInt("timeoutIndex", v).apply()
     var savedCat: String get() = p.getString("cat", "") ?: ""; set(v) = p.edit().putString("cat", v).apply()
     var savedPttDevice: String get() = p.getString("pttDevice", "NONE") ?: "NONE"; set(v) = p.edit().putString("pttDevice", v).apply()
-    var savedPttType: String get() = p.getString("pttType", "RIG") ?: "RIG"; set(v) = p.edit().putString("pttType", v).apply()
+    var savedPttType: String get() = p.getString("pttType", "RTS") ?: "RTS"; set(v) = p.edit().putString("pttType", v).apply()
 
     var useWifiPTT: Boolean get() = p.getBoolean("useWifiPTT", false); set(v) = p.edit().putBoolean("useWifiPTT", v).apply()
     var pttHost: String get() = p.getString("pttHost", "") ?: ""; set(v) = p.edit().putString("pttHost", v).apply()
@@ -202,71 +202,11 @@ class AppPrefs(context: Context) {
     var fmDstarEnabled: Boolean get() = p.getBoolean("fmDstarEnabled", true)
         set(v) = p.edit().putBoolean("fmDstarEnabled", v).apply()
 
-    // Default filter widths (Hz) set on Connect screen
-    var defaultSsbWidth: Int get() = p.getInt("default_ssb_width", 3000); set(v) = p.edit().putInt("default_ssb_width", v).apply()
-    var defaultCwWidth:  Int get() = p.getInt("default_cw_width",   500); set(v) = p.edit().putInt("default_cw_width",  v).apply()
-
     // UI カラーテーマ (0=OCEAN 1=AMBER 2=MONO 3=AQUA)
     var colorTheme: Int get() = p.getInt("colorTheme", 0); set(v) = p.edit().putInt("colorTheme", v).apply()
 
-    // MEM dialog UI state
-    var memLastTab: Int get() = p.getInt("mem_last_tab", 0); set(v) = p.edit().putInt("mem_last_tab", v).apply()
-    var memPotaFilter: String get() = p.getString("mem_pota_filter", "") ?: ""; set(v) = p.edit().putString("mem_pota_filter", v).apply()
-    var memSotaFilter: String get() = p.getString("mem_sota_filter", "") ?: ""; set(v) = p.edit().putString("mem_sota_filter", v).apply()
-    var memPotaSort: Int get() = p.getInt("mem_pota_sort", 0); set(v) = p.edit().putInt("mem_pota_sort", v).apply()
-    var memSotaSort: Int get() = p.getInt("mem_sota_sort", 0); set(v) = p.edit().putInt("mem_sota_sort", v).apply()
-    var memPotaModeFilter: String get() = p.getString("mem_pota_mode_f", "") ?: ""; set(v) = p.edit().putString("mem_pota_mode_f", v).apply()
-    var memPotaBandFilter: String get() = p.getString("mem_pota_band_f", "") ?: ""; set(v) = p.edit().putString("mem_pota_band_f", v).apply()
-    var memPotaProgramFilter: String get() = p.getString("mem_pota_prog_f", "") ?: ""; set(v) = p.edit().putString("mem_pota_prog_f", v).apply()
-    var memSotaModeFilter: String get() = p.getString("mem_sota_mode_f", "") ?: ""; set(v) = p.edit().putString("mem_sota_mode_f", v).apply()
-    var memSotaBandFilter: String get() = p.getString("mem_sota_band_f", "") ?: ""; set(v) = p.edit().putString("mem_sota_band_f", v).apply()
-    var memSotaAreaFilter: String get() = p.getString("mem_sota_area_f", "") ?: ""; set(v) = p.edit().putString("mem_sota_area_f", v).apply()
-
-    // Editable presets (user-modified; defaults to PRESET_MEMORIES when not set)
-    fun getCustomPresets(): MutableList<MemoryEntry> {
-        val json = p.getString("custom_presets_json", null) ?: return PRESET_MEMORIES.toMutableList()
-        return try {
-            val type = object : TypeToken<MutableList<MemoryEntry>>() {}.type
-            gson.fromJson<MutableList<MemoryEntry>>(json, type) ?: PRESET_MEMORIES.toMutableList()
-        } catch (_: Exception) { PRESET_MEMORIES.toMutableList() }
-    }
-
-    fun saveCustomPresets(list: List<MemoryEntry>) {
-        p.edit().putString("custom_presets_json", gson.toJson(list)).apply()
-    }
-
-    fun resetCustomPresets() {
-        p.edit().remove("custom_presets_json").apply()
-    }
-
-    fun getUserMemories(): MutableList<MemoryEntry> {
-        val json = p.getString("user_memories_json", null) ?: return mutableListOf()
-        return try {
-            val type = object : TypeToken<MutableList<MemoryEntry>>() {}.type
-            gson.fromJson(json, type) ?: mutableListOf()
-        } catch (_: Exception) { mutableListOf() }
-    }
-
-    fun saveUserMemories(list: List<MemoryEntry>) {
-        p.edit().putString("user_memories_json", gson.toJson(list)).apply()
-    }
-
     fun getModeStep(mode: String): Int = p.getInt("step_$mode", defaultStepFor(mode))
     fun setModeStep(mode: String, step: Int) = p.edit().putInt("step_$mode", step).apply()
-
-    // リピーター設定（現在適用中）
-    var repeaterToneMode: String
-        get() = p.getString("rptr_tone_mode", "") ?: ""
-        set(v) = p.edit().putString("rptr_tone_mode", v).apply()
-    var repeaterToneHz: Double
-        get() = java.lang.Double.longBitsToDouble(p.getLong("rptr_tone_hz_bits", java.lang.Double.doubleToLongBits(0.0)))
-        set(v) = p.edit().putLong("rptr_tone_hz_bits", java.lang.Double.doubleToLongBits(v)).apply()
-    var repeaterOffsetDir: String
-        get() = p.getString("rptr_offset_dir", "") ?: ""
-        set(v) = p.edit().putString("rptr_offset_dir", v).apply()
-    var repeaterOffsetHz: Long
-        get() = p.getLong("rptr_offset_hz", 0L)
-        set(v) = p.edit().putLong("rptr_offset_hz", v).apply()
 
     companion object {
         fun defaultStepFor(mode: String): Int {

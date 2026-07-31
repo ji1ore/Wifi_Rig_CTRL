@@ -494,17 +494,17 @@
         android:rowCount="4"
         android:useDefaultMargins="true">
 
-        <!-- Row 1: Mode quick select (LSB/USB toggle / CW↔CWR / AM / FM↔PKTFM) -->
-        <Button android:id="@+id/btnModeLsb" android:text="LSB/USB" android:textSize="14sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1A237E" android:textColor="#AAAAFF" android:padding="0dp"/>
-        <Button android:id="@+id/btnModeUsb" android:text="CW"      android:textSize="14sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1A237E" android:textColor="#AAAAFF" android:padding="0dp"/>
-        <Button android:id="@+id/btnModeCw"  android:text="AM"      android:textSize="14sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1A237E" android:textColor="#AAAAFF" android:padding="0dp"/>
-        <Button android:id="@+id/btnModeFm"  android:text="FM"      android:textSize="14sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1A237E" android:textColor="#AAAAFF" android:padding="0dp"/>
+        <!-- Row 1: Mode quick select (LSB↔PKTLSB / USB↔PKTUSB / CW↔CWR / FM↔PKTFM) -->
+        <Button android:id="@+id/btnModeLsb" android:text="LSB" android:textSize="14sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1A237E" android:textColor="#AAAAFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnModeUsb" android:text="USB" android:textSize="14sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1A237E" android:textColor="#AAAAFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnModeCw"  android:text="CW"  android:textSize="14sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1A237E" android:textColor="#AAAAFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnModeFm"  android:text="FM"  android:textSize="14sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1A237E" android:textColor="#AAAAFF" android:padding="0dp"/>
 
-        <!-- Row 2: VFO / FREQ / PO/WD/SQ / MEM -->
-        <Button android:id="@+id/btnVfoToggle"  android:text="A/B"      android:textSize="16sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#455A64" android:textColor="#AAAAAA" android:padding="0dp"/>
-        <Button android:id="@+id/btnFreq"       android:text="FREQ"     android:textSize="14sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1565C0" android:textColor="#FFFFFF" android:padding="0dp"/>
-        <Button android:id="@+id/btnPowWidSql"  android:text="P/W/S"    android:textSize="13sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1565C0" android:textColor="#FFFFFF" android:padding="0dp"/>
-        <Button android:id="@+id/btnMem"        android:text="MEM"      android:textSize="14sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#37474F" android:textColor="#AAAAAA" android:padding="0dp"/>
+        <!-- Row 2: VFO / FREQ / Pow / WD/SQ -->
+        <Button android:id="@+id/btnVfoToggle" android:text="A/B"   android:textSize="16sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#455A64" android:textColor="#AAAAAA" android:padding="0dp"/>
+        <Button android:id="@+id/btnFreq"      android:text="FREQ"  android:textSize="14sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1565C0" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnPow"       android:text="Pow"   android:textSize="16sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1565C0" android:textColor="#FFFFFF" android:padding="0dp"/>
+        <Button android:id="@+id/btnWidSql"    android:text="WD/SQ" android:textSize="13sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1565C0" android:textColor="#FFFFFF" android:padding="0dp"/>
 
         <!-- Row 3: CW TX / FT8 / APRS / PTT -->
         <Button android:id="@+id/btnCwTx"  android:text="CW TX" android:textSize="14sp" android:layout_columnWeight="1" android:layout_rowWeight="1" android:layout_width="0dp" android:layout_height="0dp" android:backgroundTint="#1A1A1A" android:textColor="#555555" android:padding="0dp"/>

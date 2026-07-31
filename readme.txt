@@ -1,4 +1,4 @@
-は①はじめに
+①はじめに
 M5CoreHamCATは、Raspberry Pi Zero2WとM5CoreS3SEを用い、無線機に接続したRaspberry Pi Zero2Wを使って
 無線機をCAT操作し、その情報の取得、及び操作をM5CoreS3SE上で行うシステムです。
 技術的には、Raspberry Pi Zero2W上のHamlibをFastAPIでWrapし、M5CoreS3SEからFastAPIを叩いて無線機の操作や
@@ -23,6 +23,15 @@ Ver2.20にて、M5Core2 / M5Core2 Tough / M5CoreS3SEの3機種それぞれのソ
 readmeを最新化し、Ver2.20対応の全デバイス（M5Core2 / M5Core2 Tough / M5CoreS3SE / Android / iOS）を
 網羅する内容に更新しました。M5の各機種紹介文（M5Burner掲載用）、およびiOS版（WifiRigCTRL for iOS）の
 案内（⑦）を追加しています。
+--
+2026/7/31
+Ver2.32にて、Android版・iOS版を更新しました。主な変更点は⑥⑦を参照ください。
+--
+2026/7/27
+Ver2.31にて、Android版・iOS版を更新しました。主な変更点は⑥⑦を参照ください。
+--
+2026/7/26
+Ver2.30にて、Android版・iOS版・Pi側APIを更新しました。主な変更点は⑥⑦を参照ください。
 --
 
 現在のところ、Yaesu FT-991A のみで動作確認を行っており、他の無線機での動作は未検証です。
@@ -50,7 +59,7 @@ APRS動作のために
 ・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
 ③セットアップ手順(Raspberry Pi Zero2W)
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v2.20/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v2.30/RaspberryPiSetup/readme.txt
 を参照してセットアップを行ってください(verに応じたフォルダを参照ください)。
 主な手順は以下の通りです。
 ・Raspberry Pi Imagerのインストール
@@ -110,12 +119,77 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.20）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.32）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v2.20）。
+アプリを v1.30 より公開しています（最新版：v2.32）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
+
+●v2.32 の変更点（v2.31 との比較）
+【新機能（CI-V 直接接続）】
+・レピータ設定機能追加
+  - CTCSS トーンモード（None / Tone / TSQL）とトーン周波数を設定可能
+  - オフセット方向（+/-）とオフセット周波数（プリセット or カスタム）を設定可能
+    プリセット: 100kHz / 600kHz / 1MHz / 1.6MHz / 5MHz / 7.6MHz
+  - 送信中（PTT ON）はオフセット適用後の実際の TX 周波数を周波数ディスプレイに表示
+  - 設定はアプリ終了後も保持
+
+【注記】
+・Pi 側スクリプト変更なし（v2.30 と同一）
+
+●v2.31 の変更点（v2.30 との比較）
+【新機能】
+・P/W/S ボタン追加（POW・WIDTH・SQL を1ボタンに統合）
+  - タップするたびに Power → Width → SQL → 選択解除 とサイクル
+  - 選択中の項目名をボタン下部に表示
+・MEM バンドメモリー機能追加
+  - プリセットメモリー（160m〜70cm の代表周波数、読み取り専用）
+    ・70cm バンドに CW（430.050 MHz）・SSB（430.100 MHz）を追加
+    ・プリセットをバンド別セクション（160m / 80m / … / 70cm）で表示
+  - ユーザーメモリー（周波数・モード・ステップを自由に登録・編集・削除）
+    ・ユーザーメモリーをリスト先頭に配置
+    ・モード選択をドロップダウン方式に変更（LSB / USB / CW / CWR / AM / FM / C4FM / DV / RTTY / PSK）
+    ・メモリ名を必須入力に変更（空欄では保存不可）
+  - 全プロファイル共通で利用可能
+  - MEM ボタン短押し → 呼び出し、長押し → 管理（追加・編集・削除）
+
+【変更】
+・PTT タイプのデフォルトを CAT（RIG）に変更
+
+【注記】
+・Pi 側スクリプト変更なし（v2.30 と同一）
+
+●v2.30 の変更点（v2.20 との比較）
+【Pi側API更新】
+・モード一覧を機種ごとの動的検出に変更
+  - 従来は固定リスト（LSB/USB/CW 等）のみ返していたため、FT-991 の C4FM や
+    IC-705 の D-STAR など機種固有のデジタルモードを選択できなかった
+  - v2.30 では接続時に dump_caps でサポートモードを自動検出し、Mode 選択に反映
+  - 反映には Pi 側の更新が必要（アプリの「Update」→「Update Pi」ボタンで自動更新）
+
+【新機能】
+・カラーテーマセレクター追加
+  - メインコントロール画面の TX インジケーター横に OCEAN/AMBER/MONO/AQUA の
+    4テーマを切替えるボタンを追加（設定は再起動後も保持）
+・FM ボタンのデジタルモード動的追加
+  - dump_caps で検出した機種固有モードに C4FM・FMN・FM-D・D-STAR が含まれる
+    場合、FM ボタンタップでそれらのデジタルモードも循環
+
+【改善】
+・プロファイル自動保存
+  - 接続ボタン押下時・リグを開く時に、アクティブなプロファイルへ現在の設定を
+    自動保存するよう変更（接続後に手動でプロファイル保存する手順が不要に）
+・APRS 設定の安定化（リグモデム AP96/AP12 の信頼性向上）
+  - サーバーとの設定不整合を防ぐため、30秒ごとに APRS 設定を自動再送するよう変更
+  - AP96/AP12 稼働中のハートビート送信を追加し、Pi 側ウォッチドッグによる
+    ビーコン途絶を防止（v2.20 では 15 秒後にビーコンが自動停止する問題があった）
+  - APRS 設定画面の OK ボタンで「APRS Enabled OFF」または「TX Method 変更」時に
+    稼働中のビーコンを自動停止するよう改善
+
+【修正】
+・D-STAR 選択時にリグへ USB が誤って送信されていた不具合を修正（CI-V 直結モード）
+  - CivTcpService.kt の setMode() に D-STAR→0x17 の対応が抜けていた
 
 ●v2.20 の変更点（v2.18 との比較）
 【新機能】
@@ -432,9 +506,9 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v2.20.apk をダウンロード
+  1. Wifi_RIG_CTRL_v2.32.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
@@ -442,7 +516,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_Android
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/RaspberryPiSetup
 
 v2.03 以降からのアップグレード: アプリの「Update」→「Update Pi」ボタンで自動更新
 v2.12 から Hamlib 4.7.2 対応: アプリの「Update」→「Update Hamlib」ボタンで追加インストール
@@ -455,16 +529,72 @@ v2.02 以前からのアップグレード: 初回のみ手動 scp が必要
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 （v1.40 からの変更なし）
 
-⑦ iOS版について（WifiRigCTRL for iOS v2.20）
+⑦ iOS版について（WifiRigCTRL for iOS v2.32）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに iPhone / iPad でリグをリモート制御できるアプリです。
-v2.17 よりソースコードをGitHubで公開しています（最新版：v2.20）。
+v2.17 よりソースコードをGitHubで公開しています（最新版：v2.32）。
 Android版と同様、M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core版・Android版と共通です。
 
 ●App Storeでの配信について
-2026/7/25 時点では App Store への提出準備中（審査未提出）です。App Store公開まではソースコードを
+2026/7/31 時点では App Store への提出準備中（審査未提出）です。App Store公開まではソースコードを
 Xcodeでビルドしてご利用ください（下記「ビルド方法」参照）。公開でき次第、本readmeにリンクを追記します。
+
+●v2.32 の変更点（v2.31 との比較）
+【新機能（CI-V 直接接続）】
+・レピータ設定機能追加
+  - 周波数ディスプレイを長押しするとレピータ設定シートが開く
+  - CTCSS トーンモード（None / Tone / TSQL / DTCS）とトーン周波数を設定可能
+  - オフセット方向（+/-）とオフセット周波数（プリセット or カスタム）を設定可能
+  - 送信中（PTT ON）はオフセット適用後の実際の TX 周波数を周波数ディスプレイに表示
+  - 設定はアプリ終了後も保持
+
+【注記】
+・Pi 側スクリプト変更なし（v2.30 と同一）
+
+●v2.31 の変更点（v2.30 との比較）
+【新機能】
+・MEM バンドメモリー機能追加（Android版と同等）
+  - プリセットメモリー（160m〜70cm、バンド別セクション表示）
+    ・70cm バンドに CW（430.050 MHz）・SSB（430.100 MHz）を追加
+  - ユーザーメモリー（周波数・モード・ステップを自由に登録・編集・削除）
+    ・ユーザーメモリーをリスト先頭に配置
+    ・モード選択をドロップダウン方式に変更
+    ・新規追加時の周波数・モード初期値を現在のリグ値に自動設定
+  - MEMパネル: APRSパネルの位置に配置
+・BK-IN / APRS パネルの条件表示
+  - CW系モード（CW / CWR 等）時 → BK-IN パネルを表示
+  - それ以外のモード時 → APRS パネルを表示
+  （同一位置で自動切替、操作スペースを有効活用）
+
+【注記】
+・Pi 側スクリプト変更なし（v2.30 と同一）
+
+●v2.30 の変更点（v2.20 との比較）
+【Pi側API更新】
+・Android版と共通（上記⑥参照）
+
+【新機能】
+・ネットワーク検索ボタン追加（ラズパイ接続設定画面）
+  - 「ネットワーク検索」ボタンをタップすると UDP ブロードキャストで Pi を自動検索
+    （Android版と同一プロトコル）
+  - API Port / Audio Port は上書きしない（既存の設定を保持）
+
+【改善】
+・プロファイル自動保存
+  - 接続ボタン押下時・リグを開く時に、アクティブなプロファイルへ現在の設定を
+    自動保存するよう変更
+・APRS 設定の安定化
+  - 30秒ごとに設定を自動再送（Android版と共通）
+  - リグモデム AP96/AP12 のハートビート追加（ビーコン途絶防止）
+  - APRS 設定画面の OK ボタンで Enabled OFF / TX Method 変更時に自動停止
+
+【修正】
+・PTT 種別の表示を「RIG」→「CAT」に統一
+・C4FM / D-STAR モード切替の安定性向上
+  - C4FM 選択時のフィルタ幅を 0 に強制（rigctld 非対応機種でのエラーを回避）
+  - 接続時のモード一覧取得（getCaps）でタイムアウト時に自動リトライ
+・D-STAR 選択時にリグへ USB が誤って送信されていた不具合を修正（CI-V 直結モード）
 
 ●できること
 ・受信周波数・モード・信号強度のリアルタイム表示
@@ -481,10 +611,6 @@ Xcodeでビルドしてご利用ください（下記「ビルド方法」参照
 ・直接CI-V接続（IC-705 / IC-9700、Raspberry Pi 不要。周波数・モード・Sメーター・PTT・RF power・SQL・
   BK-IN・マイク音声TX・受信音声RXに対応。CW送信/BLEキーヤーは制限付き対応、FT8/APRS/NR/WiFi PTTは非対応）
 
-●v2.20 の変更点
-・アプリ内から Raspberry Pi の API / Hamlib をアップデート可能に（管理画面。SSH接続不要）
-・About 画面に Pi API バージョン・rigctld バージョンを表示、バージョン不一致時は警告を表示
-
 ●必要なもの
 ・iPhone / iPad（iOS 17.0 以上）
 ・Raspberry Pi Zero 2W（セットアップ済み）、または Icom IC-705 / IC-9700（直接CI-V接続の場合）
@@ -497,7 +623,7 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●ソースコード・ビルド方法
 GitHub の以下フォルダにソースを公開しています。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/M5CoreHamCAT_iOS
 
   1. Xcode 15 以上で WifiRigCTRL_iOS.xcodeproj を開く
   2. Signing & Capabilities で開発者アカウントを設定
@@ -507,11 +633,11 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_iOS
 
 ●Raspberry Pi セットアップ
 M5Core版・Android版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/RaspberryPiSetup
 
 ●外出先からの接続（WireGuard VPN）
 Android版と同様、自宅外から接続する場合は WireGuard のセットアップが必要です。
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 
-2026/7/25
+2026/7/31
 以上。

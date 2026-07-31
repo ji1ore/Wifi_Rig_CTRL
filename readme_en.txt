@@ -29,6 +29,15 @@ This README has been refreshed to cover every device shipped in v2.20
 (M5Core2 / M5Core2 Tough / M5CoreS3SE / Android / iOS). Added a short M5Burner-style
 description for each M5 firmware, plus a new section (⑦) introducing WifiRigCTRL for iOS.
 
+2026/7/31
+v2.32 released — Android and iOS updated. See sections ⑥ and ⑦ for details.
+
+2026/7/27
+v2.31 released — Android and iOS updated. See sections ⑥ and ⑦ for details.
+
+2026/7/26
+v2.30 released — Android, iOS, and Pi-side API updated. See sections ⑥ and ⑦ for details.
+
 Currently, operation has only been confirmed with the Yaesu FT‑991A.
 Operation with other radios, M5CoreS3, M5CoreS3Lite, or other M5Core series devices has not been tested.
 
@@ -69,7 +78,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v2.20/RaspberryPiSetup/readme.txt (github.com in Bing)
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v2.30/RaspberryPiSetup/readme.txt (github.com in Bing)
 
 Main steps:
 
@@ -154,11 +163,85 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.20)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.32)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.20)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.32)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v2.32 (compared to v2.31)
+
+New features (CI-V direct connection):
+- Repeater settings support added
+  - Set CTCSS tone mode (None / Tone / TSQL) and tone frequency
+  - Set offset direction (+/-) and offset frequency
+    Presets: 100 kHz / 600 kHz / 1 MHz / 1.6 MHz / 5 MHz / 7.6 MHz
+    Custom input also supported
+  - While transmitting (PTT ON), the frequency display shows the actual
+    TX frequency (RX frequency ± repeater offset)
+  - Settings are saved across app restarts
+
+Note:
+- No Pi-side script changes (same as v2.30)
+
+● What's New in v2.31 (compared to v2.30)
+
+New features:
+- P/W/S button: POW, WIDTH, and SQL merged into one button
+  - Tap to cycle Power → Width → SQL → deselect
+  - Selected item shown on second line of button
+- MEM band memory panel added
+  - Preset memories (common frequencies 160m–70cm, read-only)
+    · Added 70cm CW (430.050 MHz) and 70cm SSB (430.100 MHz) presets
+    · Presets displayed in per-band sections (160m / 80m / … / 70cm)
+  - User memories (store/edit/delete frequency + mode + step freely)
+    · User memories shown at the top of the list
+    · Mode selection changed from text input to dropdown
+      (LSB / USB / CW / CWR / AM / FM / C4FM / DV / RTTY / PSK)
+    · Memory name is now required (cannot save with blank name)
+  - Shared across all profiles regardless of connected rig
+  - Short-press MEM → recall, Long-press → manage (add / edit / delete)
+
+Changed:
+- PTT type default changed to CAT (RIG)
+
+Note:
+- No Pi-side script changes (same as v2.30)
+
+● What's New in v2.30 (compared to v2.20)
+
+Pi-side API update:
+- Mode list is now detected dynamically per connected rig (api.py)
+  - Previously, /radio/modes and /radio/caps returned a fixed generic list
+    (LSB/USB/CW etc.), making it impossible to select rig-specific digital
+    modes such as C4FM (FT-991) or D-STAR (IC-705)
+  - v2.30 runs dump_caps at connect time to auto-detect the supported mode
+    list and reflects it in the Mode selector
+  - Pi-side update required (use "Update" → "Update Pi" in the app)
+
+New features:
+- Color theme selector added to main control screen
+  - A button next to the TX indicator cycles through OCEAN / AMBER / MONO /
+    AQUA themes; selected theme is saved across restarts
+- FM button now dynamically includes digital modes (C4FM, FMN, FM-D, D-STAR)
+  when they appear in the dump_caps mode list for the connected rig
+
+Improvements:
+- Profile auto-save on connect
+  - Active profile is now automatically saved when the connect button is tapped
+    or when a rig is opened, eliminating the need to manually save the profile
+    after changing connection settings
+- APRS stability improvements (rig modem AP96/AP12 reliability)
+  - APRS settings are now re-sent to the server every 30 seconds to prevent
+    server/app settings from drifting out of sync
+  - Added heartbeat transmission while AP96/AP12 is running; prevents the Pi
+    watchdog from stopping the beacon (v2.20 would stop beacon after ~15 s)
+  - APRS Settings OK button now automatically stops a running beacon when
+    APRS Enabled is turned OFF or TX Method is changed
+
+Bug fixes:
+- Fixed CI-V direct mode sending USB instead of D-STAR when D-STAR is selected
+  (CivTcpService.kt setMode() was missing the D-STAR → 0x17 mapping)
 
 ● What's New in v2.20 (compared to v2.18)
 
@@ -485,9 +568,9 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v2.20.apk
+  1. Download Wifi_RIG_CTRL_v2.32.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
@@ -495,7 +578,7 @@ Source code is also published in the same folder (buildable with Android Studio)
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/RaspberryPiSetup
 
 Upgrading from v2.03 or later: use the "Update" → "Update Pi" button in the app
 Hamlib 4.7.2 (added in v2.12): use the "Update" → "Update Hamlib" button in the app
@@ -508,17 +591,79 @@ If connecting from outside your home network (e.g., via mobile data), WireGuard 
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 (No changes from v1.40)
 
-⑦ iOS Version (WifiRigCTRL for iOS v2.20)
+⑦ iOS Version (WifiRigCTRL for iOS v2.32)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 An iPhone/iPad app that offers the same kind of remote rig control as the M5CoreS3SE,
-with source published on GitHub since v2.17 (latest: v2.20).
+with source published on GitHub since v2.17 (latest: v2.32).
 As with the Android app, no M5Core / Module Audio / Unit Encoder hardware is required.
 Raspberry Pi setup is identical to the M5Core and Android versions.
 
 ● App Store status
-As of 2026/7/25 this app is still being prepared for App Store submission (not yet under
+As of 2026/7/31 this app is still being prepared for App Store submission (not yet under
 review). Until it is published, build it from source with Xcode (see "Build" below). A
 download link will be added here once it is live on the App Store.
+
+● What's New in v2.32 (compared to v2.31)
+
+New features (CI-V direct connection):
+- Repeater settings support added
+  - Long-press the frequency display to open the Repeater Settings sheet
+  - Set CTCSS tone mode (None / Tone / TSQL / DTCS) and tone frequency
+  - Set offset direction (+/-) and offset frequency
+    Presets: 100 kHz / 600 kHz / 1 MHz / 1.6 MHz / 5 MHz / 7.6 MHz
+    Custom input also supported
+  - While transmitting (PTT ON), the frequency display shows the actual
+    TX frequency (RX frequency ± repeater offset)
+  - Settings are saved across app restarts
+
+Note:
+- No Pi-side script changes (same as v2.30)
+
+● What's New in v2.31 (compared to v2.30)
+
+New features:
+- MEM band memory panel added (equivalent to Android version)
+  - Preset memories (160m–70cm), displayed in per-band sections
+    · Added 70cm CW (430.050 MHz) and 70cm SSB (430.100 MHz)
+  - User memories (add / edit / delete frequency + mode + step)
+    · User memories shown at the top of the list
+    · Mode selection changed to a dropdown picker
+    · Frequency and mode default to the current rig values when adding
+- BK-IN / APRS conditional panel display
+  - CW mode (CW / CWR / etc.) → shows BK-IN panel
+  - All other modes → shows APRS panel
+  (Auto-switches in the same grid position, maximizing panel space)
+
+Note:
+- No Pi-side script changes (same as v2.30)
+
+● What's New in v2.30 (compared to v2.20)
+
+Pi-side API update:
+- Same as the Android version (see ⑥ above)
+
+New features:
+- Network search button added to Raspberry Pi connection settings screen
+  - Tap "Network Search" to discover Pi servers via UDP broadcast (same
+    protocol as Android); API Port and Audio Port are not overwritten
+
+Improvements:
+- Profile auto-save on connect
+  - Active profile is automatically saved when the connect button is tapped
+    or when a rig is opened
+- APRS stability improvements
+  - Settings re-sent every 30 seconds (same as Android)
+  - Heartbeat added while AP96/AP12 is running to prevent beacon drop
+  - APRS Settings OK button stops running beacon when Enabled goes OFF
+    or TX Method is changed
+
+Bug fixes:
+- PTT type display unified to "CAT" (was "RIG")
+- C4FM / D-STAR mode switching reliability improved
+  - C4FM now forces filter width to 0 (avoids errors on rigs that reject
+    filter width commands in this mode)
+  - getCaps (mode list fetch) now auto-retries on timeout
+- Fixed CI-V direct mode sending USB instead of D-STAR when D-STAR is selected
 
 ● Features
 - Real-time display of RX frequency, mode, and signal strength
@@ -537,10 +682,6 @@ download link will be added here once it is live on the App Store.
   mode, S-meter, PTT, RF power, squelch, BK-IN, mic TX, and RX audio. CW TX/BLE keyer are
   partially supported; FT8, APRS, NR, and Wi-Fi PTT are not available in this mode)
 
-● What's New in v2.20
-- Update the Raspberry Pi API and Hamlib directly from the app (Admin screen, no SSH needed)
-- About screen now shows Pi API version and rigctld version, with a mismatch warning
-
 ● Requirements
 - iPhone / iPad (iOS 17.0 or later)
 - Raspberry Pi Zero 2W (already set up), or an Icom IC-705 / IC-9700 (for direct CI-V)
@@ -553,7 +694,7 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Source Code / Build
 Source is published in the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/M5CoreHamCAT_iOS
 
   1. Open WifiRigCTRL_iOS.xcodeproj in Xcode 15 or later
   2. Set your developer account under Signing & Capabilities
@@ -563,11 +704,11 @@ No external library dependencies (no Swift Package Manager / CocoaPods).
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core and Android versions.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/RaspberryPiSetup
 
 ● Remote Access from Outside Home (WireGuard VPN)
 As with the Android version, WireGuard setup is required to connect from outside your
 home network.
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 
-2026/7/25
+2026/7/31

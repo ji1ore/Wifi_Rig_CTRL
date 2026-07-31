@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#000000">
+
+    <!-- Row 1: Back / FT4 / Sync / PWR -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="44dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#0A0A0A"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp">
+
+        <Button
+            android:id="@+id/btnBack"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="Back"
+            android:textSize="12sp"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#B71C1C"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnFt4Toggle"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="FT4"
+            android:textSize="12sp"
+            android:minWidth="0dp"
+            android:textColor="#AAAAAA"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#37474F"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnSync"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="Sync"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1B5E20"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnPower"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="PWR --"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#4E342E"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+    </LinearLayout>
+
+    <!-- Row 2: Mode / Latency / GL / Reload  (equal weight, matches row 1 height) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#050505"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp">
+
+        <Button
+            android:id="@+id/btnMode"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="USB"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A237E"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnGl"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="GL"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#004D40"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnLog"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="Log"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1B3A4B"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnReload"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="Reload"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#AAAAAA"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#263238"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+    </LinearLayout>
+
+    <!-- WebView with frequency overlay -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <WebView
+            android:id="@+id/webView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- CQ decode overlay: top-right, shows recent CQ calls with audio frequency -->
+        <LinearLayout
+            android:id="@+id/llCqOverlay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:layout_margin="4dp"
+            android:orientation="vertical"
+            android:background="#BB000000"
+            android:paddingStart="5dp"
+            android:paddingEnd="5dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:visibility="gone"
+            android:clickable="false"
+            android:focusable="false">
+
+            <TextView
+                android:id="@+id/tvCqOverlay"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="#FFFF44"
+                android:textSize="10sp"
+                android:fontFamily="monospace" />
+        </LinearLayout>
+
+        <!-- Freq + Mode overlay: bottom-left -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:layout_marginBottom="50dp"
+            android:layout_marginStart="4dp"
+            android:orientation="horizontal"
+            android:background="#AA000000"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:paddingTop="1dp"
+            android:paddingBottom="1dp"
+            android:clickable="false"
+            android:focusable="false">
+
+            <TextView
+                android:id="@+id/tvFreqOverlay"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="---.--- MHz"
+                android:textColor="#00FF00"
+                android:textSize="11sp"
+                android:fontFamily="monospace" />
+
+            <TextView
+                android:id="@+id/tvModeOverlay"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="---"
+                android:textColor="#00CCFF"
+                android:textSize="11sp"
+                android:fontFamily="monospace" />
+
+        </LinearLayout>
+
+    </FrameLayout>
+
+</LinearLayout>

@@ -29,6 +29,9 @@ This README has been refreshed to cover every device shipped in v2.20
 (M5Core2 / M5Core2 Tough / M5CoreS3SE / Android / iOS). Added a short M5Burner-style
 description for each M5 firmware, plus a new section (⑦) introducing WifiRigCTRL for iOS.
 
+2026/8/10
+v2.33 released — Android and iOS updated. See sections ⑥ and ⑦ for details.
+
 2026/7/31
 v2.32 released — Android and iOS updated. See sections ⑥ and ⑦ for details.
 
@@ -163,11 +166,33 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.32)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.33)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.32)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.33)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v2.33 (compared to v2.32)
+
+Bug fixes:
+- Fixed "stuck at Loading WASM" in the WebFT8 screen after a webft8 update
+  - Added missing wav-save.js to the create_api.sh download list
+  - server_webft8.py now auto-downloads the latest JS files from GitHub on every webft8 startup
+
+- Fixed USB CW keyer sidetone delay (Android)
+  - The USB read thread was blocked by Pi UDP SYNC round-trips (up to 300 ms), causing
+    key-state processing to be delayed and sidetone to lag behind the actual key press
+  - Added a dedicated SYNC forwarder thread (CwUsb-SyncFwd) to decouple USB read
+    from Pi communication (CwUsbService.kt)
+
+New features:
+- Added "Update WebFT8" button (orange) to the Update screen
+  - Deploys server_webft8.py instantly without rebooting the Pi
+- "Update Pi" now automatically triggers "Update WebFT8" afterward
+
+Pi-side script changes:
+- create_api.sh: added wav-save.js to webft8 file download list
+- server_webft8.py: auto-refresh JS files from GitHub on startup; SW.ready timeout patch; sw.js skipWaiting patch
 
 ● What's New in v2.32 (compared to v2.31)
 
@@ -568,9 +593,9 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.33/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v2.32.apk
+  1. Download Wifi_RIG_CTRL_v2.33.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
@@ -578,7 +603,7 @@ Source code is also published in the same folder (buildable with Android Studio)
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.33/RaspberryPiSetup
 
 Upgrading from v2.03 or later: use the "Update" → "Update Pi" button in the app
 Hamlib 4.7.2 (added in v2.12): use the "Update" → "Update Hamlib" button in the app
@@ -591,17 +616,31 @@ If connecting from outside your home network (e.g., via mobile data), WireGuard 
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 (No changes from v1.40)
 
-⑦ iOS Version (WifiRigCTRL for iOS v2.32)
+⑦ iOS Version (WifiRigCTRL for iOS v2.33)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 An iPhone/iPad app that offers the same kind of remote rig control as the M5CoreS3SE,
-with source published on GitHub since v2.17 (latest: v2.32).
+with source published on GitHub since v2.17 (latest: v2.33).
 As with the Android app, no M5Core / Module Audio / Unit Encoder hardware is required.
 Raspberry Pi setup is identical to the M5Core and Android versions.
 
 ● App Store status
-As of 2026/7/31 this app is still being prepared for App Store submission (not yet under
+As of 2026/8/10 this app is still being prepared for App Store submission (not yet under
 review). Until it is published, build it from source with Xcode (see "Build" below). A
 download link will be added here once it is live on the App Store.
+
+● What's New in v2.33 (compared to v2.32)
+
+Bug fix:
+- Fixed WebFT8 "stuck at Loading WASM" issue (Pi-side script update, same as Android)
+
+New features:
+- "Update WebFT8 Server" button added to the Admin screen
+  - Deploys server_webft8.py immediately without restarting the Pi
+- "Update Pi API" now automatically runs "Update WebFT8" on completion
+
+Pi-side script updates:
+- create_api.sh: wav-save.js added to download list
+- server_webft8.py: auto-fetches latest JS files from GitHub on startup
 
 ● What's New in v2.32 (compared to v2.31)
 
@@ -694,7 +733,7 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Source Code / Build
 Source is published in the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.33/M5CoreHamCAT_iOS
 
   1. Open WifiRigCTRL_iOS.xcodeproj in Xcode 15 or later
   2. Set your developer account under Signing & Capabilities
@@ -704,11 +743,11 @@ No external library dependencies (no Swift Package Manager / CocoaPods).
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core and Android versions.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.33/RaspberryPiSetup
 
 ● Remote Access from Outside Home (WireGuard VPN)
 As with the Android version, WireGuard setup is required to connect from outside your
 home network.
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 
-2026/7/31
+2026/8/3

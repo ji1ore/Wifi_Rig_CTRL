@@ -24,6 +24,9 @@ readmeを最新化し、Ver2.20対応の全デバイス（M5Core2 / M5Core2 Toug
 網羅する内容に更新しました。M5の各機種紹介文（M5Burner掲載用）、およびiOS版（WifiRigCTRL for iOS）の
 案内（⑦）を追加しています。
 --
+2026/8/10
+Ver2.33にて、Android版・iOS版を更新しました。主な変更点は⑥⑦を参照ください。
+--
 2026/7/31
 Ver2.32にて、Android版・iOS版を更新しました。主な変更点は⑥⑦を参照ください。
 --
@@ -119,12 +122,33 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.32）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.33）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v2.32）。
+アプリを v1.30 より公開しています（最新版：v2.33）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
+
+●v2.33 の変更点（v2.32 との比較）
+【バグ修正】
+・WebFT8「Loading WASM で止まる」問題を修正
+  - jl1nie/webft8 のアップデート後に不足していた wav-save.js を create_api.sh のダウンロードリストに追加
+  - server_webft8.py（Pi上のwebft8サーバー）が起動するたびに GitHub から最新 JS ファイルを自動取得するよう変更
+
+・USB CW 電鍵使用時のサイドトーン遅延を修正（Android）
+  - USB 読み取りスレッドが Pi との UDP SYNC 往復応答（最大 300ms ブロック）によって
+    キー状態処理が遅延し、サイドトーン開始が打鍵より遅れる問題を修正
+  - 専用の SYNC フォワーダースレッド（CwUsb-SyncFwd）を追加し、
+    USB 読み取りスレッドと Pi 通信処理を分離（CwUsbService.kt）
+
+【新機能】
+・Update 画面に「Update WebFT8」ボタン追加（オレンジ色）
+  - server_webft8.py のみを素早くデプロイ（Pi 再起動不要）
+・「Update Pi」完了後に「Update WebFT8」を自動実行するよう変更
+
+【Pi側スクリプト更新】
+・create_api.sh: wav-save.js をダウンロードリストに追加
+・server_webft8.py: 起動時に GitHub から最新 JS ファイルを自動更新
 
 ●v2.32 の変更点（v2.31 との比較）
 【新機能（CI-V 直接接続）】
@@ -506,9 +530,9 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.33/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v2.32.apk をダウンロード
+  1. Wifi_RIG_CTRL_v2.33.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
@@ -516,7 +540,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/M5CoreHamCAT_Android
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.33/RaspberryPiSetup
 
 v2.03 以降からのアップグレード: アプリの「Update」→「Update Pi」ボタンで自動更新
 v2.12 から Hamlib 4.7.2 対応: アプリの「Update」→「Update Hamlib」ボタンで追加インストール
@@ -529,16 +553,29 @@ v2.02 以前からのアップグレード: 初回のみ手動 scp が必要
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 （v1.40 からの変更なし）
 
-⑦ iOS版について（WifiRigCTRL for iOS v2.32）
+⑦ iOS版について（WifiRigCTRL for iOS v2.33）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに iPhone / iPad でリグをリモート制御できるアプリです。
-v2.17 よりソースコードをGitHubで公開しています（最新版：v2.32）。
+v2.17 よりソースコードをGitHubで公開しています（最新版：v2.33）。
 Android版と同様、M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core版・Android版と共通です。
 
 ●App Storeでの配信について
-2026/7/31 時点では App Store への提出準備中（審査未提出）です。App Store公開まではソースコードを
+2026/8/10 時点では App Store への提出準備中（審査未提出）です。App Store公開まではソースコードを
 Xcodeでビルドしてご利用ください（下記「ビルド方法」参照）。公開でき次第、本readmeにリンクを追記します。
+
+●v2.33 の変更点（v2.32 との比較）
+【バグ修正】
+・WebFT8「Loading WASM で止まる」問題を修正（Pi側スクリプト更新、Android版と共通）
+
+【新機能】
+・Admin 画面に「Update WebFT8 Server」ボタン追加
+  - server_webft8.py のみを素早くデプロイ（Pi 再起動不要）
+・「Update Pi API」完了後に「Update WebFT8」を自動実行するよう変更
+
+【Pi側スクリプト更新】
+・create_api.sh: wav-save.js をダウンロードリストに追加
+・server_webft8.py: 起動時に GitHub から最新 JS ファイルを自動更新
 
 ●v2.32 の変更点（v2.31 との比較）
 【新機能（CI-V 直接接続）】
@@ -623,7 +660,7 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●ソースコード・ビルド方法
 GitHub の以下フォルダにソースを公開しています。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.33/M5CoreHamCAT_iOS
 
   1. Xcode 15 以上で WifiRigCTRL_iOS.xcodeproj を開く
   2. Signing & Capabilities で開発者アカウントを設定
@@ -633,11 +670,11 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/M5CoreHamCAT_iOS
 
 ●Raspberry Pi セットアップ
 M5Core版・Android版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.32/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.33/RaspberryPiSetup
 
 ●外出先からの接続（WireGuard VPN）
 Android版と同様、自宅外から接続する場合は WireGuard のセットアップが必要です。
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 
-2026/7/31
+2026/8/3
 以上。

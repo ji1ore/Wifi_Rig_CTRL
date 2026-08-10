@@ -1,8 +1,59 @@
-# WifiRigCTRL (iOS) — v2.30
+# WifiRigCTRL (iOS) — v2.33
 
 iPhone / iPad からアマチュア無線機をWi-Fi経由でリモート操作するコントローラーアプリ。
 
-> **English summary** — WifiRigCTRL is an iOS controller app for amateur (ham) radio operators. It connects to a transceiver over Wi-Fi via a Raspberry Pi (Hamlib/FastAPI) or directly to an IC-705 / IC-9700 (CI-V). Features: RX audio, PTT/mic TX, CW decode & send, BLE CW keyer, FT8/FT4, APRS beacon, multiple profiles.
+> **English summary** — WifiRigCTRL is an iOS controller app for amateur (ham) radio operators. It connects to a transceiver over Wi-Fi via a Raspberry Pi (Hamlib/FastAPI) or directly to an IC-705 / IC-9700 (CI-V). Features: RX audio, PTT/mic TX, CW decode & send, BLE CW keyer, FT8/FT4, APRS beacon, band memory (MEM), repeater settings (CI-V), multiple profiles.
+
+---
+
+## v2.33 での変更点（v2.32 との比較）
+
+**バグ修正**
+- WebFT8「Loading WASM で止まる」問題を修正（Pi側スクリプト更新、Android版と共通）
+
+**新機能**
+- Admin 画面に「Update WebFT8 Server」ボタン追加
+  - server_webft8.py のみを素早くデプロイ（Pi 再起動不要）
+- 「Update Pi API」完了後に「Update WebFT8」を自動実行するよう変更
+
+**Pi側スクリプト更新**
+- create_api.sh: wav-save.js をダウンロードリストに追加
+- server_webft8.py: 起動時に GitHub から最新 JS ファイルを自動更新
+
+---
+
+## v2.32 での変更点（v2.31 との比較）
+
+**新機能（CI-V 直接接続）**
+- レピータ設定機能追加
+  - 周波数ディスプレイを長押しするとレピータ設定シートが開く
+  - CTCSS トーンモード（None / Tone / TSQL / DTCS）とトーン周波数を設定可能
+  - オフセット方向（+/-）とオフセット周波数（プリセット or カスタム）を設定可能
+  - 送信中（PTT ON）はオフセット適用後の実際の TX 周波数を周波数ディスプレイに表示
+  - 設定はアプリ終了後も保持
+
+**注記**
+- Pi 側スクリプト変更なし（v2.30 と同一）
+
+---
+
+## v2.31 での変更点（v2.30 との比較）
+
+**新機能**
+- MEM バンドメモリー機能追加（Android版と同等）
+  - プリセットメモリー（160m〜70cm、バンド別セクション表示）
+    - 70cm バンドに CW（430.050 MHz）・SSB（430.100 MHz）を追加
+  - ユーザーメモリー（周波数・モード・ステップを自由に登録・編集・削除）
+    - ユーザーメモリーをリスト先頭に配置
+    - モード選択をドロップダウン方式に変更
+    - 新規追加時の周波数・モード初期値を現在のリグ値に自動設定
+  - MEMパネル: APRSパネルの位置に配置
+- BK-IN / APRS パネルの条件表示
+  - CW系モード（CW / CWR 等）時 → BK-IN パネルを表示
+  - それ以外のモード時 → APRS パネルを表示（同一位置で自動切替）
+
+**注記**
+- Pi 側スクリプト変更なし（v2.30 と同一）
 
 ---
 
@@ -58,6 +109,18 @@ D-STAR 選択時にリグへ USB (0x01) が誤って送信されていた不具�
 - 周波数変更（ステップ: 1Hz / 10Hz / 100Hz / 500Hz / 1kHz / 5kHz / 10kHz / 20kHz）
 - モード・送信出力・スケルチ・フィルタ幅の変更
 - ノイズリダクション（レベル 0〜5）
+
+### バンドメモリー（MEM）
+- **MEM ボタン**: バンドメモリーの呼び出し・管理
+  - プリセットメモリー（160m〜70cmの代表周波数、読み取り専用）
+  - ユーザーメモリー（周波数・モード・ステップを自由に登録・編集・削除）
+  - 全プロファイル共通で利用可能
+
+### レピータ設定（CI-V 直接接続）
+- **CTCSS トーン設定**: トーンモード（None / Tone / TSQL / DTCS）とトーン周波数を設定
+- **オフセット設定**: 送受信オフセット方向（+/-）と周波数を設定（プリセット or カスタム）
+- **TX周波数表示**: 送信中にオフセット適用後の実際のTX周波数を表示
+- 設定はアプリ終了後も保持（周波数ディスプレイ長押しで設定シートを開く）
 
 ### 音声
 - 受信音声のスピーカー再生（サンプリングレート選択可）
@@ -118,6 +181,8 @@ D-STAR 選択時にリグへ USB (0x01) が誤って送信されていた不具�
 | Wi-Fi PTT（M5Atom 等外部デバイス） | ○ | × |
 | FT8 / FT4 | ○ | × |
 | APRS ビーコン送信 | ○ | × |
+| バンドメモリー（MEM） | ○ | ○ |
+| レピータ設定（トーン・オフセット） | × | ○ |
 
 ○: 対応　△: 一部対応（制限あり）　×: 非対応
 
@@ -132,7 +197,7 @@ D-STAR 選択時にリグへ USB (0x01) が誤って送信されていた不具�
 ## プロジェクト構成
 
 ```
-WifiRigCTRL_iOS _2.30/
+WifiRigCTRL_iOS _2.33/
 ├── WifiRigCTRL/
 │   ├── WifiRigCTRLApp.swift      # アプリエントリポイント
 │   ├── ContentView.swift         # ルートナビゲーション

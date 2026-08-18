@@ -29,6 +29,9 @@ This README has been refreshed to cover every device shipped in v2.20
 (M5Core2 / M5Core2 Tough / M5CoreS3SE / Android / iOS). Added a short M5Burner-style
 description for each M5 firmware, plus a new section (⑦) introducing WifiRigCTRL for iOS.
 
+2026/8/12
+v2.34 released — Android and iOS updated. See sections ⑥ and ⑦ for details.
+
 2026/8/10
 v2.33 released — Android and iOS updated. See sections ⑥ and ⑦ for details.
 
@@ -95,13 +98,14 @@ SSH login
 Run required commands
 (shell scripts are provided; simple but time‑consuming)
 
-④ Setup Procedure (M5CoreS3SE / M5Core2 / M5Core2 Tough)
+④ Setup Procedure (M5CoreS3SE / M5Core2 / M5Core2 Tough / M5 StopWatch)
 Use M5Burner to write the firmware.
 
 Source code is available here, one folder per board:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_Core2Tough
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_Core2
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.20/M5CoreHamCAT_CoreS3SE
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.50/M5CoreHamCAT_Core2Tough
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.50/M5CoreHamCAT_Core2
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.50/M5CoreHamCAT_CoreS3SE
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.50/M5CoreHamCAT_M5StopWatch
 
 The source is intended to be compiled using PlatformIO on Visual Studio Code.
 
@@ -132,6 +136,14 @@ S-meter display, RX audio, PTT transmit, and APRS beacon TX/RX. The smoothest-ru
 of the three supported boards. Connect a Unit Encoder (I2C) to Port A, and a PTT
 switch + status LED to Port B. The built-in mic/speaker and an external Module Audio
 can be switched independently.
+
+[M5CoreHamCAT_M5StopWatch]
+Firmware that turns an M5Stack Stopwatch Dev Kit (466×466 round AMOLED) into a remote
+controller for your radio (rig). Controls the rig via a Raspberry Pi (Wifi_Rig_CTRL
+FastAPI backend) or directly via ICOM WLAN Remote (CI-V over WiFi), with real-time
+frequency/mode/S-meter display, RX audio playback, PTT transmit, and APRS beacon TX/RX.
+No external rotary encoder or Module Audio port — uses built-in mic/speaker only.
+Features a UI optimized for the round display.
 
 Firmware installation steps:
 
@@ -166,11 +178,45 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.33)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.50)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.33)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.50)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v2.50 (compared to v2.34)
+
+Pi-side script changes (api.py / create_api.sh):
+- Added PTT-OFF watchdog for rigs that ignore PTT-OFF during output ramp-up (e.g. FTX-1F)
+  - Background thread retries T 0 every second for up to 20 seconds until the rig confirms OFF
+  - If rigctld restarts during this period, two consecutive "0" responses are required before
+    declaring OFF (prevents false positives from a freshly restarted rigctld)
+  - Immediately aborted if CW / APRS / FT8 transmission takes over (no interference)
+- Added exclusive lock for rigctld restart to prevent race conditions when PTT is toggled rapidly
+- WebFT8 version now included in /radio/status response
+- webft8 server restart now supports systemd with direct-launch fallback
+- Hamlib per-model stop bits configuration (FTX-1 works with default radio settings for CAT PTT)
+- USB audio device auto-detection for ALSA_CAPTURE / ALSA_PLAYBACK
+  - Initial setup: interactive selection when multiple devices found, auto when only one
+  - Update Pi: fully automatic (headless-friendly)
+- API_VERSION updated to "2.50"
+
+App changes:
+- Pi API version check updated to "2.50" (run "Update Pi" to update your Pi)
+
+● What's New in v2.34 (compared to v2.33)
+
+Bug fixes:
+- Fixed WebFT8 version retrieval failure in the About screen (Android & iOS)
+  - After running "Update Pi" from the iOS app, both Android and iOS could no longer
+    retrieve the WebFT8 version; this has been fixed
+  - Android: removed certificate pinning for HTTPS connection; now uses cached IP directly
+  - create_api.sh: added /server_version endpoint to the embedded server.py
+    (version now retrievable immediately after Update Pi)
+
+Pi-side script changes:
+- create_api.sh: embedded server.py now includes /server_version endpoint (_VERSION = "2.34")
+- create_api.sh: embedded api.py API_VERSION updated to "2.34"
 
 ● What's New in v2.33 (compared to v2.32)
 
@@ -593,9 +639,9 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.33/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.50/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v2.33.apk
+  1. Download Wifi_RIG_CTRL_v2.50.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
@@ -603,7 +649,7 @@ Source code is also published in the same folder (buildable with Android Studio)
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.33/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.50/RaspberryPiSetup
 
 Upgrading from v2.03 or later: use the "Update" → "Update Pi" button in the app
 Hamlib 4.7.2 (added in v2.12): use the "Update" → "Update Hamlib" button in the app
@@ -616,17 +662,52 @@ If connecting from outside your home network (e.g., via mobile data), WireGuard 
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 (No changes from v1.40)
 
-⑦ iOS Version (WifiRigCTRL for iOS v2.33)
+⑦ iOS Version (WifiRigCTRL for iOS v2.50)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 An iPhone/iPad app that offers the same kind of remote rig control as the M5CoreS3SE,
-with source published on GitHub since v2.17 (latest: v2.33).
+with source published on GitHub since v2.17 (latest: v2.50).
 As with the Android app, no M5Core / Module Audio / Unit Encoder hardware is required.
 Raspberry Pi setup is identical to the M5Core and Android versions.
 
 ● App Store status
-As of 2026/8/10 this app is still being prepared for App Store submission (not yet under
+As of 2026/8/18 this app is still being prepared for App Store submission (not yet under
 review). Until it is published, build it from source with Xcode (see "Build" below). A
 download link will be added here once it is live on the App Store.
+
+● What's New in v2.50 (compared to v2.34)
+
+Pi-side script changes (api.py / create_api.sh):
+- Added PTT-OFF watchdog for rigs that ignore PTT-OFF during output ramp-up (e.g. FTX-1F)
+  - Background thread retries T 0 every second for up to 20 seconds until the rig confirms OFF
+  - Two consecutive OFF confirmations required after a rigctld restart (prevents false positives)
+  - Immediately aborted if CW / APRS / FT8 transmission takes over
+- Added exclusive lock for rigctld restart to prevent race conditions on rapid PTT toggling
+- WebFT8 version now included in /radio/status response
+- webft8 server restart now supports systemd with direct-launch fallback
+- Hamlib per-model stop bits configuration (FTX-1 works with default radio settings for CAT PTT)
+- USB audio device auto-detection for ALSA_CAPTURE / ALSA_PLAYBACK
+  - Initial setup: interactive selection when multiple devices found, auto when only one
+  - Update Pi: fully automatic (headless-friendly)
+- API_VERSION updated to "2.50"
+
+App changes:
+- Pi API version check updated to "2.50" (run "Update Pi" to update your Pi)
+
+● What's New in v2.34 (compared to v2.33)
+
+Bug fixes:
+- Fixed WebFT8 version retrieval failure after "Update Pi"
+  - After running "Update Pi" from iOS, the WebFT8 version could no longer be retrieved;
+    this has been fixed
+  - URLSession SSL challenge handling fixed
+    (changed from async data(for:) to dataTask + withCheckedContinuation)
+  - adminUpdatePi: added a wait step for api.py restart before triggering WebFT8 update,
+    ensuring the new api.py handles the request (not the old one still running)
+  - create_api.sh: embedded server.py now includes /server_version endpoint
+
+Pi-side script changes:
+- create_api.sh: embedded server.py now includes /server_version endpoint (_VERSION = "2.34")
+- create_api.sh: embedded api.py API_VERSION updated to "2.34"
 
 ● What's New in v2.33 (compared to v2.32)
 
@@ -733,7 +814,7 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Source Code / Build
 Source is published in the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.33/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.50/M5CoreHamCAT_iOS
 
   1. Open WifiRigCTRL_iOS.xcodeproj in Xcode 15 or later
   2. Set your developer account under Signing & Capabilities
@@ -743,11 +824,15 @@ No external library dependencies (no Swift Package Manager / CocoaPods).
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core and Android versions.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.33/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.50/RaspberryPiSetup
 
 ● Remote Access from Outside Home (WireGuard VPN)
 As with the Android version, WireGuard setup is required to connect from outside your
 home network.
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 
-2026/8/3
+2026/8/12
+--
+2026/8/18
+v2.50 released — Android, iOS, and Pi-side API updated. See sections ⑥ and ⑦ for details.
+--

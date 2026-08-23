@@ -84,7 +84,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v2.30/RaspberryPiSetup/readme.txt (github.com in Bing)
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v2.51/RaspberryPiSetup/readme.txt
 
 Main steps:
 
@@ -102,10 +102,10 @@ Run required commands
 Use M5Burner to write the firmware.
 
 Source code is available here, one folder per board:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.50/M5CoreHamCAT_Core2Tough
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.50/M5CoreHamCAT_Core2
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.50/M5CoreHamCAT_CoreS3SE
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.50/M5CoreHamCAT_M5StopWatch
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/M5CoreHamCAT_Core2Tough
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/M5CoreHamCAT_Core2
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/M5CoreHamCAT_CoreS3SE
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/M5CoreHamCAT_M5StopWatch
 
 The source is intended to be compiled using PlatformIO on Visual Studio Code.
 
@@ -178,11 +178,23 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.50)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.51)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.50)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.51)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v2.51 (compared to v2.50)
+
+SP2ALART integration (Android):
+- Tapping a POTA/SOTA spot notification banner in SP2ALART opens Wifi RIG CTRL with
+  the spot's frequency and mode automatically pre-set (via Sp2alertReceiver broadcast)
+
+Pi-side script update (create_api.sh):
+- DireWolf ADEVICE now read from ALSA_CAPTURE in .env instead of hardcoded plughw:0,0
+  (Fixes DireWolf audio device setup on systems with non-standard device names)
+- mawk compatibility fix: Pi setup now completes correctly on systems using mawk
+- API_VERSION updated to "2.51" (Pi-side update required — tap "Update Pi")
 
 ● What's New in v2.50 (compared to v2.34)
 
@@ -639,9 +651,9 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.50/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v2.50.apk
+  1. Download Wifi_RIG_CTRL_v2.51.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
@@ -649,7 +661,7 @@ Source code is also published in the same folder (buildable with Android Studio)
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.50/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/RaspberryPiSetup
 
 Upgrading from v2.03 or later: use the "Update" → "Update Pi" button in the app
 Hamlib 4.7.2 (added in v2.12): use the "Update" → "Update Hamlib" button in the app
@@ -662,10 +674,10 @@ If connecting from outside your home network (e.g., via mobile data), WireGuard 
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 (No changes from v1.40)
 
-⑦ iOS Version (WifiRigCTRL for iOS v2.50)
+⑦ iOS Version (WifiRigCTRL for iOS v2.51)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 An iPhone/iPad app that offers the same kind of remote rig control as the M5CoreS3SE,
-with source published on GitHub since v2.17 (latest: v2.50).
+with source published on GitHub since v2.17 (latest: v2.51).
 As with the Android app, no M5Core / Module Audio / Unit Encoder hardware is required.
 Raspberry Pi setup is identical to the M5Core and Android versions.
 
@@ -673,6 +685,21 @@ Raspberry Pi setup is identical to the M5Core and Android versions.
 As of 2026/8/18 this app is still being prepared for App Store submission (not yet under
 review). Until it is published, build it from source with Xcode (see "Build" below). A
 download link will be added here once it is live on the App Store.
+
+● What's New in v2.51 (compared to v2.50)
+
+SP2ALART integration (iOS):
+- Tapping a POTA/SOTA spot in SP2ALART (v0.84 or later) opens Wifi RIG CTRL via URL scheme
+  (wifirigctrl://setfreq) with the spot frequency and mode automatically pre-set
+- Enable in SP2ALART Settings → Wifi RIG CTRL Link (select any mode other than OFF)
+- Note: on iOS the app always comes to the foreground (background-only delivery is not
+  possible on iOS, unlike the Android "Send freq/mode only" mode)
+
+Pi-side script update (create_api.sh):
+- DireWolf ADEVICE now read from ALSA_CAPTURE in .env instead of hardcoded plughw:0,0
+  (Fixes DireWolf audio device setup on systems with non-standard device names)
+- mawk compatibility fix: Pi setup now completes correctly on systems using mawk
+- API_VERSION updated to "2.51" (Pi-side update required — tap "Update Pi")
 
 ● What's New in v2.50 (compared to v2.34)
 
@@ -814,7 +841,7 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Source Code / Build
 Source is published in the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.50/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/M5CoreHamCAT_iOS
 
   1. Open WifiRigCTRL_iOS.xcodeproj in Xcode 15 or later
   2. Set your developer account under Signing & Capabilities
@@ -824,7 +851,7 @@ No external library dependencies (no Swift Package Manager / CocoaPods).
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core and Android versions.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.50/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/RaspberryPiSetup
 
 ● Remote Access from Outside Home (WireGuard VPN)
 As with the Android version, WireGuard setup is required to connect from outside your
@@ -835,4 +862,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 --
 2026/8/18
 v2.50 released — Android, iOS, and Pi-side API updated. See sections ⑥ and ⑦ for details.
+--
+2026/8/23
+v2.51 released — Android, iOS, and Pi-side scripts updated. See sections ⑥ and ⑦ for details.
 --

@@ -1,4 +1,4 @@
-Wifi RIG CTRL  Raspberry Pi セットアップガイド（v2.5）
+Wifi RIG CTRL  Raspberry Pi セットアップガイド（v2.51）
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 配布ファイル
@@ -342,12 +342,12 @@ ssh <ユーザー名>@raspizero
 ③ セットアップスクリプト実行
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 --- ネットワーク設定（任意）---
-wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.5/RaspberryPiSetup/setup_netwk.sh
+wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.51/RaspberryPiSetup/setup_netwk.sh
 chmod +x setup_netwk.sh
 bash setup_netwk.sh
 
 --- 環境構築（FT8 含む全機能セットアップ・UpdatePi 相当）---
-BASE=https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.5/RaspberryPiSetup
+BASE=https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.51/RaspberryPiSetup
 wget $BASE/setup_fastapi_radio.sh
 wget $BASE/create_api.sh
 wget $BASE/set_api_key.sh
@@ -398,7 +398,7 @@ bash ~/set_api_key.sh ""   # 無効化
 ⑦ FT8 TX 機能の有効化（任意・追加ビルド不要な場合はスキップ）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FT8/FT4 送信（webft8 UI からの TX）を使う場合:
-  wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.5/RaspberryPiSetup/setup_ft8_encode.sh
+  wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.51/RaspberryPiSetup/setup_ft8_encode.sh
   chmod +x setup_ft8_encode.sh
   bash setup_ft8_encode.sh
 
@@ -416,8 +416,8 @@ FT8/FT4 送信（webft8 UI からの TX）を使う場合:
 
 【GitHub から再取得】スクリプトを最新版に更新してから再セットアップ
   Pi に SSH でログイン後:
-  wget -O ~/create_api.sh https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.5/RaspberryPiSetup/create_api.sh
-  wget -O ~/set_api_key.sh https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.5/RaspberryPiSetup/set_api_key.sh
+  wget -O ~/create_api.sh https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.51/RaspberryPiSetup/create_api.sh
+  wget -O ~/set_api_key.sh https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v2.51/RaspberryPiSetup/set_api_key.sh
   chmod +x ~/create_api.sh ~/set_api_key.sh
   sudo bash ~/create_api.sh
 

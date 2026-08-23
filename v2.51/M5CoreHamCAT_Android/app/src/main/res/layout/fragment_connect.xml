@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/tvConnectTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="RasPi CONNECT"
+            android:textColor="#00FFFF"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="24dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Host / IP Address"
+            android:textColor="#AAAAAA"
+            android:textSize="12sp" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+            <EditText
+                android:id="@+id/editHost"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/edit_bg"
+                android:textColor="#FFFFFF"
+                android:hint="192.168.1.100 or hamcat.local"
+                android:textColorHint="#666666"
+                android:inputType="text"
+                android:padding="10dp" />
+            <Button
+                android:id="@+id/btnScan"
+                android:layout_width="52dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="6dp"
+                android:text="🔍"
+                android:textSize="20sp"
+                android:backgroundTint="#1A3A5C"
+                android:padding="0dp" />
+        </LinearLayout>
+
+        <!-- Pi-only fields: API Port, Audio Port, API Key -->
+        <LinearLayout
+            android:id="@+id/groupPiOnly"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="API Port"
+                android:textColor="#AAAAAA"
+                android:textSize="12sp" />
+            <EditText
+                android:id="@+id/editApiPort"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/edit_bg"
+                android:textColor="#FFFFFF"
+                android:hint="8210"
+                android:textColorHint="#666666"
+                android:inputType="number"
+                android:padding="10dp"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Audio Port"
+                android:textColor="#AAAAAA"
+                android:textSize="12sp" />
+            <EditText
+                android:id="@+id/editAudioPort"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/edit_bg"
+                android:textColor="#FFFFFF"
+                android:hint="8211"
+                android:textColorHint="#666666"
+                android:inputType="number"
+                android:padding="10dp"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="API Key (optional)"
+                android:textColor="#AAAAAA"
+                android:textSize="12sp" />
+            <EditText
+                android:id="@+id/editApiKey"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/edit_bg"
+                android:textColor="#FFFFFF"
+                android:hint="leave blank if not needed"
+                android:textColorHint="#666666"
+                android:inputType="text"
+                android:padding="10dp"
+                android:layout_marginBottom="16dp" />
+
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="My Callsign"
+            android:textColor="#AAAAAA"
+            android:textSize="12sp" />
+        <EditText
+            android:id="@+id/editMyCall"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/edit_bg"
+            android:textColor="#FFFFFF"
+            android:hint="JI1ORE"
+            android:textColorHint="#666666"
+            android:inputType="textCapCharacters"
+            android:padding="10dp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Default filter widths -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp"
+            android:gravity="center_vertical">
+            <LinearLayout
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical"
+                android:layout_marginEnd="8dp">
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="SSB Width (Hz)" android:textColor="#AAAAAA" android:textSize="12sp" />
+                <EditText
+                    android:id="@+id/editSsbWidth"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:background="@drawable/edit_bg"
+                    android:textColor="#FFFFFF" android:hint="3000" android:textColorHint="#666666"
+                    android:inputType="number" android:padding="10dp" />
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical"
+                android:layout_marginStart="8dp">
+                <TextView
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="CW Width (Hz)" android:textColor="#AAAAAA" android:textSize="12sp" />
+                <EditText
+                    android:id="@+id/editCwWidth"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:background="@drawable/edit_bg"
+                    android:textColor="#FFFFFF" android:hint="500" android:textColorHint="#666666"
+                    android:inputType="number" android:padding="10dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Use mDNS (Pi mode only) -->
+        <LinearLayout
+            android:id="@+id/rowMdns"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="USE mDNS"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+            <Switch
+                android:id="@+id/switchMdns"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- Use CI-V (direct ICOM Wifi CI-V connection) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="USE CI-V  (IC-705 etc.)"
+                android:textColor="#FFCC00"
+                android:textSize="16sp" />
+            <Switch
+                android:id="@+id/switchCiv"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- CI-V only fields -->
+        <LinearLayout
+            android:id="@+id/groupCivOnly"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <!-- Port row: port1 / port2 / port3 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="12dp">
+
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="4dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Port1 (Ctrl)" android:textColor="#AAAAAA" android:textSize="11sp"/>
+                    <EditText
+                        android:id="@+id/editCivPort"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/edit_bg"
+                        android:textColor="#FFFFFF"
+                        android:hint="50001"
+                        android:textColorHint="#666666"
+                        android:inputType="number"
+                        android:padding="8dp" />
+                </LinearLayout>
+
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="4dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Port2 (Serial)" android:textColor="#AAAAAA" android:textSize="11sp"/>
+                    <EditText
+                        android:id="@+id/editCivPort2"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/edit_bg"
+                        android:textColor="#FFFFFF"
+                        android:hint="50002"
+                        android:textColorHint="#666666"
+                        android:inputType="number"
+                        android:padding="8dp" />
+                </LinearLayout>
+
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Port3 (Audio)" android:textColor="#AAAAAA" android:textSize="11sp"/>
+                    <EditText
+                        android:id="@+id/editCivPort3"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/edit_bg"
+                        android:textColor="#FFFFFF"
+                        android:hint="50003"
+                        android:textColorHint="#666666"
+                        android:inputType="number"
+                        android:padding="8dp" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- Username / Password row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="12dp">
+
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="4dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Username" android:textColor="#AAAAAA" android:textSize="11sp"/>
+                    <EditText
+                        android:id="@+id/editCivUser"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/edit_bg"
+                        android:textColor="#FFFFFF"
+                        android:hint="user1"
+                        android:textColorHint="#666666"
+                        android:inputType="text"
+                        android:padding="8dp" />
+                </LinearLayout>
+
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="Password" android:textColor="#AAAAAA" android:textSize="11sp"/>
+                    <EditText
+                        android:id="@+id/editCivPassword"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/edit_bg"
+                        android:textColor="#FFFFFF"
+                        android:hint="password"
+                        android:textColorHint="#666666"
+                        android:inputType="textPassword"
+                        android:padding="8dp" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- CI-V address -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="CI-V Address hex  (IC-705: A4)"
+                android:textColor="#AAAAAA"
+                android:textSize="11sp" />
+            <EditText
+                android:id="@+id/editCivAddress"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/edit_bg"
+                android:textColor="#FFFFFF"
+                android:hint="A4"
+                android:textColorHint="#666666"
+                android:inputType="textCapCharacters"
+                android:padding="10dp"
+                android:layout_marginBottom="12dp" />
+
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnConnect"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Connect"
+            android:backgroundTint="#1565C0"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="16dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#FF4444"
+            android:textSize="14sp"
+            android:layout_marginTop="8dp" />
+
+    </LinearLayout>
+</ScrollView>

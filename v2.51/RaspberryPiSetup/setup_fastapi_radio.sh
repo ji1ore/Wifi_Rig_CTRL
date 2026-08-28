@@ -85,7 +85,11 @@ fi
 _usb_cards=$(arecord -l 2>/dev/null | awk '/USB Audio/{
     line=$0; sub(/.*card [0-9]+: /, "", line); sub(/[ \[,].*/, "", line); print line
 }' | sort -u)
-_card_count=$(echo "$_usb_cards" | grep -c . 2>/dev/null || echo 0)
+if [ -z "$_usb_cards" ]; then
+    _card_count=0
+else
+    _card_count=$(printf '%s\n' "$_usb_cards" | grep -c .)
+fi
 
 if [ "$_card_count" -eq 0 ]; then
     echo "警告: USB オーディオデバイスが見つかりません。CODEC をデフォルトとして使用します。"
@@ -105,6 +109,10 @@ else
     printf "番号を入力 [1]: "
     read _sel
     _sel=${_sel:-1}
+    case "$_sel" in
+        ''|*[!0-9]*) _sel=1 ;;
+    esac
+    [ "$_sel" -lt 1 ] && _sel=1
     ALSA_CARD=$(echo "$_usb_cards" | sed -n "${_sel}p")
     if [ -z "$ALSA_CARD" ]; then
         ALSA_CARD=$(echo "$_usb_cards" | head -1)

@@ -65,7 +65,7 @@ APRS動作のために
 ・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
 ③セットアップ手順(Raspberry Pi Zero2W)
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v2.51/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v2.60/RaspberryPiSetup/readme.txt
 を参照してセットアップを行ってください(verに応じたフォルダを参照ください)。
 主な手順は以下の通りです。
 ・Raspberry Pi Imagerのインストール
@@ -76,10 +76,10 @@ https://github.com/ji1ore/M5CoreHamCAT/blob/main/v2.51/RaspberryPiSetup/readme.t
 ④セットアップ手順(M5CoreS3SE/M5Core2/M5Core2 Tough/M5 Stopwatch)
 M5CoreS3SE/M5Core2/M5Core2 Tough/M5Stopwatchでは、M5Burnerを用いてファームウェアの読み込みを行ってください。
 Git上の以下フォルダにソースは機種別に公開します。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/M5CoreHamCAT_Core2Tough
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/M5CoreHamCAT_Core2
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/M5CoreHamCAT_CoreS3SE
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/M5CoreHamCAT_M5StopWatch
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_Core2Tough
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_Core2
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_CoreS3SE
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_M5StopWatch
 ソースはVisual Studio Code上のPlatformI/O上でのコンパイルを前提にしています。
 
 ●各機種の紹介文（M5Burner掲載用）
@@ -133,12 +133,24 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.51）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.60）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v2.51）。
+アプリを v1.30 より公開しています（最新版：v2.60）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
+
+●v2.60 の変更点（v2.51 との比較）
+【BT CI-V Bluetooth音声（Android）】
+・IC-705/IC-9700 を Bluetooth で直接接続した際、RX音声をスマートフォンスピーカーへ
+  出力できるようになりました（Bluetooth SCO 経由）
+・Pi 不要の完全ワイヤレス RX 音声を実現
+
+【CW BLE 電鍵】
+・BLE 接続の安定性向上
+
+【Pi API 更新】
+・API_VERSION を "2.60" に更新（Pi 側更新には「Update Pi」が必要）
 
 ●v2.51 の変更点（v2.50 との比較）
 【SP2ALART 連携強化（Android）】
@@ -584,9 +596,9 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v2.51.apk をダウンロード
+  1. Wifi_RIG_CTRL_v2.60.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
@@ -594,7 +606,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/M5CoreHamCAT_Android
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/RaspberryPiSetup
 
 v2.03 以降からのアップグレード: アプリの「Update」→「Update Pi」ボタンで自動更新
 v2.12 から Hamlib 4.7.2 対応: アプリの「Update」→「Update Hamlib」ボタンで追加インストール
@@ -607,16 +619,24 @@ v2.02 以前からのアップグレード: 初回のみ手動 scp が必要
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 （v1.40 からの変更なし）
 
-⑦ iOS版について（WifiRigCTRL for iOS v2.51）
+⑦ iOS版について（WifiRigCTRL for iOS v2.60）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに iPhone / iPad でリグをリモート制御できるアプリです。
-v2.17 よりソースコードをGitHubで公開しています（最新版：v2.51）。
+v2.17 よりソースコードをGitHubで公開しています（最新版：v2.60）。
 Android版と同様、M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core版・Android版と共通です。
 
 ●App Storeでの配信について
-2026/8/18 時点では App Store への提出準備中（審査未提出）です。App Store公開まではソースコードを
+2026/9/6 時点では App Store への提出準備中（v2.60 ビルド準備完了）。App Store公開まではソースコードを
 Xcodeでビルドしてご利用ください（下記「ビルド方法」参照）。公開でき次第、本readmeにリンクを追記します。
+
+●v2.60 の変更点（v2.51 との比較）
+【BT CI-V Bluetooth音声（iOS）】
+・IC-705 を Bluetooth で接続した状態で、RX 音声を iPhone スピーカーから聞けます
+  （Bluetooth SCO → AVAudioEngine 経由）
+
+【Pi API 更新】
+・API_VERSION を "2.60" に更新（Pi 側更新には「Update Pi」が必要）
 
 ●v2.51 の変更点（v2.50 との比較）
 【SP2ALART 連携（iOS）】
@@ -760,7 +780,7 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●ソースコード・ビルド方法
 GitHub の以下フォルダにソースを公開しています。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_iOS
 
   1. Xcode 15 以上で WifiRigCTRL_iOS.xcodeproj を開く
   2. Signing & Capabilities で開発者アカウントを設定
@@ -770,7 +790,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/M5CoreHamCAT_iOS
 
 ●Raspberry Pi セットアップ
 M5Core版・Android版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.51/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/RaspberryPiSetup
 
 ●外出先からの接続（WireGuard VPN）
 Android版と同様、自宅外から接続する場合は WireGuard のセットアップが必要です。
@@ -784,4 +804,19 @@ Ver2.50にて、Android版・iOS版・Pi側APIを更新しました。主な変�
 --
 2026/8/23
 Ver2.51にて、Android版・iOS版・Pi側スクリプトを更新しました。主な変更点は⑥⑦を参照ください。
+--
+2026/9/6
+Ver2.60にて、Android版・iOS版・Pi側APIを更新しました。主な変更点は⑥⑦を参照ください。
+
+【Android v2.60 主な変更点】
+・BT CI-V Bluetooth 音声: IC-705/IC-9700 をBluetoothで直接接続した際、RX音声をスマートフォンスピーカーへ
+  出力できるようになりました（Bluetooth SCO 経由）
+・CW BLE 電鍵の安定性向上
+・Pi API を 2.60 に更新（「Update Pi」で更新してください）
+
+【iOS v2.60 主な変更点】
+・BT CI-V 接続時の音声・安定性改善
+・Pi API を 2.60 に更新
+
+ソースコード・ファームウェアは GitHub フォルダ v2.60 を参照してください。
 --

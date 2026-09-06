@@ -83,6 +83,7 @@ radio_cache = {
     "power": 0.0,
     "sql": 0.0,
     "bk_in": 0,
+    "bk_in_supported": None,
     "rig_wpm": 0
 }
 
@@ -946,12 +947,15 @@ def poll_rig():
 
         if time.time() - last_bkin_rig > 15:
             try:
+                supported = False
                 for func in ("SBKIN", "FBKIN"):
                     raw = rigctl_cmd(f"u {func}")
                     v = raw.split()[0] if raw else ""
                     if v.lstrip("-").isdigit():
                         radio_cache["bk_in"] = int(v)
+                        supported = True
                         break
+                radio_cache["bk_in_supported"] = supported
             except Exception:
                 pass
             last_bkin_rig = time.time()
@@ -1427,38 +1431,34 @@ def set_level(name: str = Form(...), value: float = Form(...)):
 @app.post("/radio/setbkin")
 def set_bk_in(state: int = Form(...)):
     try:
-        # 1. Hamlib standard (works on some rigs)
-        raw1 = rigctl_cmd("U SBKIN " + str(state))
-        if raw1 is not None and "RPRT 0" in raw1:
+        raw = rigctl_cmd("U SBKIN " + str(state))
+        if raw is not None and "RPRT 0" in raw:
             radio_cache["bk_in"] = state
-            return {"ok": True, "bk_in": state, "raw": raw1}
-        # 2. FT-991A raw CAT: BK1; = semi break-in ON, BK0; = OFF
-        # B=\x42  K=\x4b  1=\x31 / 0=\x30  ;=\x3b
-        val_hex = "31" if state else "30"
-        raw2 = rigctl_cmd("w \\x42\\x4b\\x" + val_hex + "\\x3b")
-        ok = raw2 is not None
-        if ok:
-            radio_cache["bk_in"] = state
-        return {"ok": ok, "bk_in": state, "raw1": str(raw1), "raw2": str(raw2)}
+            radio_cache["bk_in_supported"] = True
+            return {"ok": True, "bk_in": state, "supported": True}
+        radio_cache["bk_in_supported"] = False
+        return {"ok": False, "bk_in": radio_cache.get("bk_in", 0), "supported": False}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": str(e), "supported": False}
 
 
 @app.get("/radio/getbkin")
 def get_bk_in():
-    # Try SBKIN first (semi break-in), fall back to FBKIN (full break-in)
     val = 0
+    supported = False
     for func in ("SBKIN", "FBKIN"):
         raw = rigctl_cmd(f"u {func}")
         try:
             v = raw.split()[0] if raw else ""
             if v.lstrip("-").isdigit():
                 val = int(v)
+                supported = True
                 break
         except Exception:
             pass
     radio_cache["bk_in"] = val
-    return {"bk_in": val}
+    radio_cache["bk_in_supported"] = supported
+    return {"bk_in": val, "supported": supported}
 
 
 @app.post("/radio/setpower")

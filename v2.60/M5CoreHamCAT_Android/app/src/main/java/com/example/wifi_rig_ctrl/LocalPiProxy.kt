@@ -163,22 +163,39 @@ class LocalPiProxy(
         response.use { r ->
             out.write("HTTP/1.1 ${r.code} ${r.message.ifEmpty { "OK" }}\r\n".toByteArray())
             out.write("Connection: close\r\n".toByteArray())
-            // Force no-store for JS and HTML so a Pi webft8 update is always served fresh.
-            // WASM is large and stable, so it is allowed to cache normally.
             val path = r.request.url.encodedPath
             val noStore = path.endsWith(".js") || path == "/" || path == "/index.html"
                     || path.startsWith("/index.html?")
+            // Patch app.js to strip compound-callsign suffixes (/P, /M, etc.) before
+            // FT8 encoding. The webft8 WASM encoder throws "Failed to pack message"
+            // for compound calls; stripping the suffix makes the response reachable.
+            val patchAppJs = path == "/app.js" || path.startsWith("/app.js?")
             r.headers.forEach { (k, v) ->
                 val lk = k.lowercase()
                 if (lk !in setOf("transfer-encoding", "connection") &&
-                    !(noStore && lk == "cache-control")) {
+                    !(noStore && lk == "cache-control") &&
+                    !(patchAppJs && lk == "content-length")) {
                     out.write("$k: $v\r\n".toByteArray())
                 }
             }
             if (noStore) out.write("Cache-Control: no-store\r\n".toByteArray())
             out.write("\r\n".toByteArray())
             out.flush()
-            r.body?.byteStream()?.copyTo(out, bufferSize = 4096)
+            if (patchAppJs && r.code == 200) {
+                val original = r.body?.string() ?: ""
+                val patched = original.replace(
+                    "const samples = encodeTx(call1, call2, report, freq);",
+                    "const _sc=c=>{const i=c.indexOf('/');return i>0?c.slice(0,i):c;};\n" +
+                    "    const samples = encodeTx(_sc(call1), _sc(call2), report, freq);"
+                )
+                if (patched !== original)
+                    Log.i(TAG, "app.js patched: compound-call strip injected")
+                else
+                    Log.w(TAG, "app.js patch: target line not found — check webft8 version")
+                out.write(patched.toByteArray(Charsets.UTF_8))
+            } else {
+                r.body?.byteStream()?.copyTo(out, bufferSize = 4096)
+            }
             out.flush()
         }
     }

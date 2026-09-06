@@ -93,6 +93,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val sharedVolume = MutableLiveData(prefs.volume)
     val sharedMicGain = MutableLiveData(prefs.micGain)
     val sharedBkIn = MutableLiveData(false)
+    val bkInSupported = MutableLiveData<Boolean?>(null)
 
     // リピーター設定
     val repeaterToneMode  = MutableLiveData(prefs.repeaterToneMode)
@@ -340,8 +341,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         const val CW_UDP_PORT = 8889
-        const val EXPECTED_PI_API_VERSION = "2.51"
-        const val EXPECTED_WEBFT8_VERSION = "2.51"
+        const val EXPECTED_PI_API_VERSION = "2.60"
+        const val EXPECTED_WEBFT8_VERSION = "2.60"
 
         @Volatile
         var instance: MainViewModel? = null
@@ -883,6 +884,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (now - lastUserSQLChange > 1000) sharedSQL.value = st.sql
         if (now - lastUserWidthChange > 1000) sharedWidth.value = st.width
         sharedBkIn.value = st.bkIn
+        if (st.bkInSupported != null) bkInSupported.value = st.bkInSupported
         sharedSignal.value = s
         sharedTx.value = st.tx
         aprsTxInProgress.value = st.txInProgress

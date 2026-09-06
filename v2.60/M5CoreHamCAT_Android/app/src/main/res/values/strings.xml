@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Wifi Rig CTRL</string>
+    <string name="bk_in_not_supported">BK-IN: このリグでは操作できません</string>
 </resources>

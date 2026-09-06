@@ -3493,7 +3493,7 @@ def _load_api_key():
 
 _API_KEY = _load_api_key()
 
-_VERSION = "2.51"
+_VERSION = "2.60"
 
 class WebFt8Handler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):

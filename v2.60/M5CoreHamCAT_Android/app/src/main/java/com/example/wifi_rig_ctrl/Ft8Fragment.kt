@@ -305,6 +305,20 @@ class Ft8Fragment : Fragment() {
                         }
                     }
                 }
+                if (m.contains("[ft8] save_grid: ")) {
+                    val grid = m.substringAfter("[ft8] save_grid: ").trim()
+                    if (grid.matches(Regex("[A-R]{2}[0-9]{2}([A-X]{2})?"))) {
+                        vm.prefs.ft8MyGrid = grid
+                        android.util.Log.i("FT8js", "MyGrid saved: $grid")
+                    }
+                }
+                if (m.contains("[ft8] save_call: ")) {
+                    val call = m.substringAfter("[ft8] save_call: ").trim()
+                    if (call.matches(Regex("[A-Z0-9]{3,13}(/[A-Z0-9]*)?"))) {
+                        vm.prefs.ft8MyCall = call
+                        android.util.Log.i("FT8js", "MyCall saved: $call")
+                    }
+                }
                 return true
             }
         }
@@ -437,6 +451,25 @@ if (window.caches) {
   }
 })();
 
+// Add 430.510 JA to band-header select (not in upstream webft8 index.html).
+// Runs after DOM is parsed; idempotent — skips if option already present.
+document.addEventListener('DOMContentLoaded', function() {
+  var sel = document.getElementById('band-header');
+  if (!sel) return;
+  for (var i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].value === '430.510') return;
+  }
+  var opt = document.createElement('option');
+  opt.value = '430.510';
+  opt.text  = '430.510 JA';
+  // Insert in frequency order (before the first option whose value > 430.510)
+  var ref = null;
+  for (var i = 0; i < sel.options.length; i++) {
+    if (parseFloat(sel.options[i].value) > 430.510) { ref = sel.options[i]; break; }
+  }
+  sel.insertBefore(opt, ref);  // ref=null appends at end if no larger value found
+});
+
 // Patch all WebAssembly entry points: log + fallback for MIME/COEP proxy issues.
 (function() {
   var _origIS = WebAssembly.instantiateStreaming;
@@ -454,7 +487,11 @@ if (window.caches) {
       return Promise.resolve(source).then(function(resp) {
         if (!h && resp && resp.url) h = resp.url;
         console.log('[ft8] WASM instStream: ' + (h ? h.replace(/.*\//, '') : '?'));
-        return _origIS.call(WebAssembly, resp, importObj);
+        return _origIS.call(WebAssembly, resp, importObj).then(function(r) {
+          var nExp = r && r.instance ? Object.keys(r.instance.exports).length : '?';
+          console.log('[ft8] WASM instStream OK exports=' + nExp);
+          return r;
+        });
       }).catch(function(e) {
         console.log('[ft8] WASM instStream FAIL (' + e + '), fallback');
         if (!h) throw e;
@@ -650,9 +687,9 @@ window._ft8ClockOffsetMs  = $clockOffsetMs;
   function _parseFreqHz(v) {
     var n = parseFloat(v);
     if (isNaN(n) || n <= 0) return 0;
-    if (n > 100000)  return Math.round(n);          // already Hz
-    if (n >= 100)    return Math.round(n * 1000);   // kHz
-    if (n >= 0.1)    return Math.round(n * 1e6);    // MHz
+    if (n >= 1800000) return Math.round(n);          // already Hz (>= 1.8 MHz as Hz)
+    if (n >= 1800)    return Math.round(n * 1000);   // kHz (covers VHF: 144460 kHz = 144.460 MHz)
+    if (n >= 1.8)     return Math.round(n * 1e6);    // MHz
     return 0;
   }
   function _syncFreqToPi(freqHz) {
@@ -679,7 +716,7 @@ window._ft8ClockOffsetMs  = $clockOffsetMs;
           if (kl.indexOf('freq') >= 0 || kl.indexOf('center') >= 0 ||
               kl.indexOf('dial') >= 0 || kl.indexOf('band') >= 0) {
             var hz = _parseFreqHz(value);
-            if (hz > 1000000 && hz < 2000000000) _syncFreqToPi(hz);
+            if (hz >= 1800000 && hz < 2000000000) _syncFreqToPi(hz);
           }
         }
       },
@@ -1017,6 +1054,12 @@ window._ft8ClockOffsetMs  = $clockOffsetMs;
   var _ft8SentBuffers = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
   var _origABSStart = AudioBufferSourceNode.prototype.start;
   AudioBufferSourceNode.prototype.start = function(when, offset, duration) {
+    // Diagnostic: log every AudioBufferSourceNode.start() call
+    if (this.buffer && this.buffer.duration > 0.1) {
+      console.log('[ft8] abs.start dur=' + this.buffer.duration.toFixed(2) + 's rx=' + (!!this._ft8IsRx) +
+                  ' when=' + (when !== undefined ? (+when).toFixed(3) : 'undef') +
+                  ' lock=' + Math.round((window._ft8TxLockUntilMs - Date.now())/1000) + 's');
+    }
     if (this.buffer && this.buffer.duration > 5.0 && !this._ft8IsRx) {
       var nowMs  = Date.now();  // patched: real + clockOffset - latency; delta is still correct
       var bufMs  = this.buffer.duration * 1000;
@@ -1027,10 +1070,40 @@ window._ft8ClockOffsetMs  = $clockOffsetMs;
       var sec60   = Math.floor(nowReal / 1000) % 60;
       var utcPer  = Math.floor(sec60 / 15);
 
-      // Window-level lock check (main guard — survives IIFE re-runs)
-      if (nowMs < window._ft8TxLockUntilMs) {
-        var remS = ((window._ft8TxLockUntilMs - nowMs) / 1000).toFixed(1);
-        _ft8log('TX muted: locked ' + remS + 's utc=' + sec60 + 's period=' + utcPer);
+      // webft8 schedules reply TX via .start(futureWhen) — compute delta so lock and
+      // Pi-send timing are judged against the SCHEDULED start, not the call time.
+      // Cap at one period to ignore bogus far-future values.
+      var whenDeltaMs = 0;
+      if (when && this.context && when > this.context.currentTime + 0.1) {
+        whenDeltaMs = Math.min(Math.round((when - this.context.currentTime) * 1000), fdPeriod);
+      }
+      var schedMs   = nowMs   + whenDeltaMs;  // scheduled TX start in patched-time domain
+      var schedReal = nowReal + whenDeltaMs;  // scheduled TX start in real-time domain
+      var schedSec60 = Math.floor(schedReal / 1000) % 60;
+      var schedPer   = Math.floor(schedSec60 / (fdPeriod / 1000));
+
+      // Same-period-as-DX guard: mute TX if it would fire in DX's own period.
+      // _ft8DxIsEven is set from decoded rx message timing (MutationObserver).
+      // Fires BEFORE the lock so a wrong-period attempt doesn't poison the lock.
+      if (window._ft8DxIsEven !== undefined) {
+        var _txIsEven = (schedPer % 2 === 0);
+        if (_txIsEven === window._ft8DxIsEven) {
+          _ft8log('TX WRONG PERIOD: tx=' + (_txIsEven?'even':'odd') +
+                  ' dxEven=' + window._ft8DxIsEven + ' per=' + schedPer + ' utc=' + schedSec60 + 's');
+          try { this.disconnect(); } catch(e) {}
+          try {
+            var _wg2 = this.context.createGain();
+            _wg2.gain.value = 0; _wg2.connect(this.context.destination);
+            this.connect(_wg2);
+          } catch(e) {}
+          return _origABSStart.call(this, arguments[0], 0, 0.05);
+        }
+      }
+
+      // Window-level lock check — use SCHEDULED start so pre-queued replies aren't muted
+      if (schedMs < window._ft8TxLockUntilMs) {
+        var remS = ((window._ft8TxLockUntilMs - schedMs) / 1000).toFixed(1);
+        _ft8log('TX muted: locked ' + remS + 's sched+' + Math.round(whenDeltaMs/1000) + 's utc=' + sec60 + 's');
         // 50ms だけ再生: onended を即座に発火させて webFT8 の TX 状態を解除する
         // フル再生(12.64s)すると次の period 開始をまたいで webFT8 のスケジュールが狂う
         try { this.disconnect(); } catch(e) {}
@@ -1050,23 +1123,30 @@ window._ft8ClockOffsetMs  = $clockOffsetMs;
       if (_ft8SentBuffers) _ft8SentBuffers.add(this.buffer);
 
       // ロックを次のTX period 境界に精密アライン（サイクルスキップ防止）
-      // curPeriod+2 の period 開始時刻の 2秒前にロック解除 → webft8 に準備時間を与える
+      // スケジュール時刻ベースで計算することで、reply の pre-queue を正確に扱う
       var _numPer = Math.round(60000 / fdPeriod);   // 4(FT8) or 8(FT4)
-      var _msInMin = nowReal % 60000;
+      var _msInMin = schedReal % 60000;
       var _curP = Math.floor(_msInMin / fdPeriod);
       var _nextTxP = (_curP + 2) % _numPer;
-      var _nextTxRealMs = nowReal - _msInMin + _nextTxP * fdPeriod;
-      if (_nextTxRealMs <= nowReal + bufMs) _nextTxRealMs += 60000;
+      var _nextTxRealMs = schedReal - _msInMin + _nextTxP * fdPeriod;
+      if (_nextTxRealMs <= schedReal + bufMs) _nextTxRealMs += 60000;
       // nowMs と nowReal の差を保持してロックのドメインを合わせる
       window._ft8TxLockUntilMs = _nextTxRealMs + (nowMs - nowReal) - 2000;
       window._ft8TxSeqNo++;
       var rate = this.context ? this.context.sampleRate : 12000;
       _ft8log('TX#' + window._ft8TxSeqNo + ' ' + this.buffer.duration.toFixed(1) +
-              's period=' + utcPer + ' utc=' + sec60 + 's nextTxP=' + _nextTxP);
+              's sched+' + Math.round(whenDeltaMs/1000) + 's period=' + schedPer + ' utc=' + schedSec60 + 's nextTxP=' + _nextTxP);
       console.log('[ft8] TX#' + window._ft8TxSeqNo + ' buf=' + this.buffer.duration.toFixed(2) +
-                  's rate=' + rate + ' utcSec=' + sec60 + ' period=' + utcPer +
+                  's rate=' + rate + ' schedDelta=' + whenDeltaMs + 'ms utcSec=' + schedSec60 + ' period=' + schedPer +
                   ' lockUntil+' + Math.round((bufMs+fdPeriod)/1000) + 's');
-      _ft8SendTxBuffer(this.buffer, rate);
+      // Pi への送信はTXピリオド境界の500ms前に行う（即時送信すると早着して誤タイミングTX）
+      var _buf = this.buffer;
+      var sendDelayMs = Math.max(0, whenDeltaMs - 500);
+      if (sendDelayMs > 100) {
+        setTimeout(function() { _ft8SendTxBuffer(_buf, rate); }, sendDelayMs);
+      } else {
+        _ft8SendTxBuffer(_buf, rate);
+      }
     }
     return _origABSStart.apply(this, arguments);
   };
@@ -1124,24 +1204,40 @@ window._ft8ClockOffsetMs  = $clockOffsetMs;
   // ---- CQ frequency display: watch webFT8 DOM for decoded CQ messages ----
   (function() {
     var _seenCqs = {};
+    // DOM text format from webft8: "{freq_hz} {dt} {snr} {message}"
+    // e.g. "1234 +0.2 -5 CQ JF1AWC/P PM84"  (no HHMMSS in DOM)
     function _parseCqRow(text) {
-      // FT8 decode row: "HHMMSS dt freq snr CQ [DX] callsign grid"
-      var m = text.match(/\b(\d{6})\s+[+-]?\d+\.?\d*\s+(\d{3,4})\s+[+-]?\d+\s+CQ\s+(?:[A-Z]{1,2}\s+)?([A-Z0-9\/]+)\s+([A-R]{2}\d{2})\b/);
+      var m = text.match(/\b(\d{3,4})\s+[+-]?\d+\.?\d*\s+[+-]?\d+\s+CQ\s+(?:[A-Z]{1,2}\s+)?([A-Z0-9\/]+)\s+([A-R]{2}\d{2})\b/i);
       if (!m) return null;
-      var timeStr = m[1];                          // HHMMSS
-      var freq = parseInt(m[2]);
+      var freq = parseInt(m[1]);
       if (freq < 300 || freq > 3000) return null;
-      var ss = parseInt(timeStr.slice(4, 6));       // seconds within minute
-      var period = Math.floor(ss / 15);             // 0-3
-      return { time: timeStr, freq: freq, call: m[3], grid: m[4], period: period };
+      // Derive period from current time: decode arrives within first ~3s of new period
+      var _ss60 = Math.floor(Date.now() / 1000) % 60;
+      var _curPS = Math.floor(_ss60 / 15) * 15;       // current period start (sec)
+      var _endPS = (_curPS - 15 + 60) % 60;           // ended period start (sec)
+      var period = Math.floor(_endPS / 15);            // 0-3
+      var timeStr = ('0' + Math.floor(_ss60 / 60)).slice(-2) + ('0' + (_ss60 % 60)).slice(-2) + '00';
+      return { time: timeStr, freq: freq, call: m[2], grid: m[3], period: period };
+    }
+    // Helper: update _ft8DxIsEven from current time when a decode batch arrives
+    function _updateDxPeriod() {
+      var _ss60 = Math.floor(Date.now() / 1000) % 60;
+      var _curPS = Math.floor(_ss60 / 15) * 15;
+      var _endPS = (_curPS - 15 + 60) % 60;
+      var _endPer = Math.floor(_endPS / 15);
+      window._ft8DxIsEven = (_endPer % 2 === 0);
     }
     function _onNewNodes(nodes) {
       for (var i = 0; i < nodes.length; i++) {
         var node = nodes[i];
+        if (node.nodeType !== 1) continue;
+        // Any new rx decoded message → update DX period tracking
+        if (node.classList && node.classList.contains('chat-msg') && node.classList.contains('rx')) {
+          _updateDxPeriod();
+        }
         if (node.nodeType !== 1 && node.nodeType !== 3) continue;
         var text = (node.textContent || '').replace(/\s+/g, ' ').trim();
         if (text.indexOf('CQ') < 0) continue;
-        // Check self and parent for full row context (table row may split across children)
         var sources = [text];
         if (node.parentElement) sources.push((node.parentElement.textContent || '').replace(/\s+/g, ' ').trim());
         for (var j = 0; j < sources.length; j++) {
@@ -1151,12 +1247,11 @@ window._ft8ClockOffsetMs  = $clockOffsetMs;
           var key = cq.call + '_' + period15;
           if (_seenCqs[key]) break;
           _seenCqs[key] = true;
-          // Prune old entries
           var cutoff = period15 - 8;
           Object.keys(_seenCqs).forEach(function(k) {
             if (parseInt(k.split('_').pop()) < cutoff) delete _seenCqs[k];
           });
-          console.log('[ft8] cq_rx freq=' + cq.freq + ' call=' + cq.call + ' grid=' + cq.grid + ' time=' + cq.time + ' period=' + cq.period);
+          console.log('[ft8] cq_rx freq=' + cq.freq + ' call=' + cq.call + ' grid=' + cq.grid + ' time=' + cq.time + ' period=' + cq.period + ' dxEven=' + window._ft8DxIsEven);
           break;
         }
       }
@@ -1170,6 +1265,52 @@ window._ft8ClockOffsetMs  = $clockOffsetMs;
       setTimeout(function() {
         _cqObserver.observe(document.body, { childList: true, subtree: true });
         _ft8log('CQ observer active');
+        // Mirror webft8 DOM status updates to logcat (setStatus() only updates DOM, not console)
+        function _observeStatus(id, label) {
+          var el = document.getElementById(id);
+          if (!el) { console.log('[ft8] status-obs: no #' + id); return; }
+          new MutationObserver(function() {
+            var t = (el.textContent || '').trim();
+            if (t) console.log('[ft8] ' + label + ': ' + t);
+          }).observe(el, { characterData: true, childList: true, subtree: true });
+          console.log('[ft8] status-obs: watching #' + id);
+        }
+        _observeStatus('scout-tx-queue',   'tx');
+        _observeStatus('scout-decode-info','dec');
+
+        // Block clicks on RR73 / 73 decoded rows — these end the QSO and need no reply.
+        // Uses capture phase so we intercept before webft8's bubble listener on the div.
+        document.addEventListener('click', function(e) {
+          var el = e.target;
+          while (el && el !== document.body) {
+            if (el.classList && el.classList.contains('chat-msg') && el.classList.contains('rx')) {
+              var textEl = el.querySelector('.text');
+              var txt = (textEl ? textEl.textContent : el.textContent) || '';
+              if (/\bRR73\b|\s73\s*$/.test(txt)) {
+                e.stopImmediatePropagation();
+                console.log('[ft8] click blocked (end-of-QSO): ' + txt.trim().slice(0, 40));
+              }
+              break;
+            }
+            el = el.parentElement;
+          }
+        }, true);
+        console.log('[ft8] RR73 click-block active');
+
+        // Save manually-entered My Grid / My Call back to Android SharedPreferences.
+        // webft8 saves these to its own localStorage but Android prefs are not updated.
+        // We emit console messages that onConsoleMessage parses and persists.
+        function _watchInput(id, tag) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          var _last = el.value;
+          el.addEventListener('change', function() {
+            var v = (el.value || '').trim().toUpperCase();
+            if (v && v !== _last) { _last = v; console.log('[ft8] ' + tag + ': ' + v); }
+          });
+        }
+        _watchInput('my-grid', 'save_grid');
+        _watchInput('my-call', 'save_call');
       }, 3000);
     });
   })();

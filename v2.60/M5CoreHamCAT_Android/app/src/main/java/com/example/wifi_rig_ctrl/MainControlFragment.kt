@@ -728,6 +728,25 @@ class MainControlFragment : Fragment() {
             Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
         }
 
+        // BK-IN toggle tap / RPT tap → repeater settings
+        binding.tvBkIn.setOnClickListener {
+            if (vm.txEnabled.value == true) return@setOnClickListener
+            val rptActive = (vm.repeaterOffsetDir.value ?: "").isNotEmpty() ||
+                            (vm.repeaterToneMode.value ?: "").isNotEmpty()
+            if (rptActive) {
+                showRepeaterDialog()
+            } else {
+                val isCiv = vm.useCIV.value == true
+                val supported = vm.bkInSupported.value
+                if (!isCiv && supported == false) {
+                    Toast.makeText(requireContext(), getString(R.string.bk_in_not_supported), Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                val next = !(vm.sharedBkIn.value ?: false)
+                vm.sendBkIn(next)
+            }
+        }
+
         // PTT long press: repeater settings
         binding.btnPtt.setOnLongClickListener { showRepeaterDialog(); true }
 

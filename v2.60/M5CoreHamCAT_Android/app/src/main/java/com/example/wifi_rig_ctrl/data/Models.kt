@@ -21,6 +21,7 @@ data class RigStatus(
     val sql: Float,
     val txInProgress: Boolean,
     val bkIn: Boolean = false,
+    val bkInSupported: Boolean? = null,
     val apiVersion: String = "",
     val webft8Version: String = ""
 )

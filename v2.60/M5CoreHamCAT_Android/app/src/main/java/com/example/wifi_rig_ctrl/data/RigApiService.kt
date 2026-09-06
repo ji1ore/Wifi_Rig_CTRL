@@ -144,6 +144,11 @@ class RigApiService(private var hostName: String, private var apiPort: Int, priv
                 is Double  -> b.toInt() == 1
                 else       -> false
             }
+            val bkInSupported = when (val s = doc["bk_in_supported"]) {
+                is Boolean -> s
+                null       -> null
+                else       -> null
+            }
             RigStatus(
                 freq = freq,
                 mode = doc["mode"] as? String ?: "",
@@ -154,6 +159,7 @@ class RigApiService(private var hostName: String, private var apiPort: Int, priv
                 sql = sql,
                 txInProgress = doc["tx_in_progress"] as? Boolean ?: false,
                 bkIn = bkIn,
+                bkInSupported = bkInSupported,
                 apiVersion = doc["api_version"] as? String ?: "",
                 webft8Version = doc["webft8_version"] as? String ?: ""
             )

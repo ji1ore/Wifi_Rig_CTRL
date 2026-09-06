@@ -4,7 +4,7 @@ import os
 import ssl
 import urllib.request
 
-_VERSION = "2.5"
+_VERSION = "2.60"
 
 def _load_api_key():
     try:

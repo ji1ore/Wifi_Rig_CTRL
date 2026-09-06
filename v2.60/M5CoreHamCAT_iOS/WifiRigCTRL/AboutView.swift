@@ -79,7 +79,7 @@ struct AboutView: View {
                                 .font(.headline)
                                 .foregroundStyle(.orange)
                         }
-                        Text("The Pi API server is on version **\(piApiVersion)** but version **2.51** is required. Update the Pi via the UPDATE screen.")
+                        Text("The Pi API server is on version **\(piApiVersion)** but version **2.60** is required. Update the Pi via the UPDATE screen.")
                             .font(.callout)
                             .foregroundStyle(.primary)
                     }

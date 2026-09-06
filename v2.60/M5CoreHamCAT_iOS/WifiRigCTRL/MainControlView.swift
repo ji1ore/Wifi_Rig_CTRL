@@ -72,11 +72,7 @@ struct MainControlView: View {
                 Menu {
                     screenTimeoutMenu
                     Button("FT8") { vm.path.append(.ft8) }
-                        .disabled(
-                            (vm.useCivMode && vm.civConnected) ||
-                            vm.ft8MyCall.trimmingCharacters(in: .whitespaces).isEmpty ||
-                            vm.ft8MyGrid.trimmingCharacters(in: .whitespaces).isEmpty
-                        )
+                        .disabled(vm.useCivMode && vm.civConnected)
                     Button("CW") { vm.path.append(.cw) }
                     Button("PTT Settings") { vm.path.append(.pttSettings) }
                     Button("APRS Settings") { vm.path.append(.aprsSettings) }

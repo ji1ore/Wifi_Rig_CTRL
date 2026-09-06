@@ -163,7 +163,7 @@ except ImportError:
 
 # API Key 認証（環境変数 API_KEY が設定されている場合のみ有効）
 API_KEY = os.environ.get("API_KEY", "")
-API_VERSION = "2.51"
+API_VERSION = "2.60"
 
 # ALSAデバイス設定 (環境変数 or POST /radio/audio_device で変更可)
 _alsa_capture_dev  = os.environ.get("ALSA_CAPTURE",  "plughw:CARD=CODEC,DEV=0")
@@ -3493,7 +3493,7 @@ def _load_api_key():
 
 _API_KEY = _load_api_key()
 
-_VERSION = "2.51"
+_VERSION = "2.60"
 
 class WebFt8Handler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):

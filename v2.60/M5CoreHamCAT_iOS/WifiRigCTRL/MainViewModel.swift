@@ -268,7 +268,7 @@ final class MainViewModel {
     var ft8MyCall: String = UserDefaults.standard.string(forKey: "ft8MyCall") ?? ""
     var ft8MyGrid: String = UserDefaults.standard.string(forKey: "ft8MyGrid") ?? ""
     var ft8DxCall: String = UserDefaults.standard.string(forKey: "ft8DxCall") ?? ""
-    var ft8LatencyMs: Int = UserDefaults.standard.integer(forKey: "ft8LatencyMs").nonZeroOr(4000)
+    var ft8LatencyMs: Int = UserDefaults.standard.integer(forKey: "ft8LatencyMs")
     var ft8TxMode: String = UserDefaults.standard.string(forKey: "ft8TxMode") ?? "USB"
     var ft8LastFreq: Int64 = Int64(UserDefaults.standard.integer(forKey: "ft8LastFreq"))
     var ft8IsFt4: Bool = UserDefaults.standard.bool(forKey: "ft8IsFt4")
@@ -901,8 +901,8 @@ final class MainViewModel {
     private var loggedFirstPollError: Bool = false
     private var consecutivePollFailures: Int = 0
     private static let pollFailAutoDisconnect = 5
-    private static let expectedPiApiVersion = "2.51"
-    private static let expectedWebft8Version = "2.51"
+    private static let expectedPiApiVersion = "2.60"
+    private static let expectedWebft8Version = "2.60"
 
     private func pollOnce() async {
         // CI-V direct path (bypasses Pi FastAPI entirely)
@@ -1505,8 +1505,14 @@ final class MainViewModel {
     }
 
     func updateFt8LatencyMs(_ ms: Int) {
-        ft8LatencyMs = max(0, min(10000, ms))
+        ft8LatencyMs = max(-10000, min(10000, ms))
         persistFt8Settings()
+    }
+
+    /// Fetch Pi server time, compute clock offset (Pi_ms - iOS_ms), and return it.
+    /// Returns 0 on failure.
+    func syncFt8Clock() async throws -> Int64 {
+        return try await api.getPiClockOffsetMs()
     }
 
     /// Server-side FT8/FT4 TX (v2.02). Composes a basic CQ message if dxCall is empty.

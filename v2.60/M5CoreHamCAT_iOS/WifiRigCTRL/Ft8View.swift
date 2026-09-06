@@ -7,7 +7,9 @@ struct Ft8View: View {
     @State private var showLatencyEditor: Bool = false
     @State private var latencyText: String = ""
     @State private var showPowerPicker: Bool = false
-    @State private var showFreqPicker: Bool = false
+    @State private var webLoadingMessage: String? = nil
+    @State private var piClockOffsetMs: Int64 = 0
+    @State private var isSyncing: Bool = false
 
     private let powerSteps: [Double] = [0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 1.00]
 
@@ -42,8 +44,25 @@ struct Ft8View: View {
                     .padding(.vertical, 4)
                     .background(Color(red: 0.72, green: 0.11, blue: 0.11))
             }
-            Ft8WebView(vm: vm) { webView in
+            Ft8WebView(vm: vm, onLoadStateChange: { msg in webLoadingMessage = msg }) { webView in
                 self.webViewRef = webView
+            }
+            .overlay(alignment: .center) {
+                if let msg = webLoadingMessage {
+                    ZStack {
+                        Color.black.opacity(0.55)
+                        VStack(spacing: 14) {
+                            ProgressView().tint(.white).scaleEffect(1.4)
+                            Text(msg)
+                                .font(.callout.weight(.medium))
+                                .foregroundStyle(.white)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
+                        .padding(24)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+                    }
+                }
             }
             statusOverlay
         }
@@ -95,12 +114,6 @@ struct Ft8View: View {
             }
             Button("cancel", role: .cancel) {}
         }
-        .confirmationDialog("Band / Freq", isPresented: $showFreqPicker) {
-            ForEach(ft8Bands, id: \.hz) { band in
-                Button(band.label) { setFrequency(band.hz) }
-            }
-            Button("cancel", role: .cancel) {}
-        }
     }
 
     private var toolbar: some View {
@@ -114,10 +127,13 @@ struct Ft8View: View {
                 Text(String(format: "%.1fs", Double(vm.ft8LatencyMs) / 1000.0))
                     .font(.caption.monospacedDigit())
             }
-            Button(vm.ft8TxMode) {
+            Button {
                 let next = vm.ft8TxMode == "USB" ? "PKTUSB" : "USB"
-                webViewRef?.evaluateJavaScript("window._ft8AudioLatencyMs = \(vm.ft8LatencyMs)")
+                webViewRef?.evaluateJavaScript("window._ft8AudioLatencyMs = \(vm.ft8LatencyMs)", completionHandler: nil)
                 Task { await vm.setFt8TxMode(next) }
+            } label: {
+                Text(vm.ft8TxMode == "PKTUSB" ? "PKT" : vm.ft8TxMode)
+                    .font(.caption.monospacedDigit())
             }
             Button {
                 showPowerPicker = true
@@ -125,14 +141,46 @@ struct Ft8View: View {
                 Text("PWR \(Int(vm.sharedPower * 100))")
                     .font(.caption.monospacedDigit())
             }
-            Button {
-                showFreqPicker = true
+            Menu {
+                Menu("HF") {
+                    ForEach(ft8Bands.filter { $0.hz < 70_000_000 }, id: \.hz) { band in
+                        Button(band.label) { setFrequency(band.hz) }
+                    }
+                }
+                Menu("VHF/UHF") {
+                    ForEach(ft8Bands.filter { $0.hz >= 70_000_000 }, id: \.hz) { band in
+                        Button(band.label) { setFrequency(band.hz) }
+                    }
+                }
             } label: {
                 Text(vm.sharedFreq <= 0 ? "--.-"
                      : String(format: "%.3f", Double(vm.sharedFreq) / 1_000_000.0))
                     .font(.caption.monospacedDigit())
             }
             Spacer()
+            // SYNC: fetch Pi clock offset and update Date.now() correction in webft8.
+            // Critical for FT8 decode alignment — if iOS clock differs from Pi UTC even
+            // by 1s, decode windows shift and fewer signals are decoded.
+            Button {
+                guard !isSyncing else { return }
+                isSyncing = true
+                Task {
+                    let offset = (try? await vm.syncFt8Clock()) ?? 0
+                    piClockOffsetMs = offset
+                    let js = "window._ft8ClockOffsetMs=\(offset);window._ft8TxLockUntilMs=0;window._ft8TxSeqNo=0;window._ft8LastSentPeriodKey=-1;window._ft8CurrentDx=null;window._ft8CallPeriod={};"
+                    webViewRef?.evaluateJavaScript(js, completionHandler: nil)
+                    isSyncing = false
+                }
+            } label: {
+                if isSyncing {
+                    ProgressView().scaleEffect(0.7)
+                } else {
+                    Text(piClockOffsetMs == 0 ? "SYNC"
+                         : "SYNC\(piClockOffsetMs > 0 ? "+" : "")\(piClockOffsetMs/1000)s")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(abs(piClockOffsetMs) > 2000 ? .red : .primary)
+                }
+            }
             // Native START button: reconnects stream when Pi audio drops mid-session.
             // AudioContext bootstrap must be done via the injected web-page button (real
             // user gesture inside WebKit). evaluateJavaScript is not a user gesture and
@@ -194,7 +242,7 @@ struct Ft8View: View {
             Form {
                 Section(header: Text("ft8_audio_latency_sec")) {
                     TextField("0.0", text: $latencyText)
-                        .keyboardType(.decimalPad)
+                        .keyboardType(.numbersAndPunctuation)
                         .font(.title2.monospacedDigit())
                 }
             }
@@ -258,17 +306,25 @@ struct Ft8View: View {
             if !vm.ft8ApiKey.isEmpty { req.setValue(vm.ft8ApiKey, forHTTPHeaderField: "X-API-Key") }
             URLSession.shared.dataTask(with: req).resume()
         }
-        // Update WebFT8's dial frequency so its own display and decoder stay in sync
+        // Update WebFT8's band selector so its internal state (waterfall, decoder) syncs.
+        // webft8 uses #band-header <select> with option values in MHz (e.g. "7.041", "144.460").
         webViewRef?.evaluateJavaScript("""
         (function(){
-          var hz = \(hz);
-          localStorage.setItem('webft8-dial', hz);
-          localStorage.setItem('webft8-dialfreq', hz);
-          localStorage.setItem('webft8-freq', hz);
-          var inp = document.querySelector('input[id*="freq"],input[id*="dial"]');
-          if (inp) {
-            inp.value = (hz/1e6).toFixed(6);
-            inp.dispatchEvent(new Event('change', { bubbles: true }));
+          var targetHz = \(hz);
+          var sel = document.getElementById('band-header');
+          if (!sel) return;
+          // Find the closest option value (in MHz) to the target frequency.
+          var best = null, bestDiff = Infinity;
+          for (var i = 0; i < sel.options.length; i++) {
+            var optHz = parseFloat(sel.options[i].value) * 1e6;
+            if (isNaN(optHz)) continue;
+            var diff = Math.abs(optHz - targetHz);
+            if (diff < bestDiff) { bestDiff = diff; best = sel.options[i]; }
+          }
+          if (best && sel.value !== best.value) {
+            sel.value = best.value;
+            localStorage.setItem('webft8-band', best.value);
+            sel.dispatchEvent(new Event('change', { bubbles: true }));
           }
         })();
         """)
@@ -279,6 +335,7 @@ struct Ft8View: View {
 
 struct Ft8WebView: UIViewRepresentable {
     let vm: MainViewModel
+    var onLoadStateChange: ((String?) -> Void)? = nil
     let onReady: (WKWebView) -> Void
 
     func makeCoordinator() -> Ft8WebViewCoordinator {
@@ -328,13 +385,16 @@ struct Ft8WebView: UIViewRepresentable {
             webView.load(URLRequest(url: url))
         }
 
+        context.coordinator.onLoadStateChange = onLoadStateChange
         DispatchQueue.main.async { onReady(webView) }
         return webView
     }
 
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        context.coordinator.onLoadStateChange = onLoadStateChange
+    }
 
-    static func buildInjectionJS(host: String, apiKey: String, apiPort: Int, myCall: String, myGrid: String, latencyMs: Int, ft8InitFreqHz: Int64) -> String {
+    static func buildInjectionJS(host: String, apiKey: String, apiPort: Int, myCall: String, myGrid: String, latencyMs: Int, ft8InitFreqHz: Int64, clockOffsetMs: Int64 = 0) -> String {
         // Same-origin HTTPS fetch: page loaded at https://host:8443/, audio also fetched from
         // https://host:8443/audio_sub — same origin, no cross-origin block.
         // SSL trust is already established when the page loaded (Ft8WebViewCoordinator accepted
@@ -344,7 +404,7 @@ struct Ft8WebView: UIViewRepresentable {
         let apiUrl = "https://\(host):\(AppConstants.webFt8HttpsPort)"
         let safeApiKey = apiKey.replacingOccurrences(of: "'", with: "\\'")
         let safeCall = myCall.replacingOccurrences(of: "'", with: "\\'")
-        let safeGrid = myGrid.replacingOccurrences(of: "'", with: "\\'")
+        let safeGrid = myGrid.replacingOccurrences(of: "'", with: "\\'").uppercased()
         return #"""
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -353,17 +413,21 @@ if ('serviceWorker' in navigator) {
 }
 
 window._ft8AudioLatencyMs = __LAT_MS__;
+window._ft8ClockOffsetMs  = __CLOCK_OFFSET_MS__;
 (function() {
   var _origDateNow = Date.now.bind(Date);
   var _OrigDate = window.Date;
+  function _ft8AdjustedNow() {
+    return _origDateNow() + window._ft8ClockOffsetMs - window._ft8AudioLatencyMs;
+  }
   function _PatchedDate() {
     if (arguments.length === 0) {
-      return new _OrigDate(_origDateNow() - window._ft8AudioLatencyMs);
+      return new _OrigDate(_ft8AdjustedNow());
     }
     return new (Function.prototype.bind.apply(_OrigDate, [null].concat(Array.prototype.slice.call(arguments))))();
   }
   _PatchedDate.prototype = _OrigDate.prototype;
-  _PatchedDate.now = function() { return _origDateNow() - window._ft8AudioLatencyMs; };
+  _PatchedDate.now = function() { return _ft8AdjustedNow(); };
   _PatchedDate.parse = _OrigDate.parse.bind(_OrigDate);
   _PatchedDate.UTC   = _OrigDate.UTC.bind(_OrigDate);
   window.Date = _PatchedDate;
@@ -393,6 +457,32 @@ window._ft8AudioLatencyMs = __LAT_MS__;
     localStorage.setItem('webft8-freq',      _initHz);
   }
 
+  // Fix Japanese IME (flick input) double character entry in WKWebView.
+  // Same technique as Android Ft8Fragment: stop duplicate input events within 50ms.
+  (function() {
+    var _lastData = null;
+    var _lastDataTime = 0;
+    document.addEventListener('input', function(e) {
+      if (e.isComposing) { e.stopImmediatePropagation(); return; }
+      var data = e.data;
+      if (!data) return;
+      var now = Date.now();
+      if (data === _lastData && now - _lastDataTime < 50) {
+        e.stopImmediatePropagation();
+        var el = e.target;
+        if (el && typeof el.value === 'string' && el.value.endsWith(data)) {
+          el.value = el.value.slice(0, -data.length);
+        }
+        return;
+      }
+      _lastData = data;
+      _lastDataTime = now;
+    }, true);
+    document.addEventListener('keydown', function(e) {
+      if (e.isComposing || e.keyCode === 229) { e.stopImmediatePropagation(); }
+    }, true);
+  })();
+
   window.addEventListener('DOMContentLoaded', function() {
     setTimeout(function() {
       var all = document.body.getElementsByTagName('*');
@@ -410,13 +500,18 @@ window._ft8AudioLatencyMs = __LAT_MS__;
     // guarantee the DOM reflects what the user configured here, even on re-renders.
     var _ci = document.getElementById('my-call');
     if (_ci) {
-      _ci.inputMode = 'url';
-      if ('__CALL__') { _ci.value = '__CALL__'; _ci.dispatchEvent(new Event('input', { bubbles: true })); }
+      if ('__CALL__') { _ci.value = '__CALL__'; _ci.dispatchEvent(new Event('change', { bubbles: true })); }
     }
     var _gi = document.getElementById('my-grid');
     if (_gi) {
-      _gi.inputMode = 'url';
-      if ('__GRID__') { _gi.value = '__GRID__'; _gi.dispatchEvent(new Event('input', { bubbles: true })); }
+      if ('__GRID__') { _gi.value = '__GRID__'; _gi.dispatchEvent(new Event('change', { bubbles: true })); }
+      // Allow 4-char grids (e.g. PM95) by removing HTML5 validation constraints webft8 applies.
+      _gi.removeAttribute('required');
+      _gi.removeAttribute('minlength');
+      _gi.removeAttribute('pattern');
+      _gi.setCustomValidity('');
+      _gi.addEventListener('blur', function() { this.setCustomValidity(''); });
+      _gi.addEventListener('invalid', function(e) { e.preventDefault(); this.setCustomValidity(''); });
     }
 
     var sel = document.getElementById('audio-device');
@@ -453,6 +548,7 @@ window._ft8AudioLatencyMs = __LAT_MS__;
     iosBtn.textContent = '▶ START';
     iosBtn.style.cssText = 'position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:2147483647;padding:6px 22px;background:#1565C0;color:#fff;border:none;border-radius:16px;font-size:14px;font-weight:bold;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.45);';
     iosBtn.addEventListener('click', function() {
+      if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
       window._ft8LastError = null;
       iosBtn.textContent = '⏳ CONNECT';
       iosBtn.style.background = '#555';
@@ -483,11 +579,22 @@ window._ft8AudioLatencyMs = __LAT_MS__;
       window._ft8BootstrapAudio();
       // Trigger WebFT8's own "Start Audio" button so capture.start() and
       // createMediaStreamSource run — which connects our PCM stream to the waterfall.
-      // Guard: only click when showing "Start *" (not "Stop *").
-      var _webStart = document.getElementById('btn-start');
-      if (_webStart && /^start/i.test((_webStart.textContent || '').trim())) {
-        _webStart.click();
-      }
+      // Try multiple IDs used across webft8 versions; also fall back to text search.
+      (function() {
+        var _ws = document.getElementById('btn-start') ||
+                  document.getElementById('start-audio') ||
+                  document.getElementById('startAudio') ||
+                  document.getElementById('audio-start') ||
+                  document.getElementById('btn-audio-start');
+        if (!_ws) {
+          var _btns = document.querySelectorAll('button');
+          for (var _bi = 0; _bi < _btns.length; _bi++) {
+            var _bt = (_btns[_bi].textContent || '').trim().toLowerCase();
+            if (_bt === 'start audio' || _bt === 'start') { _ws = _btns[_bi]; break; }
+          }
+        }
+        if (_ws && /^start/i.test((_ws.textContent || '').trim())) _ws.click();
+      })();
     });
     document.body.appendChild(iosBtn);
     // Reflect stream state on the button every second
@@ -505,6 +612,24 @@ window._ft8AudioLatencyMs = __LAT_MS__;
         iosBtn.style.background = '#1565C0';
       }
     }, 1000);
+
+    // webft8 Snipe/Call mode sets waterfall.freqOffset = snipeBpf - FILTER_CENTER.
+    // A positive freqOffset shifts the view right, making bins with binF < 0 render dark
+    // (left portion goes blank). Fix: lock freqOffset at 0 so the full spectrum is always visible.
+    (function() {
+      function _patchWF() {
+        var wf = window.waterfall;
+        if (!wf) { setTimeout(_patchWF, 500); return; }
+        if (wf._freqOffsetPatched) return;
+        wf._freqOffsetPatched = true;
+        Object.defineProperty(wf, 'freqOffset', {
+          get: function() { return 0; },
+          set: function() {},
+          configurable: true
+        });
+      }
+      setTimeout(_patchWF, 1000);
+    })();
   });
 
   // iOS WKWebView: evaluateJavaScript() is NOT a user gesture inside WebKit.
@@ -526,6 +651,9 @@ window._ft8AudioLatencyMs = __LAT_MS__;
     if (!_audioDest) {
       _audioDest = ctx.createMediaStreamDestination();
       _allGumDests.push(_audioDest);
+      _monitorGain = ctx.createGain();
+      _monitorGain.gain.value = 1.0;
+      _monitorGain.connect(ctx.destination);
     }
     ctx.resume().then(function() {
       if (!_streamRunning) _startStream();
@@ -562,10 +690,16 @@ window._ft8AudioLatencyMs = __LAT_MS__;
   function _parseFreqHz(v) {
     var n = parseFloat(v);
     if (isNaN(n) || n <= 0) return 0;
-    if (n > 100000)  return Math.round(n);
-    if (n >= 100)    return Math.round(n * 1000);
-    if (n >= 0.1)    return Math.round(n * 1e6);
+    if (n > 100000)  return Math.round(n);        // already Hz (e.g. 7074000)
+    if (n > 2000)    return Math.round(n * 1000); // kHz (e.g. 7074)
+    if (n >= 0.1)    return Math.round(n * 1e6);  // MHz (e.g. 7.074, 144.460)
     return 0;
+  }
+  // MHz string from webft8-band key (e.g. "144.460" → 144460000 Hz)
+  function _parseBandMHz(v) {
+    var n = parseFloat(v);
+    if (isNaN(n) || n <= 0) return 0;
+    return Math.round(n * 1e6);
   }
   (function() {
     var _origSI = Storage.prototype.setItem;
@@ -576,7 +710,7 @@ window._ft8AudioLatencyMs = __LAT_MS__;
           var kl = key.toLowerCase();
           if (kl.indexOf('freq') >= 0 || kl.indexOf('center') >= 0 ||
               kl.indexOf('dial') >= 0 || kl.indexOf('band') >= 0) {
-            var hz = _parseFreqHz(value);
+            var hz = (kl === 'webft8-band') ? _parseBandMHz(value) : _parseFreqHz(value);
             if (hz > 1000000 && hz < 2000000000) _syncFreqToPi(hz);
           }
         }
@@ -588,7 +722,8 @@ window._ft8AudioLatencyMs = __LAT_MS__;
   window.addEventListener('load', function() {
     document.addEventListener('change', function(e) {
       var val = (e.target.value || '').replace(/[,\s]/g, '').trim();
-      var hz = _parseFreqHz(val);
+      // band-header value is always in MHz (e.g. "144.460")
+      var hz = (e.target.id === 'band-header') ? _parseBandMHz(val) : _parseFreqHz(val);
       if (hz > 1000000 && hz < 2000000000) {
         _syncFreqToPi(hz);
       }
@@ -621,34 +756,12 @@ window._ft8AudioLatencyMs = __LAT_MS__;
         configurable: true, writable: true
       });
     } catch(e) {}
-    // STEP 2 (async): pre-register 'ft8-audio-processor' blob so AudioWorkletNode
-    // creation succeeds even if audio-processor.js is missing or fails to load.
-    try {
-      var _code =
-        'class _FP extends AudioWorkletProcessor{' +
-        'constructor(){super();this._r=false;this._wb=new Float32Array(512);' +
-        'this._wi=0;this._pa=0;this._pc=0;' +
-        'this.port.onmessage=e=>{const t=e.data&&e.data.type;' +
-        'if(t==="start"){this._r=true;this.port.postMessage({type:"info",nativeRate:12000,snapshotRate:12000,waterfallRate:6000});}' +
-        'else if(t==="stop")this._r=false;};' +
-        '}' +
-        'process(ins){if(!this._r)return true;' +
-        'const inp=ins[0]&&ins[0][0];if(!inp||!inp.length)return true;' +
-        'for(let i=0;i<inp.length;i++){const v=Math.abs(inp[i]);if(v>this._pa)this._pa=v;}' +
-        'this._pc+=inp.length;' +
-        'if(this._pc>=1200){this.port.postMessage({type:"peak",level:this._pa});this._pa=0;this._pc=0;}' +
-        'for(let j=0;j+1<inp.length;j+=2){this._wb[this._wi++]=(inp[j]+inp[j+1])*0.5;' +
-        'if(this._wi>=512){const c=this._wb.slice();this.port.postMessage({type:"waterfall",samples:c},[c.buffer]);this._wi=0;}}' +
-        'return true;}}' +
-        'registerProcessor("ft8-audio-processor",_FP);';
-      var _blob = new Blob([_code], {type:'application/javascript'});
-      var _blobUrl = URL.createObjectURL(_blob);
-      _nativeAM(_blobUrl).then(function() {
-        URL.revokeObjectURL(_blobUrl);
-      }).catch(function(e) {
-        URL.revokeObjectURL(_blobUrl);
-      });
-    } catch(e) {}
+    // STEP 2 removed: do NOT pre-register a blob processor under 'ft8-audio-processor'.
+    // Pre-registering our blob was blocking the real audio-processor.js from registering
+    // (AudioWorklet throws if the same name is registered twice), causing FT8 decoding to
+    // fail entirely because the real processor's decode messages never reached the main thread.
+    // The ScriptProcessorNode fallback below handles the rare case where audio-processor.js
+    // fails to load — in that case AudioWorkletNode creation throws and we fall back.
   }
 
   // AudioWorkletNode intercept: if 'ft8-audio-processor' is not yet registered
@@ -662,15 +775,31 @@ window._ft8AudioLatencyMs = __LAT_MS__;
       } catch(e) {
         if (name !== 'ft8-audio-processor') throw e;
         var scp = ctx.createScriptProcessor(256, 1, 1);
-        var _wfBuf = new Float32Array(512), _wi = 0, _pa = 0, _pc = 0, _run = false;
+        var _wfBuf = new Float32Array(512), _wi = 0;
+        var _pa = 0, _pc = 0, _run = false;
+        var _rate = 12000;
+        var _decBufSize = _rate * 15;
+        var _decBuf = new Float32Array(_decBufSize);
+        var _decPos = 0, _decSent = false;
         scp.port = {
           onmessage: null,
           postMessage: function(msg) {
             if (!msg) return;
             if (msg.type === 'start') {
-              _run = true;
-              scp.port.onmessage && scp.port.onmessage({data:{type:'info',nativeRate:12000,snapshotRate:12000,waterfallRate:6000}});
-            } else if (msg.type === 'stop') { _run = false; }
+              _run = true; _decPos = 0; _decSent = false;
+              scp.port.onmessage && scp.port.onmessage({data:{type:'info',nativeRate:_rate,outputRate:_rate,snapshotRate:_rate,waterfallRate:6000}});
+            } else if (msg.type === 'stop') {
+              _run = false;
+            } else if (msg.type === 'setBufferSeconds') {
+              var secs = Math.max(1, msg.seconds || 15);
+              _decBufSize = Math.round(_rate * secs);
+              _decBuf = new Float32Array(_decBufSize);
+              _decPos = 0; _decSent = false;
+            } else if (msg.type === 'snapshot') {
+              var snap = _decBuf.slice(0, _decPos);
+              scp.port.onmessage && scp.port.onmessage({data:{type:'snapshot',samples:snap,outputRate:_rate}});
+              _decPos = 0; _decSent = false;
+            }
           },
           addEventListener: function() {}, removeEventListener: function() {}
         };
@@ -683,10 +812,16 @@ window._ft8AudioLatencyMs = __LAT_MS__;
           for (var j = 0; j + 1 < inp.length; j += 2) {
             _wfBuf[_wi++] = (inp[j] + inp[j+1]) * 0.5;
             if (_wi >= 512) {
-              var chunk = _wfBuf.slice();
-              scp.port.onmessage && scp.port.onmessage({data:{type:'waterfall',samples:chunk}});
+              scp.port.onmessage && scp.port.onmessage({data:{type:'waterfall',samples:_wfBuf.slice()}});
               _wi = 0;
             }
+          }
+          for (var k = 0; k < inp.length; k++) {
+            if (_decPos < _decBufSize) _decBuf[_decPos++] = inp[k];
+          }
+          if (!_decSent && _decPos >= _decBufSize) {
+            _decSent = true;
+            scp.port.onmessage && scp.port.onmessage({data:{type:'buffer-full'}});
           }
           ev.outputBuffer.getChannelData(0).fill(0);
         };
@@ -701,15 +836,28 @@ window._ft8AudioLatencyMs = __LAT_MS__;
   }
 
   function _PatchedAudioCtx(opts) {
+    // Reuse the bootstrap 12kHz context when webft8 requests one.
+    // iOS Safari does NOT route MediaStream audio across AudioContext boundaries —
+    // A's MediaStreamDestination stream is silent when read by B's MediaStreamSourceNode.
+    // Sharing the same context eliminates the cross-context hop entirely.
+    if (opts && opts.sampleRate === 12000 && _audioCtxRef) {
+      // Stub close() so webft8 cannot destroy the shared context.
+      try {
+        Object.defineProperty(_audioCtxRef, 'close', {
+          value: function() { return Promise.resolve(); },
+          configurable: true, writable: true
+        });
+      } catch(e) {}
+      _patchAudioWorklet(_audioCtxRef);
+      _audioCtxRef.resume().catch(function() {});
+      return _audioCtxRef;
+    }
     var ctx = new _OrigAudioCtx(opts || {});
     window._ft8AllCtx.push(ctx);
     if (opts && opts.sampleRate === 12000) {
       window._ft8CapturedCtx = ctx;
     }
     _patchAudioWorklet(ctx);
-    // Resume immediately while still on the user-gesture call stack (if applicable).
-    // WebFT8 often creates AudioContext inside the tap/click handler; resuming here
-    // succeeds because iOS considers this the same gesture activation.
     ctx.resume().catch(function() {});
     return ctx;
   }
@@ -757,7 +905,11 @@ window._ft8AudioLatencyMs = __LAT_MS__;
       if (_allGumDests[i].stream === stream) {
         _audioDest = _allGumDests[i];
         _audioCtxRef = _allGumDests[i].context;
-        _monitorGain = null;
+        if (!_monitorGain || _monitorGain.context !== _audioCtxRef) {
+          _monitorGain = _audioCtxRef.createGain();
+          _monitorGain.gain.value = 1.0;
+          _monitorGain.connect(_audioCtxRef.destination);
+        }
         found = true;
         break;
       }
@@ -808,6 +960,10 @@ window._ft8AudioLatencyMs = __LAT_MS__;
     var signal = _abortCtrl.signal;
     var nextTime = 0;
     var pending = new Uint8Array(0);
+    // Fade-in: suppress the initial audio burst (accumulated TCP buffer on connect).
+    // 1.5 s × 12000 Hz = 18000 samples ramp from 0 → 1.
+    var _fadeIn = 0;
+    var _fadeInTotal = 18000;
 
     function pump(reader) {
       reader.read().then(function(r) {
@@ -830,14 +986,18 @@ window._ft8AudioLatencyMs = __LAT_MS__;
           var buf = ctx.createBuffer(1, samples, 12000);
           var data = buf.getChannelData(0);
           var view = new DataView(combined.slice(0, used).buffer);
-          for (var i = 0; i < samples; i++) data[i] = view.getInt16(i*2, true) / 32768.0;
+          for (var i = 0; i < samples; i++) {
+            var scale = _fadeIn < _fadeInTotal ? (_fadeIn++ / _fadeInTotal) : 1.0;
+            data[i] = (view.getInt16(i*2, true) / 32768.0) * scale;
+          }
           var src = ctx.createBufferSource();
           src.buffer = buf;
           src._ft8IsRx = true;
           src.connect(_audioDest || dest);
           if (_monitorGain) src.connect(_monitorGain);
           if (nextTime > 0 && nextTime < ctx.currentTime - 0.5) { nextTime = 0; }
-          var t = Math.max(nextTime, ctx.currentTime + 0.05);
+          if (nextTime > 0 && nextTime - ctx.currentTime > 1.0) { nextTime = ctx.currentTime + 0.15; }
+          var t = Math.max(nextTime, ctx.currentTime + 0.15);
           src.start(t);
           nextTime = t + samples / 12000;
         }
@@ -860,6 +1020,13 @@ window._ft8AudioLatencyMs = __LAT_MS__;
 
     var headers = {};
     if ('__APIKEY__') headers['X-API-Key'] = '__APIKEY__';
+
+    // Keep AudioContext running — iOS suspends it when the app goes to background or the
+    // screen locks. Resume every 3 s so audio never silently stops.
+    var _keepAlive = setInterval(function() {
+      if (signal.aborted) { clearInterval(_keepAlive); return; }
+      if (ctx.state === 'suspended') { ctx.resume().then(function() {}); }
+    }, 3000);
 
     ctx.resume().then(function() {
       fetch('__AUDIO_URL__', { headers: headers, signal: signal }).then(function(resp) {
@@ -929,10 +1096,180 @@ window._ft8AudioLatencyMs = __LAT_MS__;
     } catch(e) {}
   })();
 
+  // TX period lock — window-scoped so it survives IIFE re-runs and context recreation.
+  if (!window._ft8TxLockUntilMs)  window._ft8TxLockUntilMs = 0;
+  if (!window._ft8TxSeqNo)        window._ft8TxSeqNo = 0;
+  // Time-based dedup: tracks the last period key (Math.floor(schedReal/fdPeriod)) in which
+  // we sent TX to Pi.  WeakSet-by-buffer-identity was wrong — webft8 auto mode reuses the
+  // same AudioBuffer across multiple TX periods, causing 2nd+ transmissions to be skipped.
+  if (!window._ft8LastSentPeriodKey) window._ft8LastSentPeriodKey = -1;
+
+  // Per-callsign ODD/EVEN tracking.
+  // _ft8CallPeriod: { callsign → true=even, false=odd }
+  // _ft8CurrentDx:  callsign the user is currently working (set on row-click and on DX→us message)
+  if (!window._ft8CallPeriod) window._ft8CallPeriod = {};
+  if (window._ft8CurrentDx === undefined) window._ft8CurrentDx = null;
+
+  (function() {
+    var _myCall = (localStorage.getItem('webft8-mycall') || '').trim().toUpperCase();
+
+    function _parseCall(node) {
+      var words = ((node.textContent || '').match(/[A-Z0-9/]+/gi) || []);
+      for (var i = 0; i < words.length; i++) words[i] = words[i].toUpperCase();
+      // Transmitter: first word, or second word after 'CQ'
+      return (words[0] === 'CQ') ? (words[1] || null) : (words[0] || null);
+    }
+
+    function _recordPeriod(node) {
+      var txCall = _parseCall(node);
+      if (!txCall || txCall.length < 3) return;
+      if (_myCall && txCall === _myCall) return;  // skip self-decoded TX
+
+      // Decoded messages appear at the start of the NEXT period; compute which period just ended.
+      var realMs = Date.now() + (window._ft8AudioLatencyMs || 0) - (window._ft8ClockOffsetMs || 0);
+      var ss60   = Math.floor(realMs / 1000) % 60;
+      var endPS  = (Math.floor(ss60 / 15) * 15 - 15 + 60) % 60;
+      window._ft8CallPeriod[txCall] = (Math.floor(endPS / 15) % 2 === 0);
+
+      // If DX addressed us, update _ft8CurrentDx
+      var words = ((node.textContent || '').match(/[A-Z0-9/]+/gi) || []);
+      for (var i = 0; i < words.length; i++) words[i] = words[i].toUpperCase();
+      if (_myCall && words[1] === _myCall) window._ft8CurrentDx = txCall;
+    }
+
+    // Clicking a decoded chat row → immediately set that station as current DX
+    document.addEventListener('click', function(e) {
+      var el = e.target;
+      for (var i = 0; i < 6 && el && el !== document.body; i++, el = el.parentElement) {
+        if (el.classList && el.classList.contains('chat-msg') && el.classList.contains('rx')) {
+          var txCall = _parseCall(el);
+          if (txCall && txCall.length >= 3 && (!_myCall || txCall !== _myCall)) {
+            window._ft8CurrentDx = txCall;
+          }
+          break;
+        }
+      }
+    }, true);
+
+    var _obs = new MutationObserver(function(muts) {
+      for (var i = 0; i < muts.length; i++) {
+        var added = muts[i].addedNodes;
+        for (var j = 0; j < added.length; j++) {
+          var n = added[j];
+          if (n.nodeType === 1 && n.classList &&
+              n.classList.contains('chat-msg') && n.classList.contains('rx')) {
+            _recordPeriod(n);
+          }
+        }
+      }
+    });
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        _obs.observe(document.body, { childList: true, subtree: true });
+      });
+    } else {
+      _obs.observe(document.body, { childList: true, subtree: true });
+    }
+  })();
+
+  // (WeakSet-by-buffer removed — replaced by time-based period key below)
   var _origABSStart = AudioBufferSourceNode.prototype.start;
   AudioBufferSourceNode.prototype.start = function(when, offset, duration) {
     if (this.buffer && this.buffer.duration > 5.0 && !this._ft8IsRx) {
-      _ft8SendTxBuffer(this.buffer, this.context ? this.context.sampleRate : 12000);
+      var nowMs    = Date.now();   // patched: real + clockOffset - latency
+      // Recover real UTC: period boundaries must align with actual FT8 transmission windows.
+      var nowReal  = nowMs + (window._ft8AudioLatencyMs || 0) - (window._ft8ClockOffsetMs || 0);
+      var bufMs    = this.buffer.duration * 1000;
+      var fdPeriod = bufMs > 10000 ? 15000 : 7500;  // FT8=15s, FT4=7.5s
+
+      // ctx.currentTime is AudioContext's own monotonic clock — not affected by Date.now() patch.
+      var whenDeltaMs = 0;
+      if (when && this.context && when > this.context.currentTime + 0.1) {
+        whenDeltaMs = Math.max(0, Math.round((when - this.context.currentTime) * 1000));
+      }
+      var schedMs   = nowMs   + whenDeltaMs;   // patched-time domain (for lock comparison)
+      var schedReal = nowReal + whenDeltaMs;   // real UTC (for period boundary calculation)
+
+      // ODD/EVEN guard: only TX in the period opposite to _ft8CurrentDx.
+      // _ft8CurrentDx is set on decoded row click; _ft8CallPeriod records each call's TX parity.
+      var _dxCall = window._ft8CurrentDx;
+      if (_dxCall !== null && _dxCall !== undefined &&
+          window._ft8CallPeriod[_dxCall] !== undefined) {
+        var schedSec60 = Math.floor(schedReal / 1000) % 60;
+        var txIsEven   = (Math.floor(schedSec60 / (fdPeriod / 1000)) % 2 === 0);
+        if (txIsEven === window._ft8CallPeriod[_dxCall]) {
+          try { this.disconnect(); } catch(e) {}
+          try {
+            var _wg = this.context.createGain();
+            _wg.gain.value = 0; _wg.connect(this.context.destination); this.connect(_wg);
+          } catch(e) {}
+          return _origABSStart.call(this, arguments[0], 0, 0.05);
+        }
+      }
+
+      // TX lock: mute if we already sent in this TX window.
+      // Lock is stored in patched-time domain to match schedMs.
+      if (schedMs < window._ft8TxLockUntilMs) {
+        try { this.disconnect(); } catch(e) {}
+        try {
+          var _mg = this.context.createGain();
+          _mg.gain.value = 0;
+          _mg.connect(this.context.destination);
+          this.connect(_mg);
+        } catch(e) {}
+        return _origABSStart.call(this, arguments[0], 0, 0.05);
+      }
+
+      // Dedup by period key: prevent double-sending within the same 15s window.
+      // Uses schedReal so the same buffer can be legitimately reused across periods
+      // (webft8 auto mode reuses AudioBuffer objects for identical messages).
+      var _periodKey = Math.floor(schedReal / fdPeriod);
+      if (_periodKey === window._ft8LastSentPeriodKey) {
+        return _origABSStart.apply(this, arguments);  // play locally, skip Pi send
+      }
+      window._ft8LastSentPeriodKey = _periodKey;
+
+      // Duck monitor gain around TX/RX transition to suppress antenna-relay click and
+      // AGC recovery burst that cause audio saturation when RX resumes after TX.
+      // Uses AudioContext time for precision — unaffected by Date.now() patch.
+      (function(_ctx, _startDelta, _dur) {
+        var mg = _monitorGain;
+        if (!mg || !mg.context || mg.context !== _ctx) return;
+        var now   = _ctx.currentTime;
+        var txEnd = now + _startDelta / 1000 + _dur / 1000;
+        try {
+          mg.gain.cancelScheduledValues(now);
+          mg.gain.setValueAtTime(mg.gain.value, now);
+          // Start fading 150ms before TX ends so relay click is inaudible.
+          mg.gain.setValueAtTime(1.0, Math.max(now + 0.01, txEnd - 0.15));
+          mg.gain.linearRampToValueAtTime(0.0, txEnd + 0.05);
+          // Hold mute for 350ms to let AGC and squelch stabilise.
+          mg.gain.setValueAtTime(0.0, txEnd + 0.40);
+          // Fade back to full gain over 500ms.
+          mg.gain.linearRampToValueAtTime(1.0, txEnd + 0.90);
+        } catch(e) {}
+      })(this.context, whenDeltaMs, bufMs);
+
+      // Set lock until the next TX opportunity (skip one period = DX's RX window).
+      // Use real UTC for period boundaries, then convert to patched-time domain for storage.
+      var numPer    = Math.round(60000 / fdPeriod);   // 4 for FT8
+      var msInMin   = schedReal % 60000;
+      var curP      = Math.floor(msInMin / fdPeriod);
+      var nextTxP   = (curP + 2) % numPer;
+      var nextTxMs  = schedReal - msInMin + nextTxP * fdPeriod;
+      if (nextTxMs <= schedReal + bufMs) nextTxMs += 60000;
+      window._ft8TxLockUntilMs = nextTxMs + (nowMs - nowReal) - 2000;
+      window._ft8TxSeqNo++;
+
+      var rate = this.context ? this.context.sampleRate : 12000;
+      var _buf = this.buffer;
+      // Send 500ms before the scheduled TX start so Pi is ready when the period begins.
+      var sendDelayMs = Math.max(0, whenDeltaMs - 500);
+      if (sendDelayMs > 100) {
+        setTimeout(function() { _ft8SendTxBuffer(_buf, rate); }, sendDelayMs);
+      } else {
+        _ft8SendTxBuffer(_buf, rate);
+      }
     }
     return _origABSStart.apply(this, arguments);
   };
@@ -945,10 +1282,10 @@ window._ft8AudioLatencyMs = __LAT_MS__;
       pcm[i] = v > 1 ? 32767 : v < -1 ? -32768 : (v * 32768) | 0;
     }
     try {
-      // Encode Int16 PCM as base64 in 3-byte-aligned chunks to avoid mid-stream padding.
+      // Encode Int16 PCM as base64 in 3-byte-aligned chunks (no mid-string '=' padding).
       var bytes = new Uint8Array(pcm.buffer);
       var b64 = '';
-      var chunk = 8190; // 8190 = 3 × 2730, divisible by 3 → no mid-string '=' padding
+      var chunk = 8190;
       for (var offset = 0; offset < bytes.length; offset += chunk) {
         var end = Math.min(offset + chunk, bytes.length);
         var binary = '';
@@ -961,6 +1298,7 @@ window._ft8AudioLatencyMs = __LAT_MS__;
 })();
 """#
         .replacingOccurrences(of: "__LAT_MS__", with: String(latencyMs))
+        .replacingOccurrences(of: "__CLOCK_OFFSET_MS__", with: String(clockOffsetMs))
         .replacingOccurrences(of: "__INITHZ__", with: String(ft8InitFreqHz))
         .replacingOccurrences(of: "__APIKEY__", with: safeApiKey)
         .replacingOccurrences(of: "__APIURL__", with: apiUrl)
@@ -975,12 +1313,17 @@ final class Ft8WebViewCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate,
     let host: String
     let apiPort: Int
     let apiKey: String
+    var onLoadStateChange: ((String?) -> Void)?
+    private var retryWork: DispatchWorkItem?
+    private static let retryDelaySec: Int = 5
 
     init(host: String, apiPort: Int, apiKey: String) {
         self.host = host
         self.apiPort = apiPort
         self.apiKey = apiKey
     }
+
+    deinit { retryWork?.cancel() }
 
     // MARK: - WKScriptMessageHandler
 
@@ -1034,5 +1377,30 @@ final class Ft8WebViewCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate,
     @available(iOS 15.0, *)
     func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
         decisionHandler(.grant)
+    }
+
+    // MARK: - Load success / failure + auto-retry for Pi startup delay
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        retryWork?.cancel()
+        retryWork = nil
+        DispatchQueue.main.async { self.onLoadStateChange?(nil) }
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        scheduleRetry(webView: webView)
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        scheduleRetry(webView: webView)
+    }
+
+    private func scheduleRetry(webView: WKWebView) {
+        retryWork?.cancel()
+        let msg = "⏳ Pi サーバーに接続中… \(Self.retryDelaySec)秒後に再試行"
+        DispatchQueue.main.async { self.onLoadStateChange?(msg) }
+        let work = DispatchWorkItem { [weak webView] in webView?.reload() }
+        retryWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(Self.retryDelaySec), execute: work)
     }
 }

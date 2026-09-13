@@ -104,8 +104,28 @@ ENVEOF2
 [Service]
 RestartPreventExitStatus=SIGKILL
 DROPINEOF
+    # mfsk-build.service: バイナリが存在しない場合にブート後に自動ビルド+fastapi再起動
+    # reboot でバックグラウンドビルドが中断されても次回ブートで自動再開する
+    sudo tee /etc/systemd/system/mfsk-build.service > /dev/null << MFSKEOF
+[Unit]
+Description=Build mfsk-decode FT8 decoder on first boot
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!$ME_HOME/mfsk-decode/target/release/mfsk-decode
+
+[Service]
+Type=oneshot
+User=$ME
+ExecStart=/bin/bash $ME_HOME/fastapi/_mfsk_build.sh
+RemainAfterExit=yes
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=multi-user.target
+MFSKEOF
     sudo systemctl daemon-reload
-    echo "drop-in 設定完了"
+    sudo systemctl enable mfsk-build.service
+    echo "drop-in 設定完了 / mfsk-build.service 登録完了"
 
 fi
 

@@ -226,6 +226,30 @@ amixer -c "$ALSA_CARD" sset 'PCM' 100% 2>/dev/null || true
 sudo alsactl store 2>/dev/null || true
 echo "システム設定完了"
 
+# ── Rust インストール（同期・reboot 前に完了させる）──────────
+# mfsk-decode ビルドの前提。バックグラウンドに入れると reboot で途中終了し
+# toolchain が壊れた状態になるため、ここで先に同期インストールする。
+echo ""
+echo "=== Rust インストール確認 ==="
+sudo -u "$ME" bash -c '
+    [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+    export PATH="$HOME/.cargo/bin:$PATH"
+    if cargo --version >/dev/null 2>&1; then
+        echo "Rust 既存: $(cargo --version)"
+    else
+        if command -v rustup >/dev/null 2>&1; then
+            echo "rustup 既存だが cargo 不動 — stable ツールチェーンをインストール中..."
+            rustup toolchain install stable --no-self-update
+        else
+            echo "Rust をインストール中 (2〜5分)..."
+            curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs \
+                | sh -s -- -y --no-modify-path
+            . "$HOME/.cargo/env"
+        fi
+        echo "Rust インストール完了: $(cargo --version 2>/dev/null || echo 失敗)"
+    fi
+'
+
 # ── api.py・webft8 セットアップ（create_api.sh を root で実行）─
 echo ""
 echo "=== api.py・webft8 セットアップ開始 ==="

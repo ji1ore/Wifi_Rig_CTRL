@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Wifi Rig CTRL</string>
+    <string name="bk_in_not_supported">BK-IN: Not supported for this rig</string>
+    <string name="help_title">Help / Manual</string>
+</resources>

@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#000000">
+
+    <!-- Row 1: Back / FT4 / PWR / Mode / GL / Log -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#0A0A0A"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp">
+
+        <Button
+            android:id="@+id/btnBack"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="Back"
+            android:textSize="12sp"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#B71C1C"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnFt4Toggle"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="FT4"
+            android:textSize="12sp"
+            android:minWidth="0dp"
+            android:textColor="#AAAAAA"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#37474F"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnPower"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="PWR --"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#4E342E"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnMode"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="USB"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A237E"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnGl"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="PSK"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#4A148C"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnLog"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="Log"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1B3A4B"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+    </LinearLayout>
+
+    <!-- Row 2: Freq (tappable) / Mode / Status / CQ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="32dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#050505"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp">
+
+        <TextView
+            android:id="@+id/tvFreq"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:text="---.--- MHz"
+            android:textColor="#00FF00"
+            android:textSize="13sp"
+            android:fontFamily="monospace"
+            android:gravity="center_vertical"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground"
+            android:paddingEnd="6dp" />
+
+        <TextView
+            android:id="@+id/tvMode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:text="---"
+            android:textColor="#00CCFF"
+            android:textSize="13sp"
+            android:fontFamily="monospace" />
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            android:text="---"
+            android:textColor="#888888"
+            android:textSize="11sp"
+            android:fontFamily="monospace"
+            android:ellipsize="end"
+            android:maxLines="1" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/btnCqOnly"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Filter"
+            android:textColor="#AAAAAA"
+            android:textSize="11sp"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
+
+    <!-- Waterfall controls: brightness and decode depth -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="28dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#080808"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="WF"
+            android:textColor="#555555"
+            android:textSize="10sp"
+            android:fontFamily="monospace" />
+
+        <Button
+            android:id="@+id/btnWfBrightMinus"
+            android:layout_width="40dp"
+            android:layout_height="24dp"
+            android:text="B-"
+            android:textSize="10sp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:textColor="#AAAAAA"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A1A1A"
+            android:layout_marginStart="6dp"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp" />
+
+        <Button
+            android:id="@+id/btnWfBrightPlus"
+            android:layout_width="40dp"
+            android:layout_height="24dp"
+            android:text="B+"
+            android:textSize="10sp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:textColor="#AAAAAA"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A1A1A"
+            android:layout_marginStart="3dp"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp" />
+
+        <Button
+            android:id="@+id/btnSync"
+            android:layout_width="52dp"
+            android:layout_height="24dp"
+            android:text="Sync"
+            android:textSize="10sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:textColor="#44CCFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#0A1A1A"
+            android:layout_marginStart="6dp"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp" />
+
+        <Button
+            android:id="@+id/btnTxFreq"
+            android:layout_width="72dp"
+            android:layout_height="24dp"
+            android:text="TX:1500"
+            android:textSize="10sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:textColor="#FF8844"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A0800"
+            android:layout_marginStart="6dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <Button
+            android:id="@+id/btnDepth"
+            android:layout_width="56dp"
+            android:layout_height="24dp"
+            android:text="D:3"
+            android:textSize="10sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:textColor="#FFCC44"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A1A0A"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+    </LinearLayout>
+
+    <!-- Waterfall display -->
+    <com.ji1ore.wifi_rig_ctrl.WaterfallView
+        android:id="@+id/waterfallView"
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:background="#000000" />
+
+    <!-- Message list header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="20dp"
+        android:orientation="horizontal"
+        android:background="#111111"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="52dp"
+            android:layout_height="wrap_content"
+            android:text="Hz"
+            android:textColor="#666666"
+            android:textSize="10sp"
+            android:fontFamily="monospace" />
+
+        <TextView
+            android:layout_width="44dp"
+            android:layout_height="wrap_content"
+            android:text="SNR"
+            android:textColor="#666666"
+            android:textSize="10sp"
+            android:fontFamily="monospace"
+            android:layout_marginStart="2dp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Message"
+            android:textColor="#666666"
+            android:textSize="10sp"
+            android:fontFamily="monospace"
+            android:layout_marginStart="4dp" />
+
+        <TextView
+            android:layout_width="40dp"
+            android:layout_height="wrap_content"
+            android:text="UTC"
+            android:textColor="#666666"
+            android:textSize="10sp"
+            android:fontFamily="monospace"
+            android:gravity="end" />
+    </LinearLayout>
+
+    <!-- Decoded messages RecyclerView -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvMsgs"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#050505"
+        android:clipToPadding="false"
+        android:paddingBottom="4dp" />
+
+    <!-- TX area -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:background="#0A0A14"
+        android:gravity="center_vertical"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:paddingTop="3dp"
+        android:paddingBottom="3dp">
+
+        <EditText
+            android:id="@+id/etTxMsg"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:hint="TX message (tap row to fill)"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#555555"
+            android:textSize="13sp"
+            android:fontFamily="monospace"
+            android:background="#1A1A2A"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:inputType="textCapCharacters"
+            android:maxLines="1"
+            android:imeOptions="actionDone" />
+
+        <Button
+            android:id="@+id/btnCq"
+            android:layout_width="52dp"
+            android:layout_height="36dp"
+            android:text="CQ"
+            android:textSize="13sp"
+            android:minWidth="0dp"
+            android:textColor="#FFDD44"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A1500"
+            android:layout_marginStart="4dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnTx"
+            android:layout_width="56dp"
+            android:layout_height="36dp"
+            android:text="TX"
+            android:textSize="13sp"
+            android:minWidth="0dp"
+            android:textColor="#AAAAAA"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#546E7A"
+            android:layout_marginStart="4dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnClear"
+            android:layout_width="52dp"
+            android:layout_height="36dp"
+            android:text="CLR"
+            android:textSize="11sp"
+            android:minWidth="0dp"
+            android:textColor="#AAAAAA"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#263238"
+            android:layout_marginStart="4dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnAutoTx"
+            android:layout_width="60dp"
+            android:layout_height="36dp"
+            android:text="EVEN"
+            android:textSize="10sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#88AAFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A237E"
+            android:layout_marginStart="4dp"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp" />
+    </LinearLayout>
+
+</LinearLayout>

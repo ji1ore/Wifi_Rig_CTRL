@@ -286,6 +286,18 @@ if [ -f "$SCRIPT_DIR/cw_bridge.py" ]; then
     echo "cw_bridge.py   : 最新版を適用"
 fi
 
+# ── mfsk-decode ビルド（同期・ここで完了させてから reboot 可）──
+# create_api.sh が起動したバックグラウンドビルドを止めて同期実行に切り替える。
+# Rust は上で同期インストール済みなので cargo build のみ実行（20〜30分）。
+echo ""
+echo "=== mfsk-decode ビルド中 (20〜30分) ==="
+echo "  別ターミナルで進捗確認: tail -f /tmp/mfsk_build.log"
+pkill -f _mfsk_build.sh 2>/dev/null || true
+sudo systemctl stop mfsk-build 2>/dev/null || true
+rm -f /tmp/mfsk_build.lock
+sudo -u "$ME" bash "$ME_HOME/fastapi/_mfsk_build.sh"
+echo "=== mfsk-decode ビルド完了 ==="
+
 # ── サービス起動 ──────────────────────────────────────────────
 echo ""
 echo "=== サービスを起動中 ==="

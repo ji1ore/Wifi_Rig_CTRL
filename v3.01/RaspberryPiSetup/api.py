@@ -1717,9 +1717,32 @@ def watchdog_heartbeat():
         time.sleep(0.1)
 
 
+def _ensure_venv_numpy():
+    """numpy が venv にない場合に自動インストールする。起動時・UpdatePi 後に呼ばれる。"""
+    try:
+        import numpy  # noqa: F401
+        return  # already available
+    except ImportError:
+        pass
+    pip = str(_FASTAPI_DIR / "bin" / "pip")
+    if not os.path.exists(pip):
+        return
+    try:
+        print("[startup] numpy not found in venv — installing...", flush=True)
+        r = subprocess.run([pip, "install", "--quiet", "numpy"],
+                           capture_output=True, timeout=180)
+        if r.returncode == 0:
+            print("[startup] numpy installed successfully", flush=True)
+        else:
+            print(f"[startup] numpy install failed: {r.stderr.decode(errors='replace')[:200]}", flush=True)
+    except Exception as e:
+        print(f"[startup] numpy install error: {e}", flush=True)
+
+
 @app.on_event("startup")
 def startup_event():
     threading.Thread(target=watchdog_heartbeat, daemon=True).start()
+    threading.Thread(target=_ensure_venv_numpy, daemon=True).start()
 
 
 @app.post("/ft8/start")
@@ -4226,6 +4249,7 @@ async def admin_update(request: Request):
     def _restart():
         import time as _time
         _time.sleep(0.5)
+        _ensure_venv_numpy()
         # 方法1: sudo -n systemctl (NOPASSWD 設定済みの場合) — 各サービスを個別に試行
         r = subprocess.run(
             ["sudo", "-n", "systemctl", "restart", "fastapi"],

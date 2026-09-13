@@ -4013,27 +4013,29 @@ else
     echo "バックグラウンドビルド PID=$! 開始"
 fi
 
-# mfsk-decode ビルドは api.py の /admin/build_mfsk エンドポイントで管理
-# (Android の UpdatePi 完了後に自動で呼ばれる)
-echo "mfsk-decode ビルドは FastAPI エンドポイント経由で実行されます"
-if false; then
-echo "=== (unused) ==="
-(
-    set -e
-    echo "=== mfsk-decode ビルド開始 $(date) ===" > /tmp/mfsk_build.log 2>&1
+# mfsk-decode ビルド (バックグラウンド、$ME として実行)
+# Android UpdatePi でも create_api.sh 単独実行でも同じビルドが走る
+echo "=== mfsk-decode ビルドをバックグラウンドで開始 ==="
+_MFSK_BUILD_SH="$ME_HOME/fastapi/_mfsk_build.sh"
+cat << 'MFSK_BUILD_EOF' > "$_MFSK_BUILD_SH"
+#!/bin/bash
+# $ME として実行: $HOME はこのユーザーのホームに展開される
+> /tmp/mfsk_build.log
+exec >> /tmp/mfsk_build.log 2>&1
+echo "=== mfsk-decode ビルド開始 $(date) ==="
 
-    # Rust インストール (未インストールの場合)
-    if ! command -v cargo >/dev/null 2>&1 && [ ! -f "$HOME/.cargo/env" ]; then
-        echo "Rust をインストール中..." >> /tmp/mfsk_build.log 2>&1
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-            | sh -s -- -y --no-modify-path >> /tmp/mfsk_build.log 2>&1
-    fi
-    . "$HOME/.cargo/env"
+# Rust インストール (未インストールの場合)
+if ! command -v cargo >/dev/null 2>&1 && [ ! -f "$HOME/.cargo/env" ]; then
+    echo "Rust をインストール中..."
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+        | sh -s -- -y --no-modify-path
+fi
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+export PATH="$HOME/.cargo/bin:$PATH"
 
-    # ソースを展開
-    mkdir -p "$HOME/mfsk-decode/src"
+mkdir -p "$HOME/mfsk-decode/src"
 
-    cat << 'CARGO_EOF' > "$HOME/mfsk-decode/Cargo.toml"
+cat << 'CARGO_EOF' > "$HOME/mfsk-decode/Cargo.toml"
 [package]
 name        = "mfsk-decode"
 version     = "0.1.0"
@@ -4054,7 +4056,7 @@ lto = true
 codegen-units = 1
 CARGO_EOF
 
-    cat << 'MAIN_EOF' > "$HOME/mfsk-decode/src/main.rs"
+cat << 'MAIN_EOF' > "$HOME/mfsk-decode/src/main.rs"
 // FT8 decoder CLI — streams JSON Lines to stdout as each decode lands.
 // Usage: mfsk-decode [-c MY_CALL] [-x DX_CALL] [--freq-min HZ] [--freq-max HZ] <wav_file>
 // Output: {"freq":1234.0,"snr":-4.0,"dt":0.10,"msg":"JI1ORE K2UPD RR73"}
@@ -4152,18 +4154,26 @@ fn load_wav_12khz(path: &str) -> Result<Vec<i16>, Box<dyn std::error::Error>> {
 }
 MAIN_EOF
 
-    cd "$HOME/mfsk-decode"
-    # Rust 1.93+ が必要 (mfsk-core の rust-version に合わせる)
-    rustup install stable --no-self-update >> /tmp/mfsk_build.log 2>&1 || true
-    rustup override set stable >> /tmp/mfsk_build.log 2>&1 || true
-    cargo build --release >> /tmp/mfsk_build.log 2>&1
-    echo "mfsk-decode ビルド完了: $(ls -lh target/release/mfsk-decode)" >> /tmp/mfsk_build.log 2>&1
-    echo "=== DONE ===" >> /tmp/mfsk_build.log 2>&1
-) >> /tmp/mfsk_build.log 2>&1 &
+# Rust 1.93+ が必要 (mfsk-core の rust-version に合わせる)
+rustup install stable --no-self-update || true
+rustup override set stable || true
+cd "$HOME/mfsk-decode"
+cargo build --release
+echo "mfsk-decode ビルド完了: $(ls -lh target/release/mfsk-decode 2>/dev/null || echo '(not found)')"
+echo "=== DONE ==="
+MFSK_BUILD_EOF
+
+chown "$ME":"$ME" "$_MFSK_BUILD_SH" 2>/dev/null || true
+chmod +x "$_MFSK_BUILD_SH"
+if [ "$(whoami)" = "$ME" ]; then
+    bash "$_MFSK_BUILD_SH" &
+else
+    sudo -u "$ME" bash "$_MFSK_BUILD_SH" &
+fi
 _MFSK_PID=$!
 disown $_MFSK_PID 2>/dev/null || true
 echo "mfsk-decode バックグラウンドビルド PID=$_MFSK_PID 開始 (ログ: /tmp/mfsk_build.log)"
-fi
+echo "  完了確認: tail -f /tmp/mfsk_build.log (初回は 10〜30 分かかります)"
 
 echo "=== DONE ==="
 echo "=== fastapi を再起動中 ==="

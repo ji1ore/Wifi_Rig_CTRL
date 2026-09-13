@@ -267,7 +267,6 @@ echo ""
 echo "=== サービスを起動中 ==="
 sudo systemctl restart fastapi fastapi-audio || true
 sudo systemctl restart direwolf || true
-sudo systemctl restart webft8   || true
 
 echo ""
 echo "=== セットアップ完了 ==="
@@ -275,7 +274,6 @@ echo ""
 echo "サービス状態確認:"
 sudo systemctl is-active fastapi       && echo "  fastapi       : OK" || echo "  fastapi       : NG"
 sudo systemctl is-active fastapi-audio && echo "  fastapi-audio : OK" || echo "  fastapi-audio : NG"
-sudo systemctl is-active webft8        && echo "  webft8        : OK" || echo "  webft8        : NG"
 sudo systemctl is-active direwolf      && echo "  direwolf      : OK" || echo "  direwolf      : NG"
 echo ""
 echo "注意: グループ変更は再ログイン後に有効。"

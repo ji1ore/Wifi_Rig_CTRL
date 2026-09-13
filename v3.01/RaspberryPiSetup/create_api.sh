@@ -4040,6 +4040,15 @@ _MFSK_BUILD_SH="$ME_HOME/fastapi/_mfsk_build.sh"
 cat << 'MFSK_BUILD_EOF' > "$_MFSK_BUILD_SH"
 #!/bin/bash
 # $ME として実行: $HOME はこのユーザーのホームに展開される
+
+# 二重起動防止: 別インスタンスが実行中なら即終了
+# (mfsk-build.service とUpdatePi が同時に走るのを防ぐ)
+exec 9>/tmp/mfsk_build.lock
+if ! flock -n 9; then
+    echo "$(date): mfsk-decode ビルドが既に実行中 — スキップ" >> /tmp/mfsk_build.log
+    exit 0
+fi
+
 > /tmp/mfsk_build.log
 exec >> /tmp/mfsk_build.log 2>&1
 echo "=== mfsk-decode ビルド開始 $(date) ==="

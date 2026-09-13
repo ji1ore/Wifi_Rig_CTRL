@@ -52,11 +52,11 @@ fi
 if [ ! -f "$ME_HOME/fastapi/bin/uvicorn" ]; then
     echo "=== Python venv を作成中 ==="
     sudo -u "$ME" python3 -m venv "$ME_HOME/fastapi"
-    sudo -u "$ME" "$ME_HOME/fastapi/bin/pip" install --quiet fastapi uvicorn python-multipart pyserial
+    sudo -u "$ME" "$ME_HOME/fastapi/bin/pip" install --quiet fastapi uvicorn python-multipart pyserial numpy
     echo "venv 作成完了: $ME_HOME/fastapi"
 else
     echo "Python venv 既存: パッケージ更新のみ"
-    sudo -u "$ME" "$ME_HOME/fastapi/bin/pip" install --quiet --upgrade fastapi uvicorn python-multipart pyserial
+    sudo -u "$ME" "$ME_HOME/fastapi/bin/pip" install --quiet --upgrade fastapi uvicorn python-multipart pyserial numpy
 fi
 
 # ── Direwolf ビルド・インストール（未インストールの場合のみ）─

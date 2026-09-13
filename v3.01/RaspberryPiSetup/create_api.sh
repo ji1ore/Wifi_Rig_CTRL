@@ -3446,15 +3446,20 @@ fi
 # jt9/wsjtx は v3.01 で mfsk-decode に置き換えたため不要
 
 # ─── numpy インストール: ウォーターフォール FFT 用 ───
-echo "=== numpy の確認/インストール ==="
-if python3 -c "import numpy" 2>/dev/null; then
-    echo "numpy 既存: スキップ"
-elif $_HAS_APT; then
-    sudo apt-get -o DPkg::Lock::Timeout=180 install -y python3-numpy \
-        && echo "numpy インストール完了" \
-        || echo "警告: numpy インストール失敗 — 手動で sudo apt-get install python3-numpy を実行してください"
+# FastAPI は venv で動作するため、venv pip でインストールする（システム python3 への
+# apt-get install python3-numpy は venv からは見えないため効果なし）
+echo "=== numpy の確認/インストール (venv) ==="
+_VENV_PIP="$ME_HOME/fastapi/bin/pip"
+if [ -f "$_VENV_PIP" ]; then
+    if "$ME_HOME/fastapi/bin/python3" -c "import numpy" 2>/dev/null; then
+        echo "numpy 既存 (venv): スキップ"
+    else
+        sudo -u "$ME" "$_VENV_PIP" install --quiet numpy \
+            && echo "numpy インストール完了 (venv)" \
+            || echo "警告: numpy インストール失敗 — 手動で: ~/fastapi/bin/pip install numpy"
+    fi
 else
-    echo "警告: apt-get 権限なし — SSH で: sudo apt-get install python3-numpy"
+    echo "警告: venv が見つかりません ($ME_HOME/fastapi/bin/pip)"
 fi
 
 # ─── (v3.00 以降: webft8 サーバーは不要。jt9 サーバーサイドデコードに移行) ───

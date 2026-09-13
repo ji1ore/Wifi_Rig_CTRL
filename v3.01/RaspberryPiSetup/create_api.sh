@@ -4159,7 +4159,16 @@ rustup install stable --no-self-update || true
 rustup override set stable || true
 cd "$HOME/mfsk-decode"
 cargo build --release
-echo "mfsk-decode ビルド完了: $(ls -lh target/release/mfsk-decode 2>/dev/null || echo '(not found)')"
+if [ -f "$HOME/mfsk-decode/target/release/mfsk-decode" ]; then
+    echo "mfsk-decode ビルド完了: $(ls -lh $HOME/mfsk-decode/target/release/mfsk-decode)"
+    # ビルド完了後に fastapi を再起動してデコードを有効化
+    # (セットアップ直後はビルド未完了のまま fastapi が起動しているため)
+    sudo systemctl restart fastapi fastapi-audio 2>/dev/null \
+        && echo "fastapi 再起動完了 — FT8 デコード有効" \
+        || echo "警告: fastapi 再起動失敗 (手動で: sudo systemctl restart fastapi)"
+else
+    echo "警告: mfsk-decode ビルド失敗 — /tmp/mfsk_build.log を確認してください"
+fi
 echo "=== DONE ==="
 MFSK_BUILD_EOF
 

@@ -4053,14 +4053,26 @@ fi
 exec >> /tmp/mfsk_build.log 2>&1
 echo "=== mfsk-decode ビルド開始 $(date) ==="
 
-# Rust インストール (未インストールの場合)
-if ! command -v cargo >/dev/null 2>&1 && [ ! -f "$HOME/.cargo/env" ]; then
-    echo "Rust をインストール中..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-        | sh -s -- -y --no-modify-path
-fi
+# Rust インストール / ツールチェーン修復
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 export PATH="$HOME/.cargo/bin:$PATH"
+
+if ! cargo --version >/dev/null 2>&1; then
+    # cargo が動かない: (1)未インストール (2)rebootでツールチェーンDL中断 のどちらか
+    if command -v rustup >/dev/null 2>&1; then
+        # rustup はあるがツールチェーンが壊れている → stable だけ再インストール
+        echo "rustup 既存だが cargo 不動 — stable ツールチェーンを再インストール中..."
+        rustup toolchain install stable --no-self-update
+    else
+        # rustup ごと未インストール or 完全に壊れている → クリーンインストール
+        echo "Rust をインストール中..."
+        rm -rf "$HOME/.cargo" "$HOME/.rustup" 2>/dev/null || true
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+            | sh -s -- -y --no-modify-path
+        [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+        export PATH="$HOME/.cargo/bin:$PATH"
+    fi
+fi
 
 mkdir -p "$HOME/mfsk-decode/src"
 

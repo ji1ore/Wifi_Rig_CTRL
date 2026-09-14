@@ -509,6 +509,9 @@ class Ft8Fragment : Fragment() {
                     val utcSec  = obj.optInt("utc_sec", 0)
                     val count   = obj.optInt("count", 0)
                     lifecycleScope.launch(Dispatchers.Main) {
+                        // period番号は0-3でサイクルするため、decode_done後にリセットして
+                        // 次ピリオドの最初のdecode_msgが必ず新seqNoを取得するようにする
+                        currentDecodePeriod = -1
                         _binding?.tvStatus?.text = "P$period | ${utcSec}s | $count decoded"
                         if (markedUtcSecs.add(utcSec)) {
                             if (markedUtcSecs.size > 8) markedUtcSecs.clear()

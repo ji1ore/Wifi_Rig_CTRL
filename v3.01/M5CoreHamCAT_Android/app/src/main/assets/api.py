@@ -606,8 +606,7 @@ def _ft8_auto_tx_worker(msg: str, audio_freq: int, period_utc: int = -1):
         time.sleep(0.1)
         rigctl_cmd("T 1")
         time.sleep(0.3)
-        symbols = _ft8_get_symbols(msg)
-        pcm_data = _ft8_symbols_to_pcm(symbols, audio_freq, 12000)
+        pcm_data = _ft8_get_pcm(msg, audio_freq, 12000)
         proc = subprocess.Popen(
             ["aplay", "-D", _alsa_playback_dev, "-f", "S16_LE", "-r", "12000", "-c", "1"],
             stdin=subprocess.PIPE, stderr=subprocess.PIPE
@@ -1717,9 +1716,32 @@ def watchdog_heartbeat():
         time.sleep(0.1)
 
 
+def _ensure_venv_numpy():
+    """numpy が venv にない場合に自動インストールする。起動時・UpdatePi 後に呼ばれる。"""
+    try:
+        import numpy  # noqa: F401
+        return  # already available
+    except ImportError:
+        pass
+    pip = str(_FASTAPI_DIR / "bin" / "pip")
+    if not os.path.exists(pip):
+        return
+    try:
+        print("[startup] numpy not found in venv — installing...", flush=True)
+        r = subprocess.run([pip, "install", "--quiet", "numpy"],
+                           capture_output=True, timeout=180)
+        if r.returncode == 0:
+            print("[startup] numpy installed successfully", flush=True)
+        else:
+            print(f"[startup] numpy install failed: {r.stderr.decode(errors='replace')[:200]}", flush=True)
+    except Exception as e:
+        print(f"[startup] numpy install error: {e}", flush=True)
+
+
 @app.on_event("startup")
 def startup_event():
     threading.Thread(target=watchdog_heartbeat, daemon=True).start()
+    threading.Thread(target=_ensure_venv_numpy, daemon=True).start()
 
 
 @app.post("/ft8/start")
@@ -2856,6 +2878,26 @@ def _ft8_symbols_to_pcm(symbols: list, audio_freq: int, rate: int) -> bytes:
     return np.concatenate(parts).tobytes()
 
 
+_FT8_ENCODE_BIN = next(
+    (p for p in ["/usr/local/bin/ft8_encode",
+                 str(_HOME_DIR / "fastapi" / "ft8_encode")]
+     if os.path.isfile(p)), "")
+
+def _ft8_get_pcm(msg: str, audio_freq: int, rate: int = 12000, is_ft4: bool = False) -> bytes:
+    """FT8/FT4 メッセージから S16_LE PCM を生成する。
+    ft8_encode (PCM直接出力) が使えればそちらを優先。
+    なければ ft8code (wsjtx) 経由でシンボルを取得して numpy で合成。"""
+    if os.path.isfile(_FT8_ENCODE_BIN):
+        result = subprocess.run(
+            [_FT8_ENCODE_BIN, msg, str(float(audio_freq)), str(rate), "1" if is_ft4 else "0"],
+            capture_output=True, timeout=10
+        )
+        if result.returncode == 0 and result.stdout:
+            return result.stdout
+        print(f"[ft8_encode] rc={result.returncode} stderr={result.stderr!r}")
+    return _ft8_symbols_to_pcm(_ft8_get_symbols(msg, is_ft4), audio_freq, rate)
+
+
 class FT8TxRequest(BaseModel):
     msg: str
     audio_freq: int = 1500
@@ -2875,14 +2917,11 @@ async def ft8_tx(req: FT8TxRequest):
     _mgr_sub.mute(14.0)
     loop = asyncio.get_running_loop()
     try:
-        # PCM生成: ft8code (wsjtx) → numpy 8-FSK合成
+        # PCM生成: ft8_encode (PCM直接) または ft8code (シンボル経由)
         try:
             pcm_data = await loop.run_in_executor(
                 None,
-                lambda: _ft8_symbols_to_pcm(
-                    _ft8_get_symbols(req.msg, req.is_ft4),
-                    req.audio_freq, req.rate
-                )
+                lambda: _ft8_get_pcm(req.msg, req.audio_freq, req.rate, req.is_ft4)
             )
         except RuntimeError as enc_err:
             raise HTTPException(status_code=500, detail=str(enc_err))
@@ -4226,6 +4265,7 @@ async def admin_update(request: Request):
     def _restart():
         import time as _time
         _time.sleep(0.5)
+        _ensure_venv_numpy()
         # 方法1: sudo -n systemctl (NOPASSWD 設定済みの場合) — 各サービスを個別に試行
         r = subprocess.run(
             ["sudo", "-n", "systemctl", "restart", "fastapi"],

@@ -183,7 +183,7 @@ except ImportError:
 
 # API Key 認証（環境変数 API_KEY が設定されている場合のみ有効）
 API_KEY = os.environ.get("API_KEY", "")
-API_VERSION = "2.60"
+API_VERSION = "3.01"
 
 # ALSAデバイス設定 (環境変数 or POST /radio/audio_device で変更可)
 _alsa_capture_dev  = os.environ.get("ALSA_CAPTURE",  "plughw:CARD=CODEC,DEV=0")
@@ -210,23 +210,713 @@ _FASTAPI_DIR = Path(__file__).resolve().parent       # /home/<user>/fastapi
 _VENV_PY = str(_FASTAPI_DIR / "bin" / "python3")
 _CW_BRIDGE_PY = str(_HOME_DIR / "cw_bridge.py")
 
-# webft8 static files (web/ サブディレクトリに index.html がある)
-_webft8_dir = str(_HOME_DIR / "webft8_static" / "web")
-if os.path.isdir(_webft8_dir):
-    app.mount("/ft8web", StaticFiles(directory=_webft8_dir, html=True), name="ft8web")
+# ─── FT8 サーバーサイドデコード ────────────────────────────────────────────
+import wave
+import tempfile
+import json as _json
 
-def _read_webft8_version() -> str:
+_ft8_rx_clients: list = []
+_ft8_rx_clients_lock = threading.Lock()
+_ft8_decode_running  = False
+_ft8_decode_thread: threading.Thread | None = None
+_jt9_decode_done = threading.Event()
+_jt9_decode_done.set()  # 初期値: jt9未実行 = "完了" 状態
+
+FT8_SAMPLE_RATE = 12000
+FT8_PERIOD_S    = 15.0
+FT8_BYTES       = int(FT8_SAMPLE_RATE * FT8_PERIOD_S) * 2  # 360000
+
+_MFSK_DECODE_BIN = os.environ.get(
+    "MFSK_DECODE_BIN",
+    os.path.expanduser("~/mfsk-decode/target/release/mfsk-decode")
+)
+_ft8_last_decode_info: dict = {"stdout": "", "stderr": "", "decoded": 0, "period": -1}
+_ft8_decode_depth: int = 3  # jt9 -d parameter (1/2/3)
+_ft8_decode_filter: list = []  # [(center_hz, range_hz), ...], empty = no filter
+
+# ─── AutoTX state ───────────────────────────────────────────────────────────
+_auto_tx: dict = {
+    "active": False,
+    "mode": "even",   # "even"=period 0,2 (UTC 0s/30s)  /  "odd"=period 1,3 (15s/45s)
+    "msg": "",
+    "audio_freq": 1500,
+}
+
+# ─── CQ AUTO mode ────────────────────────────────────────────────────────────
+_cq_auto: dict = {
+    "active": False,
+    "msg": "",         # CQ message (e.g. "CQ JH1XYZ PM95")
+    "mode": "even",
+    "audio_freq": 1500,
+    "my_call": "",
+    "my_grid": "",
+}
+
+# ─── QSO sequence state machine ─────────────────────────────────────────────
+# state: 0=send_first 1=wait_report 2=send_rr73 3=wait_73 4=done
+_qso: dict = {
+    "active": False,
+    "dx_call": "",
+    "my_call": "",
+    "state": 0,
+    # state 0=send_step1  1=wait_reply1
+    # state 2=send_step2  3=wait_reply2
+    # state 4=send_step3  5=wait_step4  6=done
+    "tx_mode": "odd",
+    "audio_freq": 1500,
+    "next_msg": "",
+    "step1_msg":   "",    # DX MY GRID
+    "step_snr_msg":"",   # DX MY NN   (Rなし SNR。DX指定でstep1→step2として使用、空なら省略)
+    "step2_msg":   "",   # DX MY R-NN (空なら skip して step3 へ)
+    "step3_msg":   "",   # DX MY RR73
+    "step4_msg":   "",   # DX MY 73   (空なら step3 後に done)
+    "snr_rcvd": "",      # DX からの SNR レポート
+    "snr_sent": "",      # こちらから送った SNR レポート
+    "snr_dx_peak": None, # QSO 中に受信した DX の最強 SNR (int)
+    "cq_sender": False,  # True=CQ発信側（step2はSNRのみ）、False=DX指定呼び出し側（R-SNR）
+}
+
+
+_ft8_known_calls: set = set()  # セッション中に確認されたコールサイン
+_ft8_my_call: str = ""        # 最後に設定された自局コールサイン（QSO外でも参照用）
+_last_compound_dx: str = ""   # 最後にデコードされた複合コールサイン（/付き）
+
+
+def _is_unknown_hash(tok: str) -> bool:
+    """<...> <......> など jt9 の未解決ハッシュトークンを判定（ドット数不問）"""
+    return (len(tok) >= 4 and tok[0] == '<' and tok[-1] == '>'
+            and len(tok[1:-1]) > 0 and all(c in '.?' for c in tok[1:-1]))
+
+
+def _resolve_unknown_hashes(msgs: list) -> list:
+    """jt9 が解決できなかった <...> をQSOコンテキストの既知コールサインで置換。
+    Type 4 メッセージで複合コールサインと組み合わさると my_call も <...> になるため。"""
+    global _ft8_known_calls, _last_compound_dx
+
+    # 今期のデコード済みコールサインをセッションキャッシュに追加
+    for m in msgs:
+        for tok in m["msg"].split():
+            clean = tok.strip("<>")
+            if clean and clean != "..." and not all(c in ".?" for c in clean):
+                clean_upper = clean.upper()
+                _ft8_known_calls.add(clean_upper)
+                # 複合コールサイン（/付き）は最後にデコードされたものを記録
+                if "/" in clean_upper:
+                    _last_compound_dx = clean_upper
+
+    qso_active = _qso.get("active", False)
+    qso_dx = _qso.get("dx_call", "").upper()
+    qso_my = _qso.get("my_call", "").upper() or _ft8_my_call.upper()
+
+    # QSO外でも my_call が既知なら、複合コールサイン候補（/を含む）を探す
+    compound_candidates = sorted(
+        {c for c in _ft8_known_calls if "/" in c}, key=len
+    ) if not qso_active else []
+
+    result = []
+    for m in msgs:
+        parts = m["msg"].split()
+        if len(parts) >= 2:
+            p0 = parts[0].strip("<>").upper()
+            p1 = parts[1].strip("<>").upper()
+            uh0 = _is_unknown_hash(parts[0])
+            uh1 = _is_unknown_hash(parts[1])
+            if uh0 or uh1:
+                print(f"[hash_resolve] msg={m['msg']!r} qso_active={qso_active} qso_dx={qso_dx!r} qso_my={qso_my!r} uh0={uh0} uh1={uh1} compound_cands={compound_candidates}")
+            if qso_active:
+                # position 0 が DX、position 1 が <...> → my_call で置換
+                if qso_dx and qso_my and p0 == qso_dx and uh1:
+                    m = dict(m); parts[1] = qso_my; m["msg"] = " ".join(parts)
+                # position 0 が my_call、position 1 が <...> → dx_call で置換
+                elif qso_my and qso_dx and p0 == qso_my and uh1:
+                    m = dict(m); parts[1] = qso_dx; m["msg"] = " ".join(parts)
+                # position 0 が <...>、position 1 が DX → my_call で置換
+                elif qso_dx and qso_my and uh0 and p1 == qso_dx:
+                    m = dict(m); parts[0] = qso_my; m["msg"] = " ".join(parts)
+                # position 0 が <...>、position 1 が my_call → dx_call で置換
+                elif qso_my and qso_dx and uh0 and p1 == qso_my:
+                    m = dict(m); parts[0] = qso_dx; m["msg"] = " ".join(parts)
+            elif qso_my and uh0 and p1 == qso_my and len(compound_candidates) == 1:
+                # QSO外: position 0 が <...>、position 1 が my_call、複合候補が1局のみ
+                m = dict(m); parts[0] = compound_candidates[0]; m["msg"] = " ".join(parts)
+        result.append(m)
+    return result
+
+
+def _ft8_broadcast(data: dict):
+    msg = ("data: " + _json.dumps(data, ensure_ascii=False) + "\n\n").encode()
+    with _ft8_rx_clients_lock:
+        dead = []
+        for q in list(_ft8_rx_clients):
+            try:
+                q.put_nowait(msg)
+            except _queue.Full:
+                dead.append(q)
+        for q in dead:
+            try:
+                _ft8_rx_clients.remove(q)
+            except ValueError:
+                pass
+
+
+def _parse_jt9_output(stdout: str) -> list:
+    """jt9 出力をパース。フォーマットはバージョンにより異なる。
+    確認済みフォーマット例:
+      UTC SNR  DT   FREQ [~] MESSAGE  (Raspberry Pi OS wsjtx)
+      UTC  DT FREQ  SNR  [~] MESSAGE  (WSJT-X 標準)
+    戦略:
+      1. FREQ を先に特定 (整数 100–4000) — SNR 範囲と重複しない
+      2. FREQ より前の整数から SNR を取得 (FREQ 前にあれば)
+      3. なければ FREQ 直後の整数を SNR として取得 (標準フォーマット)
+      4. メッセージは FREQ (+ SNR があれば) の後ろ、旗文字を除外
+    """
+    msgs = []
+    for line in stdout.splitlines():
+        parts = line.strip().split()
+        if len(parts) < 4:
+            continue
+        try:
+            # Step 1: FREQ を探す (index 1 以降の最初の整数 100–4000)
+            freq_idx = -1
+            for i in range(1, len(parts)):
+                try:
+                    iv = int(parts[i])
+                    if 100 <= iv <= 4000:
+                        freq_idx = i
+                        break
+                except ValueError:
+                    pass
+            if freq_idx < 0:
+                continue
+            freq = int(parts[freq_idx])
+
+            # Step 2: SNR を探す (FREQ より前の整数 -40–+30)
+            snr = None
+            for i in range(1, freq_idx):
+                try:
+                    iv = int(parts[i])
+                    if -40 <= iv <= 30:
+                        snr = iv
+                        break
+                except ValueError:
+                    pass
+
+            # Step 3: FREQ 直後に SNR がある場合 (標準フォーマット)
+            msg_start = freq_idx + 1
+            if snr is None and msg_start < len(parts):
+                try:
+                    iv = int(parts[msg_start])
+                    if -40 <= iv <= 30:
+                        snr = iv
+                        msg_start += 1
+                except ValueError:
+                    pass
+
+            if snr is None:
+                continue
+
+            # Step 4: syncスコア (1桁整数) と旗文字 (~, ?, *) をスキップ
+            # jt9 出力: "... FREQ  0 ~ MESSAGE" のように syncスコアが ~ の前に来ることがある
+            while msg_start < len(parts):
+                tok = parts[msg_start]
+                if tok in ("~", "?", "*", "OOO"):
+                    msg_start += 1
+                elif len(tok) == 1 and tok.isdigit():
+                    msg_start += 1  # sync score (0-9)
+                else:
+                    break
+            msg = " ".join(parts[msg_start:])
+            # jt9 によっては2デコード結果を ";" でつなげて1行出力するため分割
+            for sub in msg.split(";"):
+                sub = sub.strip()
+                if sub:
+                    msgs.append({"dt": 0.0, "freq": freq, "snr": snr, "msg": sub})
+        except (ValueError, IndexError):
+            continue
+    return msgs
+
+
+def _bandpass_wav(src: str, dst: str, flow: int, fhigh: int) -> bool:
+    """WAV にバンドパスフィルタを適用して dst に書き込む。sox → numpy の順で試みる。"""
+    # --- 方法1: sox (推奨、Pi に標準インストールされていることが多い) ---
     try:
-        p = _HOME_DIR / "webft8_static" / "web" / "server.py"
-        if p.exists():
-            for line in p.read_text(encoding="utf-8").splitlines():
-                if line.strip().startswith("_VERSION"):
-                    return line.split("=", 1)[1].strip().strip("\"'")
+        r = subprocess.run(
+            ["sox", src, dst, "sinc", f"{flow}-{fhigh}"],
+            capture_output=True, timeout=10.0
+        )
+        if r.returncode == 0 and os.path.exists(dst):
+            return True
     except Exception:
         pass
-    return "?"
 
-_webft8_version: str = _read_webft8_version()
+    # --- 方法2: numpy FFT ---
+    try:
+        import numpy as np
+        with wave.open(src, "rb") as wf:
+            nch  = wf.getnchannels()
+            rate = wf.getframerate()
+            raw  = wf.readframes(wf.getnframes())
+        data = np.frombuffer(raw, dtype=np.int16).astype(np.float32)
+        if nch > 1:
+            data = data[::nch]
+        N    = len(data)
+        fft  = np.fft.rfft(data)
+        bins = np.fft.rfftfreq(N, d=1.0 / rate)
+        fft[(bins < flow) | (bins > fhigh)] = 0
+        out  = np.clip(np.fft.irfft(fft, n=N), -32767, 32767).astype(np.int16)
+        with wave.open(dst, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(rate)
+            wf.writeframes(out.tobytes())
+        return True
+    except Exception as e:
+        print(f"[bandpass] numpy failed: {e}")
+        return False
+
+
+def _ft8_jt9_worker(wav_path: str, period_n: int, utc_sec: int):
+    """mfsk-decode によるFT8デコードをバックグラウンドで実行し、ストリーミングブロードキャスト。
+    デコードが完了し次第 decode_msg を逐次送信 → Androidが徐々にデコード欄を埋める。"""
+    global _ft8_last_decode_info
+    _jt9_decode_done.clear()
+    all_msgs = []
+    try:
+        cmd = [_MFSK_DECODE_BIN]
+
+        # 自局・相手局コールサインをmfsk-decodeに渡してハッシュテーブルを事前構築
+        my_call = _qso.get("my_call", "").strip() or _ft8_my_call.strip()
+        dx_call = _qso.get("dx_call", "").strip() if _qso.get("active") else ""
+        if not dx_call:
+            dx_call = _last_compound_dx or next(
+                (c for c in sorted(_ft8_known_calls) if "/" in c), "")
+        if my_call:
+            cmd += ["-c", my_call]
+        if dx_call:
+            cmd += ["-x", dx_call]
+        # セッション中に確認された全コンパウンドコールをハッシュテーブルに追加
+        for kc in sorted(_ft8_known_calls):
+            if "/" in kc and kc != dx_call and kc != my_call:
+                cmd += ["-k", kc]
+
+        # SICラウンド数 (depth 1/2/3 → jt9 -d 相当)
+        cmd += ["--sic-rounds", str(_ft8_decode_depth)]
+
+        # フィルター帯域を mfsk-decode に直接渡す (jt9 と異なり WAV 前処理が不要)
+        if _ft8_decode_filter:
+            centers = [c for c, _ in _ft8_decode_filter]
+            rngs    = [r for _, r in _ft8_decode_filter]
+            flow    = max(100,  min(centers) - max(rngs) * 2)
+            fhigh   = min(3000, max(centers) + max(rngs) * 2)
+            cmd += ["--freq-min", str(flow), "--freq-max", str(fhigh)]
+
+        cmd.append(wav_path)
+        t1 = time.time()
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            for line in proc.stdout:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    m = _json.loads(line)
+                    # post-filter: フィルター帯域外を除去
+                    if _ft8_decode_filter and not any(
+                        abs(m.get("freq", 0) - center) <= rng
+                        for center, rng in _ft8_decode_filter
+                    ):
+                        continue
+                    # <...> ハッシュをQSOコンテキストで解決
+                    resolved = _resolve_unknown_hashes([m])
+                    m = resolved[0]
+                    # 逐次ブロードキャスト: デコード完了した局から順に送信
+                    _ft8_broadcast({
+                        "type": "decode_msg",
+                        "period": period_n,
+                        "utc_sec": utc_sec,
+                        "freq": int(round(m.get("freq", 0))),
+                        "snr":  int(round(m.get("snr",  0))),
+                        "dt":   round(m.get("dt", 0.0), 2),
+                        "msg":  m.get("msg", ""),
+                    })
+                    all_msgs.append(m)
+                except Exception as e:
+                    print(f"[mfsk_decode] parse: {e!r} line={line!r}")
+            proc.wait(timeout=5.0)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
+        msgs = all_msgs
+        elapsed = time.time() - t1
+        print(f"[mfsk_decode] took {elapsed:.2f}s period={period_n} utc={utc_sec}s decoded={len(msgs)}")
+        _ft8_last_decode_info = {"decoded": len(msgs), "period": period_n}
+        _ft8_broadcast({
+            "type": "decode_done",
+            "period": period_n,
+            "utc_sec": utc_sec,
+            "count": len(msgs),
+        })
+        # QSO state machine: DX 返信を検出して AUTO TX のメッセージを次ステップへ更新
+        # FT8 message format: DESTCALL SRCCALL REPORT (first word = recipient)
+        if _qso["active"] and msgs:
+            dx = _qso["dx_call"]
+            me = _qso["my_call"]
+            state = _qso["state"]
+            # 自分宛の DX メッセージを全部取り出し、SNR 最強のものを使う
+            dx_msgs = [m for m in msgs
+                       if len(m["msg"].split()) >= 2
+                       and m["msg"].upper().split()[0] == me
+                       and m["msg"].upper().split()[1] == dx]
+            dx_best  = max(dx_msgs, key=lambda m: m.get("snr", -99)) if dx_msgs else None
+            dx_reply = dx_best["msg"].upper().split() if dx_best else None
+
+            # QSO 中に受信した DX の SNR を step2 メッセージに反映（改善時のみ更新）
+            if dx_best is not None:
+                cur_snr = dx_best.get("snr", -99)
+                peak    = _qso.get("snr_dx_peak")
+                if peak is None or cur_snr > peak:
+                    _qso["snr_dx_peak"] = cur_snr
+                    snr_str = f"+{cur_snr:02d}" if cur_snr >= 0 else f"{cur_snr:03d}"
+                    parts = _qso["step2_msg"].split()
+                    if len(parts) >= 3:
+                        # CQ発信側はRなし、DX指定呼び出し側はR付き
+                        parts[2] = snr_str if _qso.get("cq_sender") else f"R{snr_str}"
+                        _qso["step2_msg"] = " ".join(parts)
+                        _qso["snr_sent"]  = parts[2]
+                        # state 3 はすでに step2 を繰り返し送信中 → AUTO TX も即時更新してUIに通知
+                        if state == 3:
+                            _auto_tx["msg"] = _qso["step2_msg"]
+                            _ft8_broadcast({"type": "qso_state", "state": "snr_update",
+                                            "msg": _qso["step2_msg"],
+                                            "dx_call": dx, "my_call": me, "tx_mode": _qso["tx_mode"]})
+                    # step_snr_msg (Rなし SNR ステップ) も同様に更新
+                    snr_parts = _qso.get("step_snr_msg", "").split()
+                    if len(snr_parts) >= 3:
+                        snr_parts[2] = snr_str
+                        _qso["step_snr_msg"] = " ".join(snr_parts)
+                        if state == 2:
+                            _auto_tx["msg"] = _qso["step_snr_msg"]
+                            _ft8_broadcast({"type": "qso_state", "state": "snr_update",
+                                            "msg": _qso["step_snr_msg"],
+                                            "dx_call": dx, "my_call": me, "tx_mode": _qso["tx_mode"]})
+
+            if state == 1 and dx_reply:
+                # step1 送信後 → DX の SNR レポート受信でのみ次へ進む
+                snr = dx_reply[2] if len(dx_reply) >= 3 else ""
+                snr_is_report = snr.lstrip("+-").isdigit()
+                if snr_is_report:
+                    _qso["snr_rcvd"] = snr
+                    # 呼びかけ側: GRID → R-SNR と交互に送信（step_snr_msg はスキップ）
+                    # step_snr_msg は initital_state=1 で明示的に開始した場合のみ使用
+                    nxt = _qso["step2_msg"] if _qso["step2_msg"] else _qso["step3_msg"]
+                    new_state = 3 if _qso["step2_msg"] else 5
+                    _qso["next_msg"] = nxt
+                    _qso["state"] = new_state
+                    _auto_tx["msg"] = nxt
+                    _ft8_broadcast({"type": "qso_state", "state": "got_report",
+                                    "msg": nxt, "snr": snr,
+                                    "dx_call": dx, "my_call": me, "tx_mode": _qso["tx_mode"]})
+                elif snr in ("RR73", "73"):
+                    # DXがRR73/73を先送り（step2をスキップ）→ 73で即応答
+                    step4 = _qso.get("step4_msg", "")
+                    nxt = step4 if step4 else f"{dx} {me} 73"
+                    _qso["state"] = 6
+                    _qso["next_msg"] = nxt
+                    _auto_tx["msg"] = nxt
+                    _ft8_broadcast({"type": "qso_state", "state": "sending_73", "msg": nxt,
+                                    "dx_call": dx, "my_call": me,
+                                    "snr_rcvd": _qso.get("snr_rcvd", ""),
+                                    "snr_sent": _qso.get("snr_sent", "")})
+                # else: グリッド等は無視 → step1 を再送し続ける
+            elif state == 2 and dx_reply:
+                # step_snr_msg(Rなし SNR)送信後 → DX の応答を処理
+                word3 = dx_reply[2] if len(dx_reply) >= 3 else ""
+                if word3 in ("RR73", "73"):
+                    step4 = _qso.get("step4_msg", "")
+                    nxt = step4 if step4 else f"{dx} {me} 73"
+                    _qso["state"] = 6
+                    _qso["next_msg"] = nxt
+                    _auto_tx["msg"] = nxt
+                    _ft8_broadcast({"type": "qso_state", "state": "sending_73", "msg": nxt,
+                                    "dx_call": dx, "my_call": me,
+                                    "snr_rcvd": _qso.get("snr_rcvd", ""),
+                                    "snr_sent": _qso.get("snr_sent", "")})
+                elif len(word3) >= 2 and word3[0] == "R" and word3[1:].lstrip("+-").isdigit():
+                    # R-SNR 受信 → RR73へ進む（Rなし SNR に対してDXがR付き返信 = レポート交換成立）
+                    nxt = _qso["step3_msg"]
+                    _qso["state"] = 5
+                    _qso["next_msg"] = nxt
+                    _auto_tx["msg"] = nxt
+                    _ft8_broadcast({"type": "qso_state", "state": "got_report",
+                                    "msg": nxt, "snr": word3,
+                                    "dx_call": dx, "my_call": me, "tx_mode": _qso["tx_mode"]})
+                # else: 無視 → step_snr_msg を再送し続ける
+            elif state == 3 and dx_reply:
+                # step2 送信後の応答を処理
+                word3 = dx_reply[2] if len(dx_reply) >= 3 else ""
+                if word3 in ("RR73", "73"):
+                    # DXがRR73/73送信 → 73で応答（CQ側・DX指定側共通）
+                    step4 = _qso.get("step4_msg", "")
+                    nxt = step4 if step4 else f"{dx} {me} 73"
+                    _qso["next_msg"] = nxt
+                    _qso["state"] = 6
+                    _auto_tx["msg"] = nxt
+                    _ft8_broadcast({"type": "qso_state", "state": "sending_73", "msg": nxt,
+                                    "dx_call": dx, "my_call": me,
+                                    "snr_rcvd": _qso["snr_rcvd"],
+                                    "snr_sent": _qso["snr_sent"]})
+                elif (len(word3) >= 2 and word3[0] == "R"
+                      and word3[1:].lstrip("+-").isdigit()):
+                    # DXからR-SNRが返ってきた → RR73を送信（CQ側・DX指定側共通）
+                    nxt = _qso["step3_msg"]
+                    _qso["state"] = 5
+                    _qso["next_msg"] = nxt
+                    _auto_tx["msg"] = nxt
+                    _ft8_broadcast({"type": "qso_state", "state": "retry_rr73", "msg": nxt,
+                                    "dx_call": dx, "my_call": me,
+                                    "snr_rcvd": _qso["snr_rcvd"],
+                                    "snr_sent": _qso["snr_sent"]})
+                # else: SNR再送・グリッド等は無視 → step2 を再送し続ける
+            elif state == 5 and dx_reply:
+                # step3(RR73) 送信後 → 73/RR73 で即QSO完了（こちらから73は不要）
+                word3 = dx_reply[2] if len(dx_reply) >= 3 else ""
+                if word3 in ("73", "RR73"):
+                    _qso["active"] = False
+                    _qso["state"] = 6
+                    _auto_tx["active"] = False
+                    _ft8_broadcast({"type": "qso_done", "dx_call": dx, "my_call": me,
+                                    "snr_rcvd": _qso["snr_rcvd"],
+                                    "snr_sent": _qso["snr_sent"]})
+                else:
+                    _auto_tx["msg"] = _qso["step3_msg"]  # RR73 再送
+                    _ft8_broadcast({"type": "qso_state", "state": "retry_rr73",
+                                    "msg": _qso["step3_msg"],
+                                    "dx_call": dx, "my_call": me, "tx_mode": _qso["tx_mode"]})
+        # CQ AUTO: QSO未開始のとき、自分宛の返信を検出したら自動QSO開始
+        if _cq_auto.get("active") and not _qso.get("active") and msgs:
+            me_cq = _cq_auto["my_call"].upper()
+            cq_replies = [m for m in msgs
+                          if len(m["msg"].split()) >= 2
+                          and m["msg"].upper().split()[0] == me_cq]
+            if cq_replies:
+                reply  = cq_replies[0]   # 最初に引っかかった局
+                parts  = reply["msg"].upper().split()
+                dx_call = parts[1]
+                snr    = reply.get("snr", 0)
+                snr_str = f"+{snr:02d}" if snr >= 0 else f"{snr:03d}"
+                step2  = f"{dx_call} {me_cq} {snr_str}"   # CQ発信側: Rなし
+                step3  = f"{dx_call} {me_cq} RR73"
+                _qso["active"]     = True
+                _qso["dx_call"]    = dx_call
+                _qso["my_call"]    = me_cq
+                _qso["state"]      = 3   # step2送信待ち
+                _qso["tx_mode"]    = _cq_auto["mode"]
+                _qso["audio_freq"] = _cq_auto["audio_freq"]
+                _qso["step1_msg"]  = ""
+                _qso["step2_msg"]  = step2
+                _qso["step3_msg"]  = step3
+                _qso["step4_msg"]  = ""   # CQ発信側: DXの73受信後は73送らずCQ再開
+                _qso["next_msg"]   = step2
+                _qso["snr_rcvd"]   = str(snr)
+                _qso["snr_sent"]   = snr_str   # CQ発信側: Rなし
+                _qso["snr_dx_peak"]= snr
+                _qso["cq_sender"]  = True
+                _auto_tx["active"]    = True
+                _auto_tx["msg"]       = step2
+                _auto_tx["mode"]      = _cq_auto["mode"]
+                _auto_tx["audio_freq"]= _cq_auto["audio_freq"]
+                print(f"[cq_auto] auto QSO: {dx_call} snr={snr}")
+                _ft8_broadcast({"type": "qso_state", "state": "got_report",
+                                "dx_call": dx_call, "msg": step2,
+                                "tx_mode": _cq_auto["mode"]})
+    except Exception as e:
+        print(f"[mfsk_decode] worker error: {e}")
+    finally:
+        _jt9_decode_done.set()
+        try: os.unlink(wav_path)
+        except Exception: pass
+
+
+def _ft8_auto_tx_worker(msg: str, audio_freq: int, period_utc: int = -1):
+    """AutoTX: FT8メッセージをPCM生成→aplayで送出する。"""
+    global _ft8_tx_active
+    if _ft8_tx_active:
+        return
+    # 並行jt9デコードの完了を待ってから最新メッセージを読む（最大2秒）
+    # jt9が終わっていればイベントはセット済みなので即リターン
+    _jt9_decode_done.wait(timeout=2.0)
+    # デコード結果でQSOステップが進んだ場合は更新後のメッセージを使う
+    if _auto_tx.get("active") and _auto_tx.get("msg"):
+        msg = _auto_tx["msg"]
+    if not _auto_tx.get("active") or not msg:
+        return
+    _ft8_tx_active = True
+    # period_utc が渡されていればそれを使う（time.time()の再計算でズレない）
+    tx_utc = period_utc if period_utc >= 0 else (int(time.time()) // 15 * 15 % 60)
+    print(f"[auto_tx] TX start: utc={tx_utc}s period_n={(tx_utc//15)%4} mode={_auto_tx['mode']} msg={msg!r}")
+    _ft8_broadcast({"type": "tx_pending", "msg": msg,
+                    "wait_sec": 0, "utc_at_tx": tx_utc})
+    _mgr_sub.mute(14.0)
+    try:
+        subprocess.run(["pkill", "-9", "aplay"], capture_output=True)
+        time.sleep(0.1)
+        rigctl_cmd("T 1")
+        time.sleep(0.3)
+        pcm_data = _ft8_get_pcm(msg, audio_freq, 12000)
+        proc = subprocess.Popen(
+            ["aplay", "-D", _alsa_playback_dev, "-f", "S16_LE", "-r", "12000", "-c", "1"],
+            stdin=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        proc.stdin.write(pcm_data)
+        proc.stdin.close()
+        proc.wait(timeout=20)
+        _ft8_broadcast({"type": "auto_tx_sent", "msg": msg, "utc_at_tx": tx_utc})
+        # QSO state 6: 73(step4)を実際に送信した場合のみ完了とする
+        # TX開始後にデコードでstate=6になったとき73はまだ未送信なので次のTXで送る
+        if _qso.get("active") and _qso.get("state") == 6:
+            dx_done = _qso["dx_call"]
+            me_done = _qso["my_call"]
+            snr_r   = _qso.get("snr_rcvd", "")
+            snr_s   = _qso.get("snr_sent", "")
+            step4   = _qso.get("step4_msg", "")
+            done_msg = (step4 if step4 else f"{dx_done} {me_done} 73").upper().strip()
+            if msg.upper().strip() == done_msg:
+                _qso["active"] = False
+                _auto_tx["active"] = False
+                _ft8_broadcast({"type": "qso_done",
+                                "dx_call": dx_done, "my_call": me_done,
+                                "snr_rcvd": snr_r, "snr_sent": snr_s})
+            # else: 73以外を送信済み → _auto_tx["msg"]の73を次のTXピリオドで送る
+    except Exception as e:
+        print(f"[auto_tx] error: {e}")
+        _ft8_broadcast({"type": "auto_tx_error", "error": str(e)})
+    finally:
+        rigctl_cmd("T 0")
+        _ft8_tx_active = False
+
+
+def _ft8_decode_loop():
+    global _ft8_decode_running
+    print("[ft8_decode] started")
+    while _ft8_decode_running:
+        # 次のFT8ピリオド境界まで待機
+        # 注: 録音直後は now がピリオド境界に非常に近い（例: 30.004s）ため
+        # (int(now/15)+1)*15 だと次の次（45s）に飛ばしてしまう。
+        # 現在ピリオドの開始から 0.5s 以内なら そのピリオドをそのまま処理する。
+        now = time.time()
+        current_start = int(now / FT8_PERIOD_S) * FT8_PERIOD_S
+        elapsed = now - current_start
+        if elapsed < 0.5:
+            next_start = current_start   # このピリオドをすぐ処理
+        else:
+            next_start = current_start + FT8_PERIOD_S
+        wait = next_start - now
+        if wait > 0.05:
+            time.sleep(wait - 0.05)
+        while time.time() < next_start:
+            time.sleep(0.002)
+
+        if not _ft8_decode_running:
+            break
+
+        period_start = time.time()
+        utc_sec  = int(period_start) % 60
+        period_n = (utc_sec // 15) % 4
+
+        # ピリオド開始を即座に通知（ウォーターフォールの横線タイミング用）
+        _ft8_broadcast({"type": "period_start", "period": period_n, "utc_sec": utc_sec})
+
+        # QSO 送信は AUTO TX に委譲（_auto_tx["msg"] を更新して AUTO TX が送信）
+
+        # AutoTX: このピリオドがTX担当なら送信して次ピリオドへ
+        if _auto_tx["active"] and not _ft8_tx_active and _auto_tx["msg"]:
+            is_even = period_n % 2 == 0
+            should_tx = (is_even and _auto_tx["mode"] == "even") or                         (not is_even and _auto_tx["mode"] == "odd")
+            if should_tx:
+                threading.Thread(
+                    target=_ft8_auto_tx_worker,
+                    args=(_auto_tx["msg"], _auto_tx["audio_freq"], utc_sec),
+                    daemon=True
+                ).start()
+                # 次のピリオド境界まで待機（continueするとelapsed<0.5でスピンループになりSSEキューが溢れる）
+                _wait = period_start + FT8_PERIOD_S - time.time()
+                if _wait > 0:
+                    time.sleep(_wait)
+                continue
+
+        if _ft8_tx_active:
+            print(f"[ft8_decode] skip period={period_n} (TX active)")
+            # 次のピリオド境界まで待機（スピンループ防止）
+            _wait = period_start + FT8_PERIOD_S - time.time()
+            if _wait > 0:
+                time.sleep(_wait)
+            continue
+
+        # _mgr_sub を購読して15秒分の12kHz PCMを収集
+        _mgr_sub.ensure("12000")
+        sid, q = _mgr_sub.subscribe(maxsize=512)
+        pcm = bytearray()
+        deadline = period_start + FT8_PERIOD_S
+        try:
+            while len(pcm) < FT8_BYTES and _ft8_decode_running:
+                rem = deadline - time.time()
+                if rem <= 0:
+                    break
+                try:
+                    chunk = q.get(timeout=min(0.5, rem + 0.1))
+                    pcm.extend(chunk)
+                except _queue.Empty:
+                    if time.time() >= deadline:
+                        break
+        finally:
+            _mgr_sub.unsubscribe(sid)
+
+        if not _ft8_decode_running or len(pcm) < FT8_BYTES // 4:
+            continue
+
+        # WAVに書いてjt9をバックグラウンドスレッドで起動（次ピリオドの録音をブロックしない）
+        # ※ d=3 時は jt9 が30秒超かかるため、スレッド化しないと全4ピリオドのうち
+        #   半分しかキャプチャできない（15s/45sしかデコードされない問題の根本原因）
+        fd, wav_path = -1, ""
+        try:
+            fd, wav_path = tempfile.mkstemp(suffix=".wav")
+            os.close(fd); fd = -1
+
+            pcm_raw = bytes(pcm[:FT8_BYTES])
+            try:
+                import numpy as _np
+                _smp = _np.frombuffer(pcm_raw, dtype=_np.int16).astype(_np.float32)
+                _peak = float(_np.max(_np.abs(_smp)))
+                if _peak > 16384.0:
+                    _smp = _smp * (16384.0 / _peak)
+                pcm_write = _np.clip(_smp, -32768, 32767).astype(_np.int16).tobytes()
+            except Exception:
+                pcm_write = pcm_raw
+
+            with wave.open(wav_path, "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(FT8_SAMPLE_RATE)
+                wf.writeframes(pcm_write)
+
+            _wav_for_thread = wav_path
+            wav_path = ""  # worker がファイル削除担当
+            threading.Thread(
+                target=_ft8_jt9_worker,
+                args=(_wav_for_thread, period_n, utc_sec),
+                daemon=True
+            ).start()
+        except Exception as e:
+            print(f"[ft8_decode] wav write error: {e}")
+        finally:
+            if fd >= 0:
+                try: os.close(fd)
+                except Exception: pass
+            if wav_path:
+                try: os.unlink(wav_path)
+                except Exception: pass
+
+    print("[ft8_decode] stopped")
 
 rig_lock = threading.Lock()
 vfo_toggle_lock = threading.Lock()  # /radio/vfo_toggle連打対策の排他ロック(rig_lockとは別)
@@ -1182,29 +1872,256 @@ def watchdog_heartbeat():
         time.sleep(0.1)
 
 
-def _start_webft8_if_needed():
-    web_dir = str(_HOME_DIR / "webft8_static" / "web")
-    srv = os.path.join(web_dir, "server.py")
-    pem = os.path.join(web_dir, "server.pem")
-    if not (os.path.exists(srv) and os.path.exists(pem)):
+def _ensure_venv_numpy():
+    """numpy が venv にない場合に自動インストールする。起動時・UpdatePi 後に呼ばれる。"""
+    try:
+        import numpy  # noqa: F401
+        return  # already available
+    except ImportError:
+        pass
+    pip = str(_FASTAPI_DIR / "bin" / "pip")
+    if not os.path.exists(pip):
         return
-    r = subprocess.run(["pgrep", "-f", "python3 server.py"], capture_output=True)
-    if r.returncode == 0:
-        return
-    log = open("/tmp/webft8.log", "a")
-    subprocess.Popen(
-        ["python3", "server.py"],
-        cwd=web_dir,
-        stdout=log,
-        stderr=log,
-        start_new_session=True
-    )
+    try:
+        print("[startup] numpy not found in venv — installing...", flush=True)
+        r = subprocess.run([pip, "install", "--quiet", "numpy"],
+                           capture_output=True, timeout=180)
+        if r.returncode == 0:
+            print("[startup] numpy installed successfully", flush=True)
+        else:
+            print(f"[startup] numpy install failed: {r.stderr.decode(errors='replace')[:200]}", flush=True)
+    except Exception as e:
+        print(f"[startup] numpy install error: {e}", flush=True)
 
 
 @app.on_event("startup")
 def startup_event():
     threading.Thread(target=watchdog_heartbeat, daemon=True).start()
-    threading.Thread(target=_start_webft8_if_needed, daemon=True).start()
+    threading.Thread(target=_ensure_venv_numpy, daemon=True).start()
+
+
+@app.post("/ft8/start")
+async def ft8_start():
+    global _ft8_decode_running, _ft8_decode_thread
+    if _ft8_decode_running:
+        return {"status": "already_running"}
+    _ft8_decode_running = True
+    _ft8_decode_thread = threading.Thread(target=_ft8_decode_loop, daemon=True)
+    _ft8_decode_thread.start()
+    return {"status": "started"}
+
+
+@app.post("/ft8/stop")
+async def ft8_stop():
+    global _ft8_decode_running
+    _ft8_decode_running = False
+    return {"status": "stopped"}
+
+
+@app.post("/ft8/set_depth")
+async def ft8_set_depth(depth: int = Query(...), request: Request = None):
+    global _ft8_decode_depth
+    if depth not in (1, 2, 3):
+        raise HTTPException(status_code=400, detail="depth must be 1, 2, or 3")
+    _ft8_decode_depth = depth
+    return {"depth": depth}
+
+
+@app.post("/ft8/set_decode_filter")
+async def ft8_set_decode_filter(request: Request):
+    global _ft8_decode_filter
+    data = await request.json()
+    freqs = data.get("freqs", [])
+    range_hz = int(data.get("range", 60))
+    _ft8_decode_filter = [(int(f), range_hz) for f in freqs] if freqs else []
+    return {"ok": True, "filter": _ft8_decode_filter}
+
+
+@app.get("/ft8/decode_debug")
+async def ft8_decode_debug(request: Request):
+    """最後の jt9 デコード結果（stdout/stderr）を返す。デバッグ用。"""
+    qkey = request.query_params.get("api_key", "")
+    hkey = request.headers.get("X-API-Key", "")
+    if API_KEY and qkey != API_KEY and hkey != API_KEY:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return _ft8_last_decode_info
+
+
+@app.get("/ft8/rx_msgs", dependencies=[])
+async def ft8_rx_msgs(request: Request):
+    """FT8デコード結果を SSE ストリームで配信する。"""
+    qkey = request.query_params.get("api_key", "")
+    hkey = request.headers.get("X-API-Key", "")
+    if API_KEY and qkey != API_KEY and hkey != API_KEY:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    q: _queue.Queue = _queue.Queue(maxsize=32)
+    with _ft8_rx_clients_lock:
+        _ft8_rx_clients.append(q)
+
+    async def _stream():
+        try:
+            yield b"data: {\"type\":\"connected\"}\n\n"
+            # 再接続時: 進行中のQSOがあれば即送信してAndroid側のtxStateを復元
+            if _qso.get("active"):
+                import json as _json
+                _state_map = {1: "pending", 3: "got_report", 5: "sending_73"}
+                _qs = _state_map.get(_qso.get("state", 0), "pending")
+                _qso_evt = _json.dumps({
+                    "type": "qso_state", "state": _qs,
+                    "dx_call": _qso.get("dx_call", ""),
+                    "msg": _qso.get("next_msg", ""),
+                    "tx_mode": _qso.get("tx_mode", ""),
+                })
+                yield f"data: {_qso_evt}\n\n".encode()
+            loop = asyncio.get_running_loop()
+            while True:
+                try:
+                    msg = await loop.run_in_executor(None, lambda: q.get(timeout=20.0))
+                    yield msg
+                except _queue.Empty:
+                    yield b": keepalive\n\n"
+        except (asyncio.CancelledError, GeneratorExit):
+            pass
+        except Exception as e:
+            print(f"[ft8_rx_msgs] stream error: {e}")
+        finally:
+            with _ft8_rx_clients_lock:
+                try:
+                    _ft8_rx_clients.remove(q)
+                except ValueError:
+                    pass
+
+    return StreamingResponse(
+        _stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+# ─── FT8 ウォーターフォール用スペクトラム SSE ─────────────────────────────
+_spectrum_clients:     list = []
+_spectrum_clients_lock = threading.Lock()
+_spectrum_running      = False
+_spectrum_thread: threading.Thread | None = None
+
+SPECTRUM_FFT   = 2048
+SPECTRUM_BINS  = 256          # 出力ビン数 (0〜3 kHz を 256 分割)
+SPECTRUM_HZ    = 4            # 毎秒更新回数
+SPECTRUM_CHUNK = FT8_SAMPLE_RATE // SPECTRUM_HZ  # 3000 サンプル/フレーム
+
+
+def _spectrum_broadcast(bins: list, extra: dict | None = None):
+    payload: dict = {"bins": bins}
+    if extra:
+        payload.update(extra)
+    msg = ("data: " + _json.dumps(payload) + "\n\n").encode()
+    with _spectrum_clients_lock:
+        dead = []
+        for q in list(_spectrum_clients):
+            try:
+                q.put_nowait(msg)
+            except _queue.Full:
+                dead.append(q)
+        for q in dead:
+            try: _spectrum_clients.remove(q)
+            except ValueError: pass
+
+
+def _spectrum_loop():
+    global _spectrum_running
+    try:
+        import numpy as np
+    except ImportError:
+        print("[spectrum] numpy not available — pip install numpy")
+        _spectrum_running = False
+        return
+    print("[spectrum] started")
+    _mgr_sub.ensure("12000")
+    sid, q = _mgr_sub.subscribe(maxsize=128)
+    buf          = bytearray()
+    need         = SPECTRUM_CHUNK * 2  # 16-bit PCM
+    hann         = np.hanning(SPECTRUM_FFT).astype(np.float32)
+    last_period  = -1
+    try:
+        while _spectrum_running:
+            try:
+                chunk = q.get(timeout=0.5)
+            except _queue.Empty:
+                continue
+            buf.extend(chunk)
+            while len(buf) >= need:
+                frame, buf = buf[:need], buf[need:]
+                pcm = np.frombuffer(bytes(frame), dtype=np.int16).astype(np.float32)
+                pcm = np.pad(pcm, (0, max(0, SPECTRUM_FFT - len(pcm))))[:SPECTRUM_FFT]
+                mag = np.abs(np.fft.rfft(pcm * hann))
+                # 12 kHz / 2048 * 512 = 3000 Hz → bins 0..511
+                mag = mag[:512]
+                # 512 → 256 bins (max pool)
+                mag = mag.reshape(SPECTRUM_BINS, 2).max(axis=1)
+                # dB 変換・自動ノイズフロア正規化
+                # 20%ile をノイズフロア(=黒)、その 30dB 上を赤にすることで
+                # 絶対音量レベルに依存しない表示を実現する
+                db    = 20.0 * np.log10(mag + 1.0)
+                floor = float(np.percentile(db, 20))
+                norm  = np.clip((db - floor) / 30.0 * 255.0, 0, 255).astype(np.uint8)
+                # FT8ピリオド境界をスペクトラムフレームに埋め込む（横線同期用）
+                # チャンク末尾ではなく開始時刻で判定（1チャンク=0.25秒分を補正）
+                audio_t  = time.time() - SPECTRUM_CHUNK / FT8_SAMPLE_RATE
+                utc_s    = int(audio_t) % 60
+                period_n = (utc_s // 15) % 4
+                extra    = None
+                if period_n != last_period:
+                    last_period = period_n
+                    extra = {"new_period": True, "period": period_n, "utc_sec": utc_s}
+                _spectrum_broadcast(norm.tolist(), extra)
+    finally:
+        _mgr_sub.unsubscribe(sid)
+        print("[spectrum] stopped")
+
+
+@app.get("/ft8/spectrum")
+async def ft8_spectrum(request: Request):
+    """ウォーターフォール用 FFT スペクトラムを SSE ストリームで配信する。"""
+    global _spectrum_thread, _spectrum_running
+    qkey = request.query_params.get("api_key", "")
+    hkey = request.headers.get("X-API-Key", "")
+    if API_KEY and qkey != API_KEY and hkey != API_KEY:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    q: _queue.Queue = _queue.Queue(maxsize=8)
+    with _spectrum_clients_lock:
+        _spectrum_clients.append(q)
+
+    if not _spectrum_running or _spectrum_thread is None or not _spectrum_thread.is_alive():
+        _spectrum_running = True
+        _spectrum_thread = threading.Thread(target=_spectrum_loop, daemon=True, name="ft8_spectrum")
+        _spectrum_thread.start()
+
+    async def _stream():
+        try:
+            yield b"data: {\"type\":\"spectrum_start\"}\n\n"
+            loop = asyncio.get_running_loop()
+            while True:
+                try:
+                    msg = await loop.run_in_executor(None, lambda: q.get(timeout=2.0))
+                    yield msg
+                except _queue.Empty:
+                    yield b": keepalive\n\n"
+        except (asyncio.CancelledError, GeneratorExit):
+            pass
+        finally:
+            with _spectrum_clients_lock:
+                try: _spectrum_clients.remove(q)
+                except ValueError: pass
+            if not _spectrum_clients:
+                _spectrum_running = False
+
+    return StreamingResponse(
+        _stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.get("/devices")
@@ -1368,7 +2285,7 @@ def toggle_vfo():
 
 @app.get("/radio/status")
 def radio_status():
-    return {**radio_cache, "tx_in_progress": tx_in_progress, "api_version": API_VERSION, "webft8_version": _webft8_version}
+    return {**radio_cache, "tx_in_progress": tx_in_progress, "api_version": API_VERSION, "ft8_decode_running": _ft8_decode_running}
 
 
 @app.get("/radio/caps")
@@ -1977,44 +2894,242 @@ async def audio_sub(request: Request, background_tasks: BackgroundTasks):
                              background=BackgroundTask(cleanup))
 
 
+def _ft8_find_encoder(is_ft4: bool = False) -> "str | None":
+    """ft8code バイナリを探す。見つからなければ None。"""
+    prefix = "ft4code" if is_ft4 else "ft8code"
+    candidates = [
+        f"/usr/local/bin/{prefix}", f"/usr/bin/{prefix}",
+        f"/usr/lib/wsjtx/{prefix}",
+        f"/usr/lib/x86_64-linux-gnu/wsjtx/{prefix}",
+        f"/usr/lib/aarch64-linux-gnu/wsjtx/{prefix}",
+        f"/usr/lib/arm-linux-gnueabihf/wsjtx/{prefix}",
+        f"/opt/wsjtx/bin/{prefix}", f"/opt/wsjtx/{prefix}",
+    ]
+    found = next((p for p in candidates if os.path.isfile(p)), None)
+    if found:
+        return found
+    # which で探す
+    r = subprocess.run(["which", prefix], capture_output=True, text=True)
+    if r.returncode == 0 and r.stdout.strip():
+        return r.stdout.strip()
+    # find コマンドで全探索 (最終手段)
+    try:
+        r = subprocess.run(
+            ["find", "/usr", "/opt", "/home", "-name", prefix, "-type", "f"],
+            capture_output=True, text=True, timeout=15)
+        hits = [l.strip() for l in r.stdout.splitlines() if l.strip()]
+        if hits:
+            return hits[0]
+    except Exception:
+        pass
+    # ft8 prefix でも探す (ft8code が ft4code を兼ねる場合)
+    if is_ft4:
+        return _ft8_find_encoder(False)
+    return None
+
+
+def _ft8_parse_symbols(stdout: str) -> "list | None":
+    """ft8code 出力からシンボルリストを取得する。失敗なら None。
+
+    ft8code の実際の出力形式:
+        Channel symbols (79 tones):
+          Sync               Data               Sync               Data               Sync
+        3140652 00040627560751057171745533047 3140652 74207354566256247575072653100 3140652
+    → 数字グループがスペース区切りで並び、各文字が 1 シンボル (0-7)
+    """
+    lines = stdout.splitlines()
+
+    # 戦略1: "Channel symbols" 行の後のデータ行を探す (ft8code 実際のフォーマット)
+    in_symbols_section = False
+    for line in lines:
+        low = line.lower()
+        if "channel symbols" in low:
+            in_symbols_section = True
+            continue
+        if in_symbols_section:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            # ヘッダー行 ("Sync", "Data", "----" など) はスキップ
+            if stripped.startswith("Sync") or stripped.startswith("Data") or stripped.startswith("-"):
+                continue
+            # 数字とスペースだけで構成される行 → 各文字がシンボル
+            digits = [c for c in stripped if c.isdigit()]
+            if len(digits) >= 50:
+                return [int(d) for d in digits[:79]]
+
+    # 戦略2: スペース除去後に50文字以上の数字のみの行
+    for line in lines:
+        no_sp = line.strip().replace(" ", "")
+        if len(no_sp) >= 50 and all(c.isdigit() for c in no_sp):
+            return [int(c) for c in no_sp[:79]]
+
+    # 戦略3: "channel symbols" キーワード行に数字が続く場合
+    for line in lines:
+        low = line.lower()
+        if any(kw in low for kw in ["channel symbols", "encoded message", "symbols:"]):
+            after = line.split(":", 1)[-1].strip() if ":" in line else line
+            digits = [c for c in after if c.isdigit()]
+            if len(digits) >= 50:
+                return [int(d) for d in digits[:79]]
+
+    # 戦略4: スペース区切りトークンを整数として解釈 (旧フォーマット対応)
+    for line in lines:
+        syms: list = []
+        for tok in line.split():
+            try:
+                n = int(tok)
+                if 0 <= n <= 7:
+                    syms.append(n)
+            except ValueError:
+                pass
+        if len(syms) >= 50:
+            return syms[-79:]
+
+    return None
+
+
+def _ft8_get_symbols(msg: str, is_ft4: bool = False) -> list:
+    """ft8code (wsjtxに付属) でチャンネルシンボル (0-7, 79個) を取得する。"""
+    binary = _ft8_find_encoder(is_ft4)
+    if binary is None:
+        raise RuntimeError(
+            "ft8code が見つかりません。\n"
+            "インストール: sudo apt install wsjtx\n"
+            "場所確認: find /usr /opt -name ft8code 2>/dev/null")
+
+    result = subprocess.run([binary, msg], capture_output=True, text=True, timeout=5)
+    stdout = result.stdout
+    print(f"[ft8code] binary={binary} rc={result.returncode} stdout={stdout!r}")
+
+    symbols = _ft8_parse_symbols(stdout)
+    if symbols is not None:
+        return symbols
+
+    raise RuntimeError(
+        f"ft8code がシンボルを出力しませんでした。\n"
+        f"binary: {binary}\n"
+        f"returncode: {result.returncode}\n"
+        f"stdout: {stdout!r}\n"
+        f"stderr: {result.stderr!r}")
+
+
+def _ft8_symbols_to_pcm(symbols: list, audio_freq: int, rate: int) -> bytes:
+    """8-FSK シンボル列を位相連続 S16_LE PCM に変換する (FT8: 160ms/sym, 6.25Hz間隔)。"""
+    import numpy as np
+    symbol_period = 0.160   # 160ms / symbol (6.25 baud)
+    tone_spacing  = 6.25    # Hz
+    n_per_sym = int(round(rate * symbol_period))
+    amplitude = 24000
+    parts: list = []
+    phase = 0.0
+    for sym in symbols:
+        freq = audio_freq + sym * tone_spacing
+        t = np.arange(n_per_sym) / rate
+        wave = amplitude * np.sin(2 * np.pi * freq * t + phase)
+        phase = (phase + 2 * np.pi * freq * n_per_sym / rate) % (2 * np.pi)
+        parts.append(wave.astype(np.int16))
+    if not parts:
+        raise RuntimeError("symbol list is empty")
+    return np.concatenate(parts).tobytes()
+
+
+_FT8_ENCODE_BIN = next(
+    (p for p in ["/usr/local/bin/ft8_encode",
+                 str(_HOME_DIR / "fastapi" / "ft8_encode")]
+     if os.path.isfile(p)), "")
+
+def _ft8_get_pcm(msg: str, audio_freq: int, rate: int = 12000, is_ft4: bool = False) -> bytes:
+    """FT8/FT4 メッセージから S16_LE PCM を生成する。
+    ft8_encode (PCM直接出力) が使えればそちらを優先。
+    なければ ft8code (wsjtx) 経由でシンボルを取得して numpy で合成。"""
+    if os.path.isfile(_FT8_ENCODE_BIN):
+        result = subprocess.run(
+            [_FT8_ENCODE_BIN, msg, str(float(audio_freq)), str(rate), "1" if is_ft4 else "0"],
+            capture_output=True, timeout=10
+        )
+        if result.returncode == 0 and result.stdout:
+            return result.stdout
+        print(f"[ft8_encode] rc={result.returncode} stderr={result.stderr!r}")
+    return _ft8_symbols_to_pcm(_ft8_get_symbols(msg, is_ft4), audio_freq, rate)
+
+
 class FT8TxRequest(BaseModel):
     msg: str
     audio_freq: int = 1500
     rate: int = 12000
     is_ft4: bool = False
+    tx_mode: str = ""   # "even"/"odd"/""  (空=自動選択なし)
 
 
 @app.post("/radio/ft8_tx")
 async def ft8_tx(req: FT8TxRequest):
-    """FT8/FT4 メッセージを送信する。ft8_encode で PCM 生成 → aplay で送出。"""
-    global tx_in_progress
-    if tx_in_progress:
+    """FT8/FT4 メッセージを送信する。ft8code で PCM 生成 → aplay で送出。"""
+    global tx_in_progress, _ft8_tx_active
+    if tx_in_progress or _ft8_tx_active:
         raise HTTPException(status_code=409, detail="TX in progress")
     tx_in_progress = True
+    _ft8_tx_active = True
+    _mgr_sub.mute(14.0)
     loop = asyncio.get_running_loop()
     try:
-        cmd = ["/usr/local/bin/ft8_encode", req.msg,
-               str(req.audio_freq), str(req.rate)]
-        if req.is_ft4:
-            cmd.append("--ft4")
-
-        result = await loop.run_in_executor(
-            None,
-            lambda: subprocess.run(cmd, capture_output=True, timeout=10)
-        )
-        if result.returncode != 0:
-            err = result.stderr.decode(errors="replace").strip()
-            raise HTTPException(status_code=500, detail=f"ft8_encode: {err}")
-
-        pcm_data = result.stdout
-        if not pcm_data:
-            raise HTTPException(status_code=500, detail="ft8_encode produced no output")
+        # PCM生成: ft8_encode (PCM直接) または ft8code (シンボル経由)
+        try:
+            pcm_data = await loop.run_in_executor(
+                None,
+                lambda: _ft8_get_pcm(req.msg, req.audio_freq, req.rate, req.is_ft4)
+            )
+        except RuntimeError as enc_err:
+            raise HTTPException(status_code=500, detail=str(enc_err))
 
         def _play():
+            # 次のFT8ピリオド境界まで精密待機
+            # PCM生成に時間がかかるため、ここで再計算する
+            period_s = 7.5 if req.is_ft4 else FT8_PERIOD_S
+            now = time.time()
+            # ピリオド境界から 0.5s 以内なら現在ピリオドをそのまま使う
+            # （0.001s 後に呼ばれた場合に +1 で次へ飛ばすバグを防ぐ）
+            current_start = int(now / period_s) * period_s
+            if now - current_start < 0.5:
+                next_start = current_start
+            else:
+                next_start = current_start + period_s
+
+            # tx_mode 決定優先順: リクエスト > QSO > AUTO TX > なし
+            if req.tx_mode in ("even", "odd"):
+                tx_mode = req.tx_mode
+            elif _qso.get("active"):
+                tx_mode = _qso["tx_mode"]
+            elif _auto_tx.get("active"):
+                tx_mode = _auto_tx["mode"]
+            else:
+                tx_mode = None
+            if tx_mode and not req.is_ft4:
+                for _ in range(4):  # 最大4ピリオド(60秒)先まで探す
+                    utc_check = int(next_start) % 60
+                    pn = (utc_check // 15) % 4
+                    is_even = pn % 2 == 0
+                    if (tx_mode == "even" and is_even) or (tx_mode == "odd" and not is_even):
+                        break
+                    next_start += FT8_PERIOD_S  # 合わないピリオドをスキップ
+
+            wait_sec = next_start - time.time()
+            utc_at_tx = int(next_start) % 60
+            print(f"[ft8_tx] waiting {wait_sec:.2f}s → TX at UTC {utc_at_tx}s (tx_mode={tx_mode})")
+            # tx_pending を待機前に送信 → Androidのリストにすぐ表示（Auto TXと同じ動作）
+            _ft8_broadcast({"type": "tx_pending",
+                            "msg": req.msg,
+                            "wait_sec": round(wait_sec, 1),
+                            "utc_at_tx": utc_at_tx})
             subprocess.run(["pkill", "-9", "aplay"], capture_output=True)
-            time.sleep(0.1)
+            if wait_sec > 0.15:
+                time.sleep(wait_sec - 0.10)
+            while time.time() < next_start:
+                time.sleep(0.002)
+            _tx_start = time.time()
+            print(f"[ft8_tx] TX START {time.strftime('%H:%M:%S', time.localtime(_tx_start))}.{int(_tx_start*1000)%1000:03d}  UTC={int(_tx_start)%60}s")
             rigctl_cmd("T 1")
-            time.sleep(0.5)
+            time.sleep(0.3)
             proc = subprocess.Popen(
                 ["aplay", "-D", _alsa_playback_dev,
                  "-f", "S16_LE", "-r", str(req.rate), "-c", "1"],
@@ -2027,11 +3142,159 @@ async def ft8_tx(req: FT8TxRequest):
 
         await loop.run_in_executor(None, _play)
         return {"status": "ok", "msg": req.msg, "is_ft4": req.is_ft4}
+    except HTTPException:
+        raise
     except Exception as e:
-        rigctl_cmd("T 0")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
+        try: rigctl_cmd("T 0")
+        except Exception: pass
         tx_in_progress = False
+        _ft8_tx_active = False
+
+
+
+@app.get("/ft8/debug_encode")
+async def ft8_debug_encode(msg: str = Query(default="CQ TEST JA1XXX")):
+    """ft8code の生出力とシンボル解析結果を返す（TX診断用）。"""
+    binary = _ft8_find_encoder(False)
+    if binary is None:
+        # find コマンドで全探索して結果を表示
+        fr = subprocess.run(["find", "/usr", "/opt", "/home", "-name", "ft8code"],
+                            capture_output=True, text=True, timeout=10)
+        return {"error": "ft8code not found",
+                "find_output": fr.stdout,
+                "hint": "sudo apt install wsjtx"}
+    try:
+        r = subprocess.run([binary, msg], capture_output=True, text=True, timeout=5)
+        syms = _ft8_parse_symbols(r.stdout)
+        return {
+            "binary": binary,
+            "stdout": r.stdout,
+            "stderr": r.stderr,
+            "returncode": r.returncode,
+            "parsed_symbols": syms,
+            "symbol_count": len(syms) if syms else 0,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+class StartQsoRequest(BaseModel):
+    first_msg: str           # step1: DX MY GRID
+    dx_call: str
+    my_call: str
+    tx_mode: str = "odd"
+    audio_freq: int = 1500
+    initial_state: int = 0   # 0=step1, 2=step2, 4=step3, 6=step4(73)
+    step_snr_msg: str = ""   # step1後のSNRのみステップ (Rなし。空なら省略してstep2へ直行)
+    step2_msg: str = ""      # step2: DX MY R-NN (空なら step1 返信後すぐ step3 へ)
+    step3_msg: str = ""      # step3: DX MY RR73 (空なら自動生成)
+    step4_msg: str = ""      # step4: DX MY 73   (空なら step3 後に done)
+
+
+@app.post("/ft8/start_qso")
+async def ft8_start_qso(req: StartQsoRequest):
+    """QSOシーケンスを開始する。デコード一覧タップ時にAndroidから呼ばれる。"""
+    global _qso, _ft8_my_call
+    dx = req.dx_call.upper()
+    me = req.my_call.upper()
+    if me:
+        _ft8_my_call = me
+    step3 = req.step3_msg.upper() if req.step3_msg else f"{dx} {me} RR73"
+    step4 = req.step4_msg.upper() if req.step4_msg else ""
+    # initial_state: 0→step1(state=1), 1→step2snr(state=2), 2→step2(state=3), 4→step3(state=5), 6→step4(state=6,done)
+    wait_state = {0: 1, 1: 2, 2: 3, 4: 5, 6: 5}.get(req.initial_state, 1)
+    first_tx = {1: req.first_msg.upper(),
+                2: req.step_snr_msg.upper() if req.step_snr_msg else (req.step2_msg.upper() if req.step2_msg else step3),
+                3: req.step2_msg.upper() if req.step2_msg else step3,
+                5: step4 if req.initial_state == 6 else step3}.get(wait_state, req.first_msg.upper())
+    # extract snr_sent from step2_msg (e.g. "JA1XXX JA2YYY R-05" → "R-05")
+    step2_parts = (req.step2_msg or "").upper().split()
+    snr_sent = step2_parts[2] if len(step2_parts) >= 3 else ""
+    _qso["active"]    = True
+    _qso["dx_call"]   = dx
+    _qso["my_call"]   = me
+    _qso["state"]     = wait_state
+    _qso["tx_mode"]   = req.tx_mode
+    _qso["audio_freq"]= req.audio_freq
+    _qso["step1_msg"]   = req.first_msg.upper()
+    _qso["step_snr_msg"]= req.step_snr_msg.upper()
+    _qso["step2_msg"]   = req.step2_msg.upper()
+    _qso["step3_msg"]   = step3
+    _qso["step4_msg"]   = step4
+    _qso["cq_sender"]   = False   # DX指定呼び出し側: R-SNR使用
+    _qso["next_msg"]  = first_tx
+    _qso["snr_rcvd"]   = ""
+    _qso["snr_sent"]   = snr_sent
+    # step2_msg の R±NN から初期ピーク値を設定（以降は改善時のみ更新）
+    _initial_peak = None
+    if len(step2_parts) >= 3 and step2_parts[2].startswith("R"):
+        try: _initial_peak = int(step2_parts[2][1:])
+        except ValueError: pass
+    _qso["snr_dx_peak"] = _initial_peak
+    # AUTO TX を有効化して送信を委譲
+    _auto_tx["active"]    = True
+    _auto_tx["msg"]       = first_tx
+    _auto_tx["mode"]      = req.tx_mode
+    _auto_tx["audio_freq"]= req.audio_freq
+    _ft8_broadcast({"type": "qso_state", "state": "pending",
+                    "dx_call": dx, "msg": first_tx, "tx_mode": req.tx_mode})
+    return {"ok": True, **_qso}
+
+
+@app.post("/ft8/cancel_qso")
+async def ft8_cancel_qso():
+    """QSOシーケンスをキャンセルする。"""
+    global _qso
+    _qso["active"]      = False
+    _qso["state"]       = 4
+    _auto_tx["active"]  = False
+    return {"ok": True}
+
+
+@app.post("/ft8/auto_tx")
+async def ft8_set_auto_tx(request: Request):
+    """AutoTXの有効/無効とパラメータを設定する。"""
+    global _auto_tx
+    body = await request.json()
+    _auto_tx["active"]     = bool(body.get("active", False))
+    _auto_tx["mode"]       = str(body.get("mode", "even"))
+    _auto_tx["msg"]        = str(body.get("msg", ""))
+    _auto_tx["audio_freq"] = int(body.get("audio_freq", 1500))
+    return {**_auto_tx}
+
+
+@app.get("/ft8/auto_tx")
+async def ft8_get_auto_tx():
+    """AutoTX現在の状態を返す。"""
+    return {**_auto_tx}
+
+
+@app.post("/ft8/cq_auto")
+async def ft8_cq_auto(request: Request):
+    """CQ AUTO モード: CQ送信→DX返信で自動QSO→73後にCQ再開。"""
+    global _cq_auto, _auto_tx, _qso, _ft8_my_call
+    body = await request.json()
+    if not body.get("active"):
+        _cq_auto["active"] = False
+        _auto_tx["active"] = False
+        _qso["active"] = False
+        return {"ok": True, "active": False}
+    _cq_auto["active"]    = True
+    _cq_auto["msg"]       = str(body.get("msg", ""))
+    _cq_auto["mode"]      = str(body.get("mode", "even"))
+    _cq_auto["audio_freq"]= int(body.get("audio_freq", 1500))
+    _cq_auto["my_call"]   = str(body.get("my_call", ""))
+    _cq_auto["my_grid"]   = str(body.get("my_grid", ""))
+    if _cq_auto["my_call"]:
+        _ft8_my_call = _cq_auto["my_call"].upper()
+    _auto_tx["active"]    = True
+    _auto_tx["msg"]       = _cq_auto["msg"]
+    _auto_tx["mode"]      = _cq_auto["mode"]
+    _auto_tx["audio_freq"]= _cq_auto["audio_freq"]
+    print(f"[cq_auto] start: {_cq_auto['msg']} mode={_cq_auto['mode']}")
+    return {**_cq_auto}
 
 
 # ---------- CW send_morse (Hamlib rigctld b コマンド) ----------
@@ -3158,6 +4421,7 @@ async def admin_update(request: Request):
     def _restart():
         import time as _time
         _time.sleep(0.5)
+        _ensure_venv_numpy()
         # 方法1: sudo -n systemctl (NOPASSWD 設定済みの場合) — 各サービスを個別に試行
         r = subprocess.run(
             ["sudo", "-n", "systemctl", "restart", "fastapi"],
@@ -3249,53 +4513,6 @@ async def admin_update_cw_bridge(request: Request):
     return {"status": "ok", "message": "cw_bridge updated and restarted"}
 
 
-@app.post("/admin/update_webft8")
-async def admin_update_webft8(request: Request):
-    """webft8 の server.py をアップデートして systemd サービスを再起動する"""
-    global _webft8_version
-    content = await request.body()
-    if not content:
-        raise HTTPException(status_code=400, detail="Empty body")
-    try:
-        compile(content.decode("utf-8"), "<server.py>", "exec")
-    except SyntaxError as e:
-        raise HTTPException(status_code=422, detail=f"Syntax error: {e}")
-    server_path = _HOME_DIR / "webft8_static" / "web" / "server.py"
-    bak_path = _HOME_DIR / "webft8_static" / "web" / "server.py.bak"
-    try:
-        if server_path.exists():
-            import shutil
-            shutil.copy2(server_path, bak_path)
-        server_path.write_bytes(content)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Write failed: {e}")
-    web_dir = str(server_path.parent)
-    restarted_via = "unknown"
-    try:
-        r = subprocess.run(
-            ["sudo", "-n", "systemctl", "restart", "webft8"],
-            capture_output=True, timeout=10
-        )
-        if r.returncode == 0:
-            restarted_via = "systemd"
-        else:
-            raise Exception(f"systemctl rc={r.returncode}")
-    except Exception:
-        # No webft8 systemd service — kill old process and start fresh directly.
-        subprocess.run(["pkill", "-TERM", "-f", "python3 server.py"], capture_output=True)
-        import time as _time2
-        _time2.sleep(1)
-        subprocess.run(["pkill", "-KILL", "-f", "python3 server.py"], capture_output=True)
-        _time2.sleep(0.5)
-        log = open("/tmp/webft8.log", "a")
-        subprocess.Popen(
-            ["python3", "server.py"],
-            cwd=web_dir, stdout=log, stderr=log, start_new_session=True
-        )
-        restarted_via = "direct"
-    _webft8_version = _read_webft8_version()
-    return {"status": "ok", "message": f"webft8 server.py updated and restarted ({restarted_via})"}
-
 
 @app.post("/admin/setup")
 async def admin_setup(request: Request):
@@ -3372,7 +4589,7 @@ async def admin_setup_log(lines: int = 60):
     """create_api.sh の実行ログ末尾を返す"""
     log_path = Path("/tmp/create_api.log")
     if not log_path.exists():
-        return {"log": "(no log yet)"}
+        return {"running": False, "log": ""}
     text = log_path.read_text(errors="replace")
     tail = "\n".join(text.splitlines()[-lines:])
     running = Path("/proc").exists() and any(
@@ -3383,13 +4600,200 @@ async def admin_setup_log(lines: int = 60):
     return {"running": running, "log": tail}
 
 
+_MFSK_BUILD_LOG = "/tmp/mfsk_build.log"
+_CARGO_TOML = r"""
+[package]
+name        = "mfsk-decode"
+version     = "0.1.0"
+edition     = "2021"
+publish     = false
+
+[[bin]]
+name = "mfsk-decode"
+path = "src/main.rs"
+
+[dependencies]
+mfsk-core = { git = "https://github.com/jl1nie/mfsk-core", branch = "main", package = "mfsk-core" }
+hound = "3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+""".strip()
+
+_MAIN_RS = r"""
+use std::collections::HashSet;
+use std::env;
+use std::io::{self, Write};
+use std::sync::Mutex;
+use mfsk_core::ft8::Ft8;
+use mfsk_core::ft8::decode::DecodeResult;
+use mfsk_core::msg::decode_request::DecodeRequest;
+use mfsk_core::msg::hash_table::CallsignHashTable;
+use mfsk_core::ProtocolId;
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    let mut wav_path: Option<String> = None;
+    let mut my_call: Option<String> = None;
+    let mut dx_call: Option<String> = None;
+    let mut freq_min: f32 = 100.0;
+    let mut freq_max: f32 = 3000.0;
+    let mut sic_rounds: u32 = 3;
+    let mut known_calls: Vec<String> = Vec::new();
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "-c"|"--my-call" => { my_call = args.get(i+1).cloned(); i+=2; }
+            "-x"|"--dx-call" => { dx_call = args.get(i+1).cloned(); i+=2; }
+            "--freq-min" => { freq_min = args.get(i+1).and_then(|s|s.parse().ok()).unwrap_or(100.0); i+=2; }
+            "--freq-max" => { freq_max = args.get(i+1).and_then(|s|s.parse().ok()).unwrap_or(3000.0); i+=2; }
+            "--sic-rounds" => { sic_rounds = args.get(i+1).and_then(|s|s.parse().ok()).unwrap_or(3); i+=2; }
+            "-k"|"--known-call" => { if let Some(v) = args.get(i+1) { known_calls.push(v.clone()); } i+=2; }
+            arg if !arg.starts_with('-') => { wav_path = Some(arg.to_string()); i+=1; }
+            _ => { i+=1; }
+        }
+    }
+    let wav_path = match wav_path {
+        Some(p) => p,
+        None => { eprintln!("Usage: mfsk-decode [-c MY_CALL] [-x DX_CALL] [--freq-min HZ] [--freq-max HZ] <wav>"); std::process::exit(1); }
+    };
+    let audio = match load_wav_12khz(&wav_path) {
+        Ok(a) => a,
+        Err(e) => { eprintln!("[mfsk-decode] WAV load error: {}", e); std::process::exit(1); }
+    };
+    let mut hash_table = CallsignHashTable::new();
+    if let Some(ref c) = my_call { hash_table.insert(c.as_str()); }
+    if let Some(ref c) = dx_call { hash_table.insert(c.as_str()); }
+    for c in &known_calls { hash_table.insert(c.as_str()); }
+    let stdout = io::stdout();
+    let seen: Mutex<HashSet<Vec<u8>>> = Mutex::new(HashSet::new());
+    let on_result = |r: &DecodeResult| {
+        let key = r.message77().to_vec();
+        { let mut s = seen.lock().unwrap(); if !s.insert(key) { return; } }
+        if let Some(decoded) = r.to_decoded(ProtocolId::Ft8, Some(&hash_table)) {
+            let escaped = decoded.text.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n").replace('\r', "\\r");
+            let line = format!("{{\"freq\":{:.1},\"snr\":{:.1},\"dt\":{:.2},\"msg\":\"{}\"}}",
+                decoded.freq_hz, decoded.snr_db, decoded.dt_sec, escaped);
+            let mut out = stdout.lock(); writeln!(out, "{}", line).ok(); let _ = out.flush();
+        }
+    };
+    let _outcome = DecodeRequest::<Ft8>::new(&audio, freq_min, freq_max, 1.5, 150)
+        .sic_rounds(sic_rounds as usize).on_result(&on_result).decode();
+}
+fn load_wav_12khz(path: &str) -> Result<Vec<i16>, Box<dyn std::error::Error>> {
+    let mut reader = hound::WavReader::open(path)?;
+    let spec = reader.spec();
+    if spec.channels != 1 { return Err(format!("mono expected, got {} ch", spec.channels).into()); }
+    if spec.sample_rate != 12000 { eprintln!("[mfsk-decode] warning: {} Hz", spec.sample_rate); }
+    let samples: Vec<i16> = match (spec.sample_format, spec.bits_per_sample) {
+        (hound::SampleFormat::Int, 16) => reader.samples::<i16>().map(|s| s.unwrap_or(0)).collect(),
+        (hound::SampleFormat::Float, _) => reader.samples::<f32>().map(|s| (s.unwrap_or(0.0).clamp(-1.0, 1.0) * 32767.0) as i16).collect(),
+        (hound::SampleFormat::Int, b) => { let scale = (1i64 << (b-1)) as f64; reader.samples::<i32>().map(|s| ((s.unwrap_or(0) as f64 / scale) * 32767.0) as i16).collect() }
+    };
+    Ok(samples)
+}
+""".strip()
+
+
+def _mfsk_build_worker():
+    import datetime as _dt
+    log = open(_MFSK_BUILD_LOG, "w", buffering=1)
+    def w(msg):
+        ts = _dt.datetime.now().strftime("%H:%M:%S")
+        log.write(f"[{ts}] {msg}\n")
+        log.flush()
+    try:
+        w(f"mfsk-decode ビルド開始")
+        cargo_env = str(_HOME_DIR / ".cargo" / "env")
+        # Rust インストール確認
+        cargo_bin = str(_HOME_DIR / ".cargo" / "bin" / "cargo")
+        if not os.path.isfile(cargo_bin):
+            w("Rust をインストール中 (10〜15分かかります)...")
+            r = subprocess.run(
+                ["sh", "-c",
+                 "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs"
+                 " | sh -s -- -y --no-modify-path"],
+                capture_output=True, text=True, timeout=900
+            )
+            w(r.stdout[-500:] if r.stdout else "")
+            if r.returncode != 0:
+                w(f"Rust インストール失敗: {r.stderr[-300:]}")
+                w("=== 失敗 ===")
+                return
+            w("Rust インストール完了")
+
+        # ソース展開
+        src_dir = _HOME_DIR / "mfsk-decode" / "src"
+        src_dir.mkdir(parents=True, exist_ok=True)
+        (_HOME_DIR / "mfsk-decode" / "Cargo.toml").write_text(_CARGO_TOML)
+        (src_dir / "main.rs").write_text(_MAIN_RS)
+        w("ソース展開完了")
+
+        # ビルド
+        w("cargo build --release 開始 (初回は 10〜15 分かかります)...")
+        env = os.environ.copy()
+        env["PATH"] = str(_HOME_DIR / ".cargo" / "bin") + ":" + env.get("PATH", "")
+        env["HOME"] = str(_HOME_DIR)
+        proc = subprocess.Popen(
+            [cargo_bin, "build", "--release"],
+            cwd=str(_HOME_DIR / "mfsk-decode"),
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, env=env
+        )
+        for line in proc.stdout:
+            log.write(line)
+            log.flush()
+        proc.wait()
+        if proc.returncode == 0:
+            bin_path = _HOME_DIR / "mfsk-decode" / "target" / "release" / "mfsk-decode"
+            w(f"ビルド完了: {bin_path}")
+            w("=== 完了 ===")
+        else:
+            w(f"ビルド失敗 (returncode={proc.returncode})")
+            w("=== 失敗 ===")
+    except Exception as e:
+        log.write(f"[error] {e}\n=== 失敗 ===\n")
+    finally:
+        log.close()
+
+
+@app.post("/admin/build_mfsk")
+async def admin_build_mfsk(force: bool = False):
+    """mfsk-decode をバックグラウンドでビルドする (初回 Update Pi 後に Android から呼ぶ)"""
+    bin_path = _HOME_DIR / "mfsk-decode" / "target" / "release" / "mfsk-decode"
+    if bin_path.exists() and not force:
+        return {"status": "already_built", "path": str(bin_path)}
+    if bin_path.exists() and force:
+        try: bin_path.unlink()
+        except Exception: pass
+    threading.Thread(target=_mfsk_build_worker, daemon=False).start()
+    return {"status": "building", "log": _MFSK_BUILD_LOG}
+
+
+@app.get("/admin/mfsk_build_log")
+async def admin_mfsk_build_log():
+    """mfsk-decode ビルドログの末尾を返す"""
+    log_path = Path(_MFSK_BUILD_LOG)
+    if not log_path.exists():
+        return {"status": "not_started", "log": ""}
+    text = log_path.read_text(errors="replace")
+    lines = text.splitlines()
+    done = any("=== 完了 ===" in l for l in lines)
+    failed = any("=== 失敗 ===" in l for l in lines)
+    status = "done" if done else ("failed" if failed else "building")
+    return {"status": status, "log": "\n".join(lines[-40:])}
+
+
 @app.post("/admin/reboot")
 async def admin_reboot():
     """ラズパイを再起動する"""
-    def _do_reboot():
-        time.sleep(2)
-        subprocess.run(["sudo", "-n", "/bin/systemctl", "reboot"], check=False)
-    threading.Thread(target=_do_reboot, daemon=True).start()
+    # start_new_session=True でデタッチ: FastAPI が _restart() で kill されても reboot は実行される
+    subprocess.Popen(
+        ["bash", "-c", "sleep 2 && sudo -n /bin/systemctl reboot"],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
     return {"ok": True}
 
 
@@ -3480,6 +4884,104 @@ if [ -f "$_VENV_PIP" ]; then
     fi
 else
     echo "警告: venv が見つかりません ($ME_HOME/fastapi/bin/pip)"
+fi
+
+# ─── ft8_encode ビルド (FT8/FT4 PCM エンコーダー) ───
+# sudo不要: $ME_HOME以下にクローン・ビルド・インストール
+# api.pyは /usr/local/bin/ft8_encode と $ME_HOME/fastapi/ft8_encode の両方を確認する
+_FT8_LOCAL="$ME_HOME/fastapi/ft8_encode"
+if [ ! -f /usr/local/bin/ft8_encode ] && [ ! -f "$_FT8_LOCAL" ]; then
+    echo "=== ft8_encode をビルド中 (sudo不要) ==="
+    # g++ が無ければインストール試行
+    if ! command -v g++ > /dev/null 2>&1; then
+        if $_HAS_APT; then
+            sudo apt-get install -y g++ git 2>/dev/null || true
+        else
+            echo "警告: g++ が見つかりません。先に sudo apt-get install -y g++ git を実行してください"
+        fi
+    fi
+    _FT8LIB="$ME_HOME/ft8_lib"
+    if [ ! -d "$_FT8LIB" ]; then
+        git clone --depth=1 https://github.com/kgoba/ft8_lib "$_FT8LIB" \
+            && echo "ft8_lib クローン完了: $_FT8LIB" \
+            || echo "警告: ft8_lib クローン失敗 — FT8 TX 不可"
+    fi
+    if [ -d "$_FT8LIB" ] && command -v g++ > /dev/null 2>&1; then
+        cat > "$_FT8LIB/ft8_encode_main.cpp" << 'FT8CPPEOF'
+// ft8_encode_main.cpp — FT8 PCM encoder (FT8 only, no FT4 dependency)
+// Usage: ft8_encode <message> <base_hz> [sample_rate] [is_ft4_ignored]
+// Output: raw S16_LE mono PCM to stdout
+#include <cstdio>
+#include <cstdlib>
+#include <cmath>
+#include <cstdint>
+#include "ft8/message.h"
+#include "ft8/encode.h"
+#include "ft8/constants.h"
+static bool noop_lookup(ftx_callsign_hash_type_t, uint32_t, char* c) {
+    if (c) c[0] = '\0';
+    return false;
+}
+static void noop_save(const char*, uint32_t) {}
+static ftx_callsign_hash_interface_t s_hash = { noop_lookup, noop_save };
+int main(int argc, char* argv[]) {
+    if (argc < 3) {
+        fprintf(stderr, "Usage: ft8_encode <message> <base_hz> [sample_rate]\n");
+        return 1;
+    }
+    const char* msg_text    = argv[1];
+    float       base_hz     = (float)atof(argv[2]);
+    int         sample_rate = (argc > 3) ? atoi(argv[3]) : 12000;
+    ftx_message_t msg = {};
+    ftx_message_rc_t rc = ftx_message_encode(&msg, &s_hash, msg_text);
+    if (rc != FTX_MESSAGE_RC_OK) {
+        fprintf(stderr, "ftx_message_encode failed rc=%d for '%s'\n", rc, msg_text);
+        return 2;
+    }
+    uint8_t tones[FT8_NN] = {};
+    ft8_encode(msg.payload, tones);
+    int samp_per_sym = (int)(FT8_SYMBOL_PERIOD * sample_rate + 0.5f);
+    int n_samples    = FT8_NN * samp_per_sym;
+    int16_t* pcm = (int16_t*)malloc(n_samples * sizeof(int16_t));
+    if (!pcm) { fprintf(stderr, "malloc failed\n"); return 3; }
+    float phase   = 0.0f;
+    const float TWO_PI = 6.28318530718f;
+    for (int i = 0; i < FT8_NN; i++) {
+        float freq   = base_hz + tones[i] / FT8_SYMBOL_PERIOD;
+        float dphase = TWO_PI * freq / sample_rate;
+        int   base_i = i * samp_per_sym;
+        for (int j = 0; j < samp_per_sym; j++) {
+            pcm[base_i + j] = (int16_t)(sinf(phase) * 32767.0f);
+            phase += dphase;
+            if (phase >= TWO_PI) phase -= TWO_PI;
+        }
+    }
+    fwrite(pcm, sizeof(int16_t), n_samples, stdout);
+    free(pcm);
+    return 0;
+}
+FT8CPPEOF
+        # ft8_lib の .c ファイルを収集（kiss_fft依存のデコーダー系ファイルを除外）
+        _FT8_CSRCS=""
+        for _f in "$_FT8LIB"/ft8/*.c "$_FT8LIB"/ft4/*.c "$_FT8LIB"/common/*.c; do
+            if [ -f "$_f" ] && ! grep -q "kiss_fft" "$_f"; then
+                _FT8_CSRCS="$_FT8_CSRCS $_f"
+            fi
+        done
+        g++ -fpermissive -O2 -std=c++17 -I"$_FT8LIB" \
+            $_FT8_CSRCS \
+            "$_FT8LIB/ft8_encode_main.cpp" \
+            -lm -o "$_FT8_LOCAL" \
+            && echo "ft8_encode ビルド完了: $_FT8_LOCAL" \
+            || echo "警告: ft8_encode ビルド失敗 — FT8 TX 不可"
+        # sudo が使えれば /usr/local/bin にもコピー
+        if [ -f "$_FT8_LOCAL" ] && $_HAS_SUDO; then
+            sudo cp "$_FT8_LOCAL" /usr/local/bin/ft8_encode \
+                && echo "ft8_encode → /usr/local/bin/ にもインストール"
+        fi
+    fi
+else
+    echo "ft8_encode 既存: スキップ"
 fi
 
 # ─── (v3.00 以降: webft8 サーバーは不要。jt9 サーバーサイドデコードに移行) ───

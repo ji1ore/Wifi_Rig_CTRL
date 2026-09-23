@@ -1,0 +1,580 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#000000">
+
+    <!-- Row 1: Back / FT4 / PWR / Mode / GL / Log -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#0A0A0A"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp">
+
+        <Button
+            android:id="@+id/btnBack"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="Back"
+            android:textSize="12sp"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#B71C1C"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnFt4Toggle"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="FT8"
+            android:textSize="12sp"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#2E7D32"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnPower"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="PWR --"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#4E342E"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnMode"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="USB"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A237E"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnGl"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="PSK"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#4A148C"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnLog"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="Log"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1B3A4B"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnSync"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="Sync"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#44CCFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#0A1A1A"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnDepth"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:text="D:3"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#FFCC44"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A1A0A"
+            android:layout_marginStart="3dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+    </LinearLayout>
+
+    <!-- Row 2: Freq (tappable) / Mode / Status / CQ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="32dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#050505"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp">
+
+        <TextView
+            android:id="@+id/tvFreq"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:text="---.--- MHz"
+            android:textColor="#00FF00"
+            android:textSize="13sp"
+            android:fontFamily="monospace"
+            android:gravity="center_vertical"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground"
+            android:paddingEnd="6dp" />
+
+        <TextView
+            android:id="@+id/tvMode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:text="---"
+            android:textColor="#00CCFF"
+            android:textSize="13sp"
+            android:fontFamily="monospace" />
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            android:text="---"
+            android:textColor="#888888"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:ellipsize="end"
+            android:maxLines="1" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/btnCqOnly"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Filter"
+            android:textColor="#AAAAAA"
+            android:textSize="12sp"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
+
+    <!-- TX meters: PO / ALC — CI-V TX中のみ表示 -->
+    <LinearLayout
+        android:id="@+id/llFt8TxMeters"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#050515"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
+        android:paddingTop="3dp"
+        android:paddingBottom="3dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+                android:layout_width="22dp"
+                android:layout_height="wrap_content"
+                android:text="PO"
+                android:textColor="#FF6D00"
+                android:textSize="8sp"
+                android:textStyle="bold"
+                android:gravity="center"/>
+            <LinearLayout
+                android:id="@+id/llFt8PoMeter"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"/>
+            <TextView
+                android:id="@+id/tvFt8PoValue"
+                android:layout_width="34dp"
+                android:layout_height="wrap_content"
+                android:text="0%"
+                android:textColor="#FF6D00"
+                android:textSize="9sp"
+                android:fontFamily="monospace"
+                android:gravity="end"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="2dp">
+            <TextView
+                android:layout_width="22dp"
+                android:layout_height="wrap_content"
+                android:text="ALC"
+                android:textColor="#D50000"
+                android:textSize="7sp"
+                android:textStyle="bold"
+                android:gravity="center"/>
+            <LinearLayout
+                android:id="@+id/llFt8AlcMeter"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"/>
+            <TextView
+                android:id="@+id/tvFt8AlcValue"
+                android:layout_width="34dp"
+                android:layout_height="wrap_content"
+                android:text="0%"
+                android:textColor="#D50000"
+                android:textSize="9sp"
+                android:fontFamily="monospace"
+                android:gravity="end"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Waterfall controls: brightness and decode depth -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="28dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#080808"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="WF"
+            android:textColor="#555555"
+            android:textSize="10sp"
+            android:fontFamily="monospace" />
+
+        <Button
+            android:id="@+id/btnWfBrightMinus"
+            android:layout_width="40dp"
+            android:layout_height="24dp"
+            android:text="B-"
+            android:textSize="10sp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:textColor="#AAAAAA"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A1A1A"
+            android:layout_marginStart="6dp"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp" />
+
+        <Button
+            android:id="@+id/btnWfBrightPlus"
+            android:layout_width="40dp"
+            android:layout_height="24dp"
+            android:text="B+"
+            android:textSize="10sp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:textColor="#AAAAAA"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A1A1A"
+            android:layout_marginStart="3dp"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp" />
+
+        <Button
+            android:id="@+id/btnRxGainMinus"
+            android:layout_width="36dp"
+            android:layout_height="24dp"
+            android:text="V-"
+            android:textSize="10sp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:textColor="#AAAAAA"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A1A1A"
+            android:layout_marginStart="6dp"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp" />
+
+        <TextView
+            android:id="@+id/tvRxGain"
+            android:layout_width="44dp"
+            android:layout_height="wrap_content"
+            android:text="×1.0"
+            android:textColor="#88CCFF"
+            android:textSize="10sp"
+            android:fontFamily="monospace"
+            android:gravity="center"
+            android:layout_marginStart="2dp" />
+
+        <Button
+            android:id="@+id/btnRxGainPlus"
+            android:layout_width="36dp"
+            android:layout_height="24dp"
+            android:text="V+"
+            android:textSize="10sp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:textColor="#AAAAAA"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A1A1A"
+            android:layout_marginStart="2dp"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp" />
+
+        <Button
+            android:id="@+id/btnTxGainMinus"
+            android:layout_width="36dp"
+            android:layout_height="24dp"
+            android:text="T-"
+            android:textSize="10sp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:textColor="#AAAAAA"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A1A1A"
+            android:layout_marginStart="6dp"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp" />
+
+        <TextView
+            android:id="@+id/tvTxGain"
+            android:layout_width="52dp"
+            android:layout_height="wrap_content"
+            android:text="T×0.4"
+            android:textColor="#FFCC88"
+            android:textSize="10sp"
+            android:fontFamily="monospace"
+            android:gravity="center"
+            android:layout_marginStart="2dp" />
+
+        <Button
+            android:id="@+id/btnTxGainPlus"
+            android:layout_width="36dp"
+            android:layout_height="24dp"
+            android:text="T+"
+            android:textSize="10sp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:textColor="#AAAAAA"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A1A1A"
+            android:layout_marginStart="2dp"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp" />
+
+        <Button
+            android:id="@+id/btnTxFreq"
+            android:layout_width="72dp"
+            android:layout_height="24dp"
+            android:text="TX:1500"
+            android:textSize="10sp"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:textColor="#FF8844"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A0800"
+            android:layout_marginStart="6dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+    </LinearLayout>
+
+    <!-- Waterfall display -->
+    <com.ji1ore.wifi_rig_ctrl.WaterfallView
+        android:id="@+id/waterfallView"
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:background="#000000" />
+
+    <!-- Message list header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="20dp"
+        android:orientation="horizontal"
+        android:background="#111111"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="52dp"
+            android:layout_height="wrap_content"
+            android:text="Hz"
+            android:textColor="#666666"
+            android:textSize="10sp"
+            android:fontFamily="monospace" />
+
+        <TextView
+            android:layout_width="44dp"
+            android:layout_height="wrap_content"
+            android:text="SNR"
+            android:textColor="#666666"
+            android:textSize="10sp"
+            android:fontFamily="monospace"
+            android:layout_marginStart="2dp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Message"
+            android:textColor="#666666"
+            android:textSize="10sp"
+            android:fontFamily="monospace"
+            android:layout_marginStart="4dp" />
+
+        <TextView
+            android:layout_width="40dp"
+            android:layout_height="wrap_content"
+            android:text="UTC"
+            android:textColor="#666666"
+            android:textSize="10sp"
+            android:fontFamily="monospace"
+            android:gravity="end" />
+    </LinearLayout>
+
+    <!-- Decoded messages RecyclerView -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvMsgs"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#050505"
+        android:clipToPadding="false"
+        android:paddingBottom="4dp" />
+
+    <!-- TX area -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:background="#0A0A14"
+        android:gravity="center_vertical"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:paddingTop="3dp"
+        android:paddingBottom="3dp">
+
+        <EditText
+            android:id="@+id/etTxMsg"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
+            android:hint="TX message (tap row to fill)"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#555555"
+            android:fontFamily="monospace"
+            android:background="#1A1A2A"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:inputType="textCapCharacters"
+            android:textSize="14sp"
+            android:maxLines="1"
+            android:scrollHorizontally="true"
+            android:ellipsize="none"
+            android:imeOptions="actionDone" />
+
+        <Button
+            android:id="@+id/btnCq"
+            android:layout_width="52dp"
+            android:layout_height="36dp"
+            android:text="CQ"
+            android:minWidth="0dp"
+            android:textColor="#FFDD44"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A1500"
+            android:layout_marginStart="4dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnTx"
+            android:layout_width="56dp"
+            android:layout_height="36dp"
+            android:text="TX"
+            android:minWidth="0dp"
+            android:maxLines="1"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMaxTextSize="14sp"
+            android:autoSizeMinTextSize="8sp"
+            android:autoSizeStepGranularity="1sp"
+            android:textColor="#AAAAAA"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#546E7A"
+            android:layout_marginStart="4dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnClear"
+            android:layout_width="52dp"
+            android:layout_height="36dp"
+            android:text="CLR"
+            android:minWidth="0dp"
+            android:textColor="#AAAAAA"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#263238"
+            android:layout_marginStart="4dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp" />
+
+        <Button
+            android:id="@+id/btnAutoTx"
+            android:layout_width="60dp"
+            android:layout_height="36dp"
+            android:text="EVEN"
+            android:textAllCaps="false"
+            android:minWidth="0dp"
+            android:textColor="#88AAFF"
+            android:background="@drawable/btn_ctrl"
+            android:backgroundTint="#1A237E"
+            android:layout_marginStart="4dp"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp" />
+    </LinearLayout>
+
+</LinearLayout>

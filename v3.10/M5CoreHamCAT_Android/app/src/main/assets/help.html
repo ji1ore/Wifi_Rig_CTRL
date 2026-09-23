@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Wifi RIG CTRL Help</title>
+<style>
+:root{
+  --primary:#1565C0;
+  --primary-light:#E3F2FD;
+  --accent:#0D47A1;
+  --text:#212121;
+  --text2:#555;
+  --border:#DDD;
+  --bg:#FAFAFA;
+  --code-bg:#F5F5F5;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,sans-serif;font-size:15px;color:var(--text);background:#FFF;line-height:1.7;padding-bottom:40px}
+h1{background:var(--primary);color:#FFF;padding:16px 20px;font-size:20px;position:sticky;top:0;z-index:100}
+h1 small{font-size:13px;font-weight:normal;opacity:0.85;display:block;margin-top:2px}
+h2{font-size:17px;color:var(--accent);border-left:4px solid var(--primary);padding:6px 12px;margin:28px 0 10px;background:var(--primary-light)}
+h3{font-size:15px;color:var(--text);font-weight:bold;margin:18px 0 6px;padding-left:4px;border-bottom:1px solid var(--border)}
+p{margin:6px 0 10px;padding:0 16px;color:var(--text)}
+ul,ol{margin:6px 0 10px 20px;padding:0 16px}
+li{margin-bottom:4px}
+.toc{background:var(--primary-light);border:1px solid #B3D4F7;border-radius:8px;margin:16px;padding:14px 20px}
+.toc h2{margin:0 0 8px;background:none;border:none;padding:0;font-size:16px;color:var(--accent)}
+.toc ol{margin:0;padding-left:20px}
+.toc li{margin-bottom:2px;font-size:14px}
+.toc a{color:var(--primary);text-decoration:none}
+.toc a:hover{text-decoration:underline}
+.section{padding:0 16px}
+.card{background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin:8px 0;font-size:14px}
+.badge{display:inline-block;background:var(--primary);color:#FFF;font-size:11px;font-weight:bold;border-radius:4px;padding:1px 6px;vertical-align:middle;margin-right:4px}
+.badge.green{background:#2E7D32}
+.badge.red{background:#B71C1C}
+.badge.teal{background:#00695C}
+.badge.orange{background:#E65100}
+.badge.gray{background:#546E7A}
+.tip{background:#E8F5E9;border-left:3px solid #388E3C;padding:8px 12px;margin:8px 0;font-size:14px;border-radius:0 4px 4px 0}
+.warn{background:#FFF8E1;border-left:3px solid #F57C00;padding:8px 12px;margin:8px 0;font-size:14px;border-radius:0 4px 4px 0}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:8px 0}
+th{background:var(--primary);color:#FFF;padding:6px 10px;text-align:left}
+td{padding:6px 10px;border-bottom:1px solid var(--border)}
+tr:nth-child(even) td{background:var(--code-bg)}
+.divider{height:1px;background:var(--border);margin:20px 16px 0}
+</style>
+</head>
+<body>
+
+<h1>Wifi RIG CTRL Manual
+  <small>Raspberry Pi Ham Radio Controller v3.10</small>
+</h1>
+
+<div class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#connect">Connect Screen</a></li>
+    <li><a href="#main">Main Control Screen</a></li>
+    <li><a href="#ft8">FT8 Screen</a>
+      <ol>
+        <li><a href="#ft8-decode">Decode &amp; Message List</a></li>
+        <li><a href="#ft8-tx">Manual TX</a></li>
+        <li><a href="#ft8-auto">Auto QSO</a></li>
+        <li><a href="#ft8-cq">CQ Mode</a></li>
+      </ol>
+    </li>
+    <li><a href="#cw">CW Keyer</a></li>
+    <li><a href="#aprs">APRS</a></li>
+    <li><a href="#update">Update Pi</a></li>
+    <li><a href="#tips">Tips &amp; Troubleshooting</a></li>
+  </ol>
+</div>
+
+<!-- ===== 1. Overview ===== -->
+<h2 id="overview">1. Overview</h2>
+<div class="section">
+<p>Wifi RIG CTRL connects your Android device to an ICOM transceiver via a Raspberry Pi server (or direct CI-V Wi-Fi / Bluetooth) to provide remote control of frequency, mode, PTT, and digital modes.</p>
+<div class="card">
+  <strong>Key features</strong><br>
+  &bull; Frequency / mode / filter / PTT control (IC-705, IC-7300, IC-9700, etc.)<br>
+  &bull; FT8 / FT4 decode, transmit, and automatic QSO sequence (Pi server-side or CI-V on-device)<br>
+  &bull; CW keyer via Raspberry Pi<br>
+  &bull; APRS monitoring (via Pi)<br>
+  &bull; One-tap Pi software update
+</div>
+<div class="tip">The app communicates with the Pi over your local Wi-Fi network. Make sure both devices are on the same network before connecting.</div>
+</div>
+
+<!-- ===== 2. Connect ===== -->
+<h2 id="connect">2. Connect Screen</h2>
+<div class="section">
+<p>Configure the connection to your Pi or transceiver here. Settings are saved automatically.</p>
+
+<h3>Pi Mode (default)</h3>
+<table>
+  <tr><th>Field</th><th>Description</th></tr>
+  <tr><td>Host / IP Address</td><td>Raspberry Pi IP address or mDNS name (e.g. hamcat.local). Tap 🔍 to scan the network automatically.</td></tr>
+  <tr><td>API Port</td><td>Port for the Pi REST API. Default: 8210</td></tr>
+  <tr><td>Audio Port</td><td>Port for audio streaming. Default: 8211</td></tr>
+  <tr><td>API Key</td><td>Optional security key configured on the Pi. Leave blank if not set.</td></tr>
+  <tr><td>My Callsign</td><td>Your callsign. Used in FT8 CQ and QSO messages.</td></tr>
+  <tr><td>SSB Width / CW Width</td><td>Default filter widths applied when switching modes.</td></tr>
+  <tr><td>USE mDNS</td><td>Enable mDNS (Bonjour) name resolution for "hamcat.local" style hostnames.</td></tr>
+</table>
+
+<h3>CI-V Mode (USE CI-V toggle ON)</h3>
+<p>Direct connection to the transceiver without a Pi. FT8 local decode is available in CI-V WiFi mode; APRS requires Pi.</p>
+<table>
+  <tr><th>Option</th><th>Description</th></tr>
+  <tr><td>WiFi / LAN</td><td>Connect via IC-705 built-in Wi-Fi (RS-BA1 protocol). Enter Port1/2/3, Username, Password, and CI-V Address (hex, e.g. A4 for IC-705). FT8 local decode supported.</td></tr>
+  <tr><td>Bluetooth</td><td>Connect via Bluetooth SPP. Select a paired BT device. Enter RS-BA1 Audio Host to receive audio (for FT8 decode and speaker) via Wi-Fi while CI-V control goes via BT.</td></tr>
+</table>
+
+<div class="tip">Tap <strong>Connect</strong> to establish the connection. A progress indicator appears while connecting. The status line shows any error message if the connection fails.</div>
+</div>
+
+<!-- ===== 3. Main Control ===== -->
+<h2 id="main">3. Main Control Screen</h2>
+<div class="section">
+<p>The main operating screen. All rig controls are available here.</p>
+
+<h3>Frequency Display</h3>
+<p>Large frequency display in the center. Tap directly on a digit to edit it. Use the &plusmn; buttons to step up/down by the selected step size.</p>
+<table>
+  <tr><th>Element</th><th>Action</th></tr>
+  <tr><td>Frequency digits</td><td>Tap to enter frequency directly</td></tr>
+  <tr><td>Step size (e.g. 1k)</td><td>Tap to cycle through step sizes</td></tr>
+  <tr><td>Filter width (e.g. 3000)</td><td>Tap to adjust passband width</td></tr>
+  <tr><td>VFO A/B</td><td>Toggle between VFO A and VFO B</td></tr>
+  <tr><td>MEM</td><td>Open memory channel panel</td></tr>
+</table>
+
+<h3>Mode Buttons</h3>
+<p>Tap a mode button (LSB, USB, AM, FM, CW, RTTY, D-V) to switch the rig. The active mode is highlighted.</p>
+
+<h3>Band Buttons</h3>
+<p>One-tap band changes. Long-press to set a custom frequency for that band.</p>
+
+<h3>PTT / TX</h3>
+<table>
+  <tr><th>Button</th><th>Description</th></tr>
+  <tr><td><span class="badge red">PTT</span></td><td>Hold to transmit (SSB / AM). Release to receive.</td></tr>
+  <tr><td>PWR / SQL</td><td>Tap to cycle: TX Power → SQL → Width control</td></tr>
+  <tr><td>NR / NB / AGC / ATT</td><td>Noise reduction, noise blanker, AGC speed, attenuator toggles</td></tr>
+  <tr><td>BK-IN</td><td>CW break-in mode toggle (CW mode only; not supported on all rigs)</td></tr>
+</table>
+
+<h3>Upper Buttons</h3>
+<table>
+  <tr><th>Button</th><th>Description</th></tr>
+  <tr><td>FT8</td><td>Go to FT8 screen</td></tr>
+  <tr><td>CW</td><td>Go to CW keyer screen (Pi mode only)</td></tr>
+  <tr><td>APRS</td><td>Go to APRS screen (Pi mode only)</td></tr>
+  <tr><td>UPD</td><td>Go to Update Pi screen</td></tr>
+  <tr><td>COLOR</td><td>Cycle display color themes</td></tr>
+</table>
+
+<div class="tip">FM Digital Mode: Long-press the FM button to configure D-STAR / FM cycle behavior.</div>
+</div>
+
+<!-- ===== 4. FT8 ===== -->
+<h2 id="ft8">4. FT8 Screen</h2>
+<div class="section">
+<p>The FT8 screen provides real-time decode display and TX control.</p>
+<div class="card">
+  <strong>Decode engine</strong><br>
+  &bull; <strong>Pi mode</strong>: Pi runs WSJT-X in the background; results are streamed via SSE<br>
+  &bull; <strong>CI-V WiFi mode</strong>: ft8lib runs on-device on Android (no Pi required)<br>
+  &bull; <strong>CI-V BT hybrid</strong>: BT for CI-V control + RS-BA1 WiFi audio for on-device FT8 decode
+</div>
+</div>
+
+<h3 id="ft8-decode" style="padding:0 16px;margin-top:12px">4.1 Decode &amp; Message List</h3>
+<div class="section">
+<p>Decoded FT8/FT4 messages appear in the list. Each row shows:</p>
+<table>
+  <tr><th>Column</th><th>Description</th></tr>
+  <tr><td>Hz</td><td>Audio frequency of the decoded signal</td></tr>
+  <tr><td>SNR</td><td>Signal-to-noise ratio in dB</td></tr>
+  <tr><td>Message</td><td>Decoded FT8 message text</td></tr>
+  <tr><td>UTC</td><td>UTC time of the period (HH:mm:ss)</td></tr>
+</table>
+<p>Messages are sorted by UTC time. TX entries appear in red; RX messages in white or green.</p>
+<p><strong>Tap a row</strong> to copy that message's DX callsign to the TX field for quick reply.</p>
+
+<h3>Top Bar Buttons</h3>
+<table>
+  <tr><th>Button</th><th>Description</th></tr>
+  <tr><td>Back</td><td>Return to main control</td></tr>
+  <tr><td>FT8/FT4</td><td>Shows current mode (FT8 or FT4). Tap to toggle. FT4 uses 7.5s periods; FT8 uses 15s periods.</td></tr>
+  <tr><td>PWR</td><td>Set TX power level</td></tr>
+  <tr><td>USB/FT8</td><td>Current mode indicator (tap to switch mode on rig)</td></tr>
+  <tr><td>GL</td><td>Show decoded grid locator on map</td></tr>
+  <tr><td>Log</td><td>Open QSO log / ADIF export</td></tr>
+</table>
+
+<h3>Waterfall Controls</h3>
+<table>
+  <tr><th>Button</th><th>Description</th></tr>
+  <tr><td>B- / B+</td><td>Waterfall brightness down / up</td></tr>
+  <tr><td>V- / V+</td><td>RX audio gain (received audio volume for decode). Shown as V×n.n.</td></tr>
+  <tr><td>T- / T+</td><td>TX output gain (transmit audio level). Shown as T×n.n. Keep at 0.4–1.0 to avoid over-drive.</td></tr>
+  <tr><td>Sync</td><td>Sync the app clock with Pi UTC time</td></tr>
+  <tr><td>TX:1500</td><td>Tap to set the TX audio frequency (100–2900 Hz)</td></tr>
+  <tr><td>D:3</td><td>Decode depth (1–3). Higher = slower but more decodes.</td></tr>
+  <tr><td>CQ only</td><td>Filter the list to show CQ messages only</td></tr>
+</table>
+</div>
+
+<h3 id="ft8-tx" style="padding:0 16px;margin-top:12px">4.2 Manual TX</h3>
+<div class="section">
+<p>Type a message in the TX field and tap <span class="badge red">TX</span> to transmit it in the next FT8 period.</p>
+<table>
+  <tr><th>Button</th><th>Description</th></tr>
+  <tr><td><span class="badge red">TX</span></td><td>Queue message for next TX period</td></tr>
+  <tr><td>CQ</td><td>Long-press to set callsign &amp; grid. Short-press to fill a CQ message.</td></tr>
+  <tr><td>CLR</td><td>Clear the TX field and cancel pending TX</td></tr>
+  <tr><td>AUTO E / AUTO O</td><td>Auto TX period — Even (0/30s) or Odd (15/45s)</td></tr>
+</table>
+<div class="tip">FT8 periods: Even = UTC 0s and 30s. Odd = UTC 15s and 45s. Choose Even or Odd to match the DX station's transmit period (you transmit opposite periods).</div>
+</div>
+
+<h3 id="ft8-auto" style="padding:0 16px;margin-top:12px">4.3 Auto QSO Sequence</h3>
+<div class="section">
+<p>The Auto QSO feature automates a standard FT8 contact (CQ → Report → RRR → 73).</p>
+<ol>
+  <li>Tap a decoded CQ row to select the DX station and fill in the TX field.</li>
+  <li>Set <strong>TX Period</strong> (Even / Odd) to match your transmit slot.</li>
+  <li>Optionally set <strong>Start step</strong> (Step1 = first call, Step2 = send report, Step3 = send RR73).</li>
+  <li>Tap <strong>Start QSO</strong> to begin the automated sequence.</li>
+</ol>
+<div class="card">
+  <strong>Auto QSO steps:</strong><br>
+  Step1: Send "DX DE MYCALL GRID" (first call)<br>
+  Step2: Send "DX DE MYCALL +xx" (signal report)<br>
+  Step3: Send "DX DE MYCALL RR73" (acknowledgment)<br>
+  QSO complete when 73 received or RR73 confirmed.
+</div>
+<p>The status bar shows the current step and countdown to the next TX period.</p>
+</div>
+
+<h3 id="ft8-cq" style="padding:0 16px;margin-top:12px">4.4 CQ Mode</h3>
+<div class="section">
+<p>In Auto TX mode, tap <strong>Start TX</strong> with the TX field set to a CQ message to repeatedly call CQ. The app responds automatically when a station replies.</p>
+<div class="tip">Long-press the CQ button to set or update your callsign and grid locator.</div>
+</div>
+
+<!-- ===== 5. CW Keyer ===== -->
+<h2 id="cw">5. CW Keyer</h2>
+<div class="section">
+<p>The CW screen lets you send Morse code via the Pi's audio output (connected to the transceiver's key or mic jack).</p>
+<table>
+  <tr><th>Control</th><th>Description</th></tr>
+  <tr><td>Speed (WPM)</td><td>Code speed in words per minute</td></tr>
+  <tr><td>Text field</td><td>Enter the text to send. Tap Send to transmit.</td></tr>
+  <tr><td>Memory buttons (M1–M6)</td><td>Store and recall frequently used phrases. Long-press to save current text.</td></tr>
+  <tr><td>Stop</td><td>Immediately abort the current transmission</td></tr>
+</table>
+<div class="warn">CW keyer requires Pi mode. When using BT CI-V, set RS-BA1 Audio Host or switch to CW mode on the rig for PTT.</div>
+</div>
+
+<!-- ===== 6. APRS ===== -->
+<h2 id="aprs">6. APRS</h2>
+<div class="section">
+<p>The APRS screen displays stations received by the Pi's TNC (via Direwolf or similar software running on the Pi).</p>
+<table>
+  <tr><th>Tab</th><th>Description</th></tr>
+  <tr><td>Received</td><td>List of decoded APRS packets with callsign, symbol, position, and comment</td></tr>
+  <tr><td>Settings</td><td>Configure your APRS callsign, SSID, and beacon interval</td></tr>
+</table>
+<div class="warn">APRS requires Pi mode. It is not available with direct CI-V connection.</div>
+</div>
+
+<!-- ===== 7. Update Pi ===== -->
+<h2 id="update">7. Update Pi</h2>
+<div class="section">
+<p>The Update screen manages Pi-side software updates from the app.</p>
+<table>
+  <tr><th>Button</th><th>Description</th></tr>
+  <tr><td><span class="badge green">Update Pi</span></td><td>Sends api.py to the Pi and restarts the API server. Use after an app update to sync the Pi software.</td></tr>
+  <tr><td><span class="badge" style="background:#1565C0">Update Hamlib</span></td><td>Builds and installs Hamlib 4.7.2 on the Pi. Takes 30–60 min on Pi Zero — do not restart until complete.</td></tr>
+  <tr><td>Pi Log</td><td>View the real-time Pi API server log</td></tr>
+  <tr><td>Hamlib Log</td><td>View the Hamlib build log</td></tr>
+  <tr><td>Reload</td><td>Refresh the displayed log</td></tr>
+</table>
+<div class="tip">Run <strong>Update Pi</strong> whenever you install a new version of this app to keep the Pi API in sync.</div>
+<div class="warn">Do not close the app or restart the Pi during a Hamlib build. The process takes up to 60 minutes on Pi Zero hardware.</div>
+</div>
+
+<!-- ===== 8. Tips ===== -->
+<h2 id="tips">8. Tips &amp; Troubleshooting</h2>
+<div class="section">
+
+<h3>Cannot connect to Pi</h3>
+<ul>
+  <li>Confirm both Android and Pi are on the same Wi-Fi network.</li>
+  <li>Check the IP address / hostname. Use 🔍 scan if unsure.</li>
+  <li>Verify the Pi API is running: <code>sudo systemctl status hamcat</code></li>
+  <li>Check that port 8210 is not blocked by a firewall.</li>
+</ul>
+
+<h3>FT8 not decoding</h3>
+<ul>
+  <li>Confirm the rig is in USB-D or FT8 mode with the audio routed to the Pi.</li>
+  <li>Tap <strong>Sync</strong> to synchronize the app clock with Pi UTC time.</li>
+  <li>Increase decode depth (D:3 is recommended).</li>
+</ul>
+
+<h3>TX period timing</h3>
+<div class="card">
+  FT8 periods repeat every 15 seconds:<br>
+  &bull; <strong>Even</strong>: UTC 0s and 30s<br>
+  &bull; <strong>Odd</strong>: UTC 15s and 45s<br><br>
+  If the DX station is transmitting on Even periods, set your AUTO to Odd (and vice versa).
+</div>
+
+<h3>INSTALL_FAILED_UPDATE_INCOMPATIBLE</h3>
+<p>If you see this error when installing a new build, the signing key has changed. Uninstall the app first (Settings → Apps → Wifi RIG CTRL → Uninstall), then reinstall.</p>
+
+<h3>mDNS not resolving</h3>
+<ul>
+  <li>Enable the <strong>USE mDNS</strong> switch on the Connect screen.</li>
+  <li>Some Android devices require "Wifi only" mode to resolve .local hostnames.</li>
+  <li>As a fallback, enter the Pi's IP address directly.</li>
+</ul>
+</div>
+
+<div class="divider"></div>
+<p style="text-align:center;color:#999;font-size:12px;margin-top:16px">Wifi RIG CTRL v3.10 — JI1ORE</p>
+
+</body>
+</html>

@@ -1,0 +1,136 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+// iCloud Drive の clonefile 制限を回避するため build/src を外部に置く
+layout.buildDirectory = file("/private/tmp/wifi_rig_ctrl_build")
+
+task syncSrcToTmp(type: Exec) {
+    def srcDir = project.file("src").absolutePath
+    def dstDir = "/private/tmp/wifi_rig_ctrl_src"
+    def py3 = ['/opt/homebrew/bin/python3', '/usr/local/bin/python3',
+               '/usr/bin/python3']
+        .find { new File(it).canExecute() } ?: 'python3'
+    commandLine py3, '-c', """
+import shutil, os
+src = r'${srcDir}'
+dst = r'${dstDir}'
+for root, dirs, files in os.walk(src):
+    dirs[:] = [d for d in dirs if not d.startswith('.')]
+    for f in files:
+        s = os.path.join(root, f)
+        d = os.path.join(dst, os.path.relpath(s, src))
+        os.makedirs(os.path.dirname(d), exist_ok=True)
+        with open(s, 'rb') as fin, open(d, 'wb') as fout:
+            shutil.copyfileobj(fin, fout)
+"""
+}
+tasks.whenTaskAdded { task ->
+    if (task.name in ['generateDebugResources', 'generateReleaseResources']) {
+        task.dependsOn syncSrcToTmp
+    }
+}
+
+android {
+    namespace 'com.ji1ore.wifi_rig_ctrl'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "com.ji1ore.wifi_rig_ctrl"
+        minSdk 21
+        targetSdk 36
+        versionCode 88
+        versionName "3.10"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        ndk {
+            abiFilters "arm64-v8a", "armeabi-v7a"
+        }
+        externalNativeBuild {
+            cmake {
+                cppFlags "-std=c++17 -O2"
+                arguments "-DANDROID_STL=c++_shared"
+            }
+        }
+    }
+
+    signingConfigs {
+        release {
+            def props = new Properties()
+            def propsFile = rootProject.file('local.properties')
+            if (propsFile.exists()) props.load(propsFile.newDataInputStream())
+            storeFile file('../wifi_rig_ctrl.jks')
+            storePassword props.getProperty('STORE_PASSWORD', '')
+            keyAlias props.getProperty('KEY_ALIAS', 'wifi-rig-ctrl')
+            keyPassword props.getProperty('KEY_PASSWORD', '')
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+    buildFeatures {
+        viewBinding true
+    }
+    sourceSets {
+        main {
+            res.srcDirs    = ['/private/tmp/wifi_rig_ctrl_src/main/res']
+            assets.srcDirs = ['/private/tmp/wifi_rig_ctrl_src/main/assets']
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path "src/main/jni/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.13.1'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'androidx.activity:activity-ktx:1.9.3'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.navigation:navigation-fragment-ktx:2.5.3'
+    implementation 'androidx.navigation:navigation-ui-ktx:2.5.3'
+
+    // Coroutines
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1'
+
+    // ViewModel & LiveData
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1'
+    implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.6.1'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.1'
+
+    // USB Serial (CH340/CDC ACM)
+    implementation 'com.github.mik3y:usb-serial-for-android:3.8.0'
+
+    // OkHttp
+    implementation 'androidx.viewpager2:viewpager2:1.1.0'
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    implementation 'com.squareup.okhttp3:okhttp:4.11.0'
+
+    // Gson
+    implementation 'com.google.code.gson:gson:2.10.1'
+
+    // ExoPlayer
+    implementation 'com.google.android.exoplayer:exoplayer-core:2.19.1'
+    implementation 'com.google.android.exoplayer:exoplayer-hls:2.19.1'
+
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}

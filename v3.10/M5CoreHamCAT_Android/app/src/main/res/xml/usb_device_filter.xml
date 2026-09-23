@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FTDI FT232R (M5ATOM Lite 一部ロット): VID=0x0403=1027, PID=0x6001=24577 -->
+    <usb-device vendor-id="1027" product-id="24577" />
+    <!-- FTDI FT2232H: PID=0x6010=24592 -->
+    <usb-device vendor-id="1027" product-id="24592" />
+    <!-- FTDI FT232H: PID=0x6014=24596 -->
+    <usb-device vendor-id="1027" product-id="24596" />
+    <!-- FTDI FT231X: PID=0x6015=24597 -->
+    <usb-device vendor-id="1027" product-id="24597" />
+    <!-- CH340/CH341 (M5ATOM Lite 旧ロット): VID=0x1A86=6790, PID=0x7523=29987 -->
+    <usb-device vendor-id="6790" product-id="29987" />
+    <!-- CH340C: PID=0x7522=29986 -->
+    <usb-device vendor-id="6790" product-id="29986" />
+    <!-- CH340K (M5ATOM S3): PID=0x55D4=21972 -->
+    <usb-device vendor-id="6790" product-id="21972" />
+    <!-- CH9102 (M5ATOM S3 some batches): PID=0x55D3=21971 -->
+    <usb-device vendor-id="6790" product-id="21971" />
+    <!-- CP2101/2/3/4 (M5ATOM Lite): VID=0x10C4=4292, PID=0xEA60=60000 -->
+    <usb-device vendor-id="4292" product-id="60000" />
+    <!-- CP2105: PID=0xEA70=60016 -->
+    <usb-device vendor-id="4292" product-id="60016" />
+    <!-- CP2108: PID=0xEA71=60017 -->
+    <usb-device vendor-id="4292" product-id="60017" />
+    <!-- ESP32-S3 USB-CDC (M5ATOM S3 / S3 Lite): VID=0x303A=12346, PID=0x1001=4097 -->
+    <usb-device vendor-id="12346" product-id="4097" />
+    <!-- ESP32-S3 USB-Serial: PID=0x4001=16385 -->
+    <usb-device vendor-id="12346" product-id="16385" />
+    <!-- ESP32 USB Serial/JTAG: PID=0x0002=2 -->
+    <usb-device vendor-id="12346" product-id="2" />
+    <!-- ESP32-S3 variant: PID=0x8000=32768 -->
+    <usb-device vendor-id="12346" product-id="32768" />
+</resources>

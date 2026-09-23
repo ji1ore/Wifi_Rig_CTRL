@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/aprs_toast_bg"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="14dp"
+    android:paddingBottom="14dp">
+
+    <TextView
+        android:id="@+id/tvToastCall"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:textColor="#4FC3F7"
+        android:gravity="center"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- Compass drawn as Bitmap onto ImageView — guaranteed to render -->
+    <ImageView
+        android:id="@+id/ivCompass"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:scaleType="fitCenter"/>
+
+    <LinearLayout
+        android:id="@+id/rowDistDir"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="8dp">
+
+        <TextView
+            android:id="@+id/tvToastDist"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textSize="15sp"
+            android:textColor="#FFFFFF"
+            android:gravity="end"
+            android:paddingEnd="8dp"/>
+
+        <TextView
+            android:id="@+id/tvToastSymbol"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="24sp"/>
+
+        <TextView
+            android:id="@+id/tvToastDir"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textSize="15sp"
+            android:textColor="#FFFFFF"
+            android:gravity="start"
+            android:paddingStart="8dp"/>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvToastComment"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:textColor="#888888"
+        android:gravity="center"
+        android:layout_marginTop="6dp"
+        android:maxLines="1"
+        android:ellipsize="end"/>
+
+</LinearLayout>

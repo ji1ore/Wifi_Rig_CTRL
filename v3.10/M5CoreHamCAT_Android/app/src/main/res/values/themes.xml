@@ -1,0 +1,21 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.Wifi_Rig_CTRL" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">@color/purple_500</item>
+        <item name="colorPrimaryVariant">@color/purple_700</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <!-- Secondary brand color. -->
+        <item name="colorSecondary">@color/teal_200</item>
+        <item name="colorSecondaryVariant">@color/teal_700</item>
+        <item name="colorOnSecondary">@color/black</item>
+        <!-- statusBarColor omitted: enableEdgeToEdge() handles system bar colors -->
+    </style>
+
+    <!-- Activity theme: inherits NoActionBar from parent -->
+    <style name="Theme.Wifi_Rig_CTRL.NoActionBar" />
+
+    <style name="Theme.Wifi_Rig_CTRL.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
+
+    <style name="Theme.Wifi_Rig_CTRL.PopupOverlay" parent="ThemeOverlay.AppCompat.Light" />
+</resources>

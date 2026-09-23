@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>WifiRigCTRL ヘルプ</title>
+<style>
+:root{
+  --primary:#1565C0;
+  --primary-light:#E3F2FD;
+  --accent:#0D47A1;
+  --text:#212121;
+  --text2:#555;
+  --border:#DDD;
+  --bg:#FAFAFA;
+  --code-bg:#F5F5F5;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,sans-serif;font-size:15px;color:var(--text);background:#FFF;line-height:1.7;padding-bottom:40px}
+h1{background:var(--primary);color:#FFF;padding:16px 20px;font-size:20px;position:sticky;top:0;z-index:100}
+h1 small{font-size:13px;font-weight:normal;opacity:0.85;display:block;margin-top:2px}
+h2{font-size:17px;color:var(--accent);border-left:4px solid var(--primary);padding:6px 12px;margin:28px 0 10px;background:var(--primary-light)}
+h3{font-size:15px;color:var(--text);font-weight:bold;margin:18px 0 6px;padding-left:4px;border-bottom:1px solid var(--border)}
+p{margin:6px 0 10px;padding:0 16px;color:var(--text)}
+ul,ol{margin:6px 0 10px 20px;padding:0 16px}
+li{margin-bottom:4px}
+.toc{background:var(--primary-light);border:1px solid #B3D4F7;border-radius:8px;margin:16px;padding:14px 20px}
+.toc h2{margin:0 0 8px;background:none;border:none;padding:0;font-size:16px;color:var(--accent)}
+.toc ol{margin:0;padding-left:20px}
+.toc li{margin-bottom:2px;font-size:14px}
+.toc a{color:var(--primary);text-decoration:none}
+.toc a:hover{text-decoration:underline}
+.section{padding:0 16px}
+.card{background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin:8px 0;font-size:14px}
+.badge{display:inline-block;background:var(--primary);color:#FFF;font-size:11px;font-weight:bold;border-radius:4px;padding:1px 6px;vertical-align:middle;margin-right:4px}
+.badge.green{background:#2E7D32}
+.badge.red{background:#B71C1C}
+.badge.teal{background:#00695C}
+.badge.orange{background:#E65100}
+.badge.gray{background:#546E7A}
+.tip{background:#E8F5E9;border-left:3px solid #388E3C;padding:8px 12px;margin:8px 0;font-size:14px;border-radius:0 4px 4px 0}
+.warn{background:#FFF8E1;border-left:3px solid #F57C00;padding:8px 12px;margin:8px 0;font-size:14px;border-radius:0 4px 4px 0}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:8px 0}
+th{background:var(--primary);color:#FFF;padding:6px 10px;text-align:left}
+td{padding:6px 10px;border-bottom:1px solid var(--border)}
+tr:nth-child(even) td{background:var(--code-bg)}
+.divider{height:1px;background:var(--border);margin:20px 16px 0}
+</style>
+</head>
+<body>
+
+<h1>WifiRigCTRL マニュアル
+  <small>Raspberry Pi ハムラジオコントローラー v3.10</small>
+</h1>
+
+<div class="toc">
+  <h2>目次</h2>
+  <ol>
+    <li><a href="#overview">概要</a></li>
+    <li><a href="#connect">接続画面</a></li>
+    <li><a href="#main">メイン操作画面</a></li>
+    <li><a href="#ft8">FT8画面</a>
+      <ol>
+        <li><a href="#ft8-decode">デコード・メッセージ一覧</a></li>
+        <li><a href="#ft8-tx">TX操作</a></li>
+        <li><a href="#ft8-auto">自動QSOシーケンス</a></li>
+        <li><a href="#ft8-cq">CQ AUTOモード</a></li>
+      </ol>
+    </li>
+    <li><a href="#cw">CWキーヤー</a></li>
+    <li><a href="#aprs">APRS</a></li>
+    <li><a href="#update">Pi更新</a></li>
+    <li><a href="#tips">ヒント・トラブルシューティング</a></li>
+  </ol>
+</div>
+
+<!-- ===== 1. 概要 ===== -->
+<h2 id="overview">1. 概要</h2>
+<div class="section">
+<p>WifiRigCTRLは、iPhone/iPadをRaspberry Pi経由（またはCI-V Wi-Fi / Bluetooth直結）でICOMトランシーバーに接続し、周波数・モード・PTT・デジタルモードをリモートコントロールするアプリです。</p>
+<div class="card">
+  <strong>主な機能</strong><br>
+  &bull; 周波数 / モード / フィルター / PTTコントロール（IC-705、IC-7300、IC-9700 等）<br>
+  &bull; FT8 / FT4 デコード・送信・自動QSOシーケンス（Pi経由またはCI-Vローカルデコード）<br>
+  &bull; Raspberry Pi経由のCWキーヤー<br>
+  &bull; APRSモニタリング（Pi経由）<br>
+  &bull; USB-NCM CWキーヤー中継（AtomS3 Lite をUSBで接続）<br>
+  &bull; ワンタップでPiソフトウェアを更新
+</div>
+<div class="tip">アプリはローカルWi-Fiネットワーク経由でPiと通信します。接続前にiPhoneとPiが同じネットワークにあることを確認してください。</div>
+</div>
+
+<!-- ===== 2. 接続画面 ===== -->
+<h2 id="connect">2. 接続画面</h2>
+<div class="section">
+<p>PiまたはトランシーバーへのIPアドレス・各種設定を行います。設定は自動保存されます。</p>
+
+<h3>Piモード（デフォルト）</h3>
+<table>
+  <tr><th>項目</th><th>説明</th></tr>
+  <tr><td>ホスト / IPアドレス</td><td>Raspberry PiのIPアドレスまたはmDNS名（例: hamcat.local）。🔍をタップしてネットワークを自動スキャンできます。</td></tr>
+  <tr><td>APIポート</td><td>Pi REST APIのポート番号。デフォルト: 8210</td></tr>
+  <tr><td>オーディオポート</td><td>音声ストリーミングのポート番号。デフォルト: 8211</td></tr>
+  <tr><td>APIキー</td><td>Piに設定したセキュリティキー。未設定の場合は空欄のままで構いません。</td></tr>
+  <tr><td>コールサイン</td><td>自局のコールサイン。FT8のCQおよびQSOメッセージに使用されます。</td></tr>
+  <tr><td>SSB幅 / CW幅</td><td>モード切替時に適用されるデフォルトのフィルター幅。</td></tr>
+  <tr><td>USE mDNS</td><td>「hamcat.local」形式のホスト名を解決するためのmDNS（Bonjour）を有効にします。</td></tr>
+</table>
+
+<h3>CI-Vモード（USE CI-VをONにした場合）</h3>
+<p>Piなしでトランシーバーに直接接続します。CI-V WiFiモードではFT8ローカルデコード対応。APRSはPiが必要。</p>
+<table>
+  <tr><th>オプション</th><th>説明</th></tr>
+  <tr><td>WiFi / LAN</td><td>IC-705内蔵Wi-Fi経由で接続（RS-BA1プロトコル）。Port1/2/3、ユーザー名、パスワード、CI-Vアドレス（16進数、例: IC-705はA4）を入力。FT8ローカルデコード対応。</td></tr>
+  <tr><td>Bluetooth</td><td>Bluetooth SPP経由で接続。ペアリング済みのBTデバイスを選択。RS-BA1 Audio HostにWi-FiホストIPを入力するとCI-VをBT経由にしつつRS-BA1音声をWi-Fi経由で受信できます（FT8デコード・スピーカー対応）。</td></tr>
+</table>
+
+<div class="tip"><strong>接続</strong>をタップして接続を開始します。接続中はインジケーターが表示されます。接続に失敗した場合はステータス行にエラーメッセージが表示されます。</div>
+</div>
+
+<!-- ===== 3. メイン操作画面 ===== -->
+<h2 id="main">3. メイン操作画面</h2>
+<div class="section">
+<p>メインの操作画面です。すべてのリグコントロールが利用できます。</p>
+
+<h3>周波数表示</h3>
+<p>中央の大きな周波数表示をタップして直接編集できます。±ボタンで選択したステップ幅分だけ上下に変更できます。</p>
+<table>
+  <tr><th>要素</th><th>操作</th></tr>
+  <tr><td>周波数の数字</td><td>タップして直接入力</td></tr>
+  <tr><td>ステップ幅（例: 1k）</td><td>タップしてステップ幅を切り替え</td></tr>
+  <tr><td>フィルター幅（例: 3000）</td><td>タップしてパスバンド幅を調整</td></tr>
+  <tr><td>VFO A/B</td><td>VFO AとVFO Bを切り替え</td></tr>
+  <tr><td>MEM</td><td>メモリーチャンネル / POTAスポット / SOTAスポット呼び出しパネルを開く</td></tr>
+</table>
+
+<h3>モードボタン</h3>
+<p>モードボタン（LSB、USB、AM、FM、CW、RTTY、D-V）をタップしてリグのモードを切り替えます。アクティブなモードはハイライト表示されます。</p>
+
+<h3>バンドボタン</h3>
+<p>ワンタップでバンドを切り替えます。長押しでそのバンドのカスタム周波数を設定できます。</p>
+
+<h3>PTT / TX</h3>
+<table>
+  <tr><th>ボタン</th><th>説明</th></tr>
+  <tr><td><span class="badge red">PTT</span></td><td>押し続けて送信（SSB / AM）。離すと受信に戻ります。</td></tr>
+  <tr><td>PWR / SQL</td><td>タップでサイクル: 送信出力 → スケルチ → 幅コントロール</td></tr>
+  <tr><td>NR / NB / AGC / ATT</td><td>ノイズリダクション、ノイズブランカー、AGCスピード、アッテネーターの切り替え</td></tr>
+  <tr><td>BK-IN</td><td>CWブレークインモードの切り替え（CWモード専用。非対応リグあり）</td></tr>
+</table>
+
+<h3>上部ボタン</h3>
+<table>
+  <tr><th>ボタン</th><th>説明</th></tr>
+  <tr><td>FT8</td><td>FT8画面へ移動</td></tr>
+  <tr><td>CW</td><td>CWキーヤー画面へ移動（Piモードのみ）</td></tr>
+  <tr><td>APRS</td><td>APRS画面へ移動（Piモードのみ）</td></tr>
+  <tr><td>UPD</td><td>Pi更新画面へ移動</td></tr>
+</table>
+
+<div class="tip">FMデジタルモード: FMボタンを長押しすると、D-STAR / FMのサイクル動作を設定できます。</div>
+</div>
+
+<!-- ===== 4. FT8画面 ===== -->
+<h2 id="ft8">4. FT8画面</h2>
+<div class="section">
+<p>FT8画面ではリアルタイムのデコード表示とTX操作が行えます。</p>
+<div class="card">
+  <strong>デコードエンジン</strong><br>
+  &bull; <strong>Pi モード</strong>: PiがバックグラウンドでWSJT-Xを実行し、SSEでリアルタイム配信<br>
+  &bull; <strong>CI-V モード</strong>: iPhone上でft8libがオンデバイスデコード（Pi不要）
+</div>
+</div>
+
+<h3 id="ft8-decode" style="padding:0 16px;margin-top:12px">4.1 デコード・メッセージ一覧</h3>
+<div class="section">
+<p>デコードされたFT8/FT4メッセージが一覧表示されます。各行には以下の情報が含まれます：</p>
+<table>
+  <tr><th>列</th><th>説明</th></tr>
+  <tr><td>Hz</td><td>デコードされた信号の音声周波数</td></tr>
+  <tr><td>SNR</td><td>信号対雑音比（dB）</td></tr>
+  <tr><td>メッセージ</td><td>デコードされたFT8メッセージテキスト</td></tr>
+  <tr><td>UTC</td><td>そのピリオドのUTC時刻（HH:mm:ss）</td></tr>
+</table>
+<p>メッセージはUTC時刻順に表示されます。TX送信エントリは赤、受信メッセージは白またはグリーンで表示されます。</p>
+<p><strong>行をタップ</strong>すると、そのメッセージのDXコールサインがTXフィールドにコピーされ、すばやく返信できます。</p>
+
+<h3>上部バーボタン</h3>
+<table>
+  <tr><th>ボタン</th><th>説明</th></tr>
+  <tr><td>Back</td><td>メイン操作画面に戻る</td></tr>
+  <tr><td>FT8/FT4</td><td>現在のモード名を表示（FT8またはFT4）。タップで切り替え。FT4は7.5秒ピリオド、FT8は15秒ピリオド。</td></tr>
+  <tr><td>PWR</td><td>TX出力レベルを設定</td></tr>
+  <tr><td>USB/FT8</td><td>現在のモード表示（タップでリグのモード切替）</td></tr>
+  <tr><td>GL</td><td>デコードされたグリッドロケーターを地図上に表示</td></tr>
+  <tr><td>Log</td><td>QSOログ / ADIFエクスポートを開く</td></tr>
+</table>
+
+<h3>ウォーターフォール操作</h3>
+<table>
+  <tr><th>ボタン</th><th>説明</th></tr>
+  <tr><td>☀️ / ☀️+</td><td>ウォーターフォールの明るさを下げる / 上げる（B）</td></tr>
+  <tr><td>TX- / TX+</td><td>送信音声ゲイン（TX出力レベル）。数値表示。1.0を超えるとオレンジ色で警告。</td></tr>
+  <tr><td>T- / T+</td><td>FT8メッセージリストのフォントサイズを小さく / 大きくする</td></tr>
+  <tr><td>Sync</td><td>アプリの時刻をUTC時刻に同期</td></tr>
+  <tr><td>TX:1500</td><td>タップしてTX音声周波数を設定（100〜2900 Hz）</td></tr>
+  <tr><td>D:3</td><td>デコード深度（1〜3）。数値が大きいほど処理は遅くなりますが、より多くのメッセージをデコードできます。</td></tr>
+  <tr><td>CQ only</td><td>CQメッセージのみをフィルター表示</td></tr>
+</table>
+</div>
+
+<h3 id="ft8-tx" style="padding:0 16px;margin-top:12px">4.2 TX操作</h3>
+<div class="section">
+<p>TXフィールドにメッセージを入力し、<span class="badge gray">TX</span>ボタンを長押しして送信します。</p>
+<table>
+  <tr><th>ボタン</th><th>説明</th></tr>
+  <tr><td><span class="badge gray">TX</span>（長押し）</td><td><span class="badge orange">CQ AUTO</span>モード開始。CQを繰り返し送信し、返信局と自動QSOを行います。</td></tr>
+  <tr><td><span class="badge orange">CQ AUTO</span>（短押し）</td><td>CQ AUTOを停止してOFFに戻ります。</td></tr>
+  <tr><td><span class="badge red">AUTO</span>（短押し）</td><td>QSO AUTOを停止してOFFに戻ります。</td></tr>
+  <tr><td>CQ</td><td>短押し: CQメッセージをTXフィールドに入力。長押し: コールサイン・グリッドロケーターを設定。</td></tr>
+  <tr><td>CLR</td><td>TXフィールドをクリアして送信待ちをキャンセル</td></tr>
+  <tr><td>AUTO E / AUTO O</td><td>自動TX周期の切り替え — Even（0/30秒）またはOdd（15/45秒）</td></tr>
+</table>
+<div class="tip">FT8ピリオド: Even = UTC 0秒と30秒。Odd = UTC 15秒と45秒。DX局がEvenで送信しているときは自分はOddに設定します（逆も同様）。</div>
+</div>
+
+<h3 id="ft8-auto" style="padding:0 16px;margin-top:12px">4.3 自動QSOシーケンス</h3>
+<div class="section">
+<p>自動QSO機能で標準的なFT8交信を自動化します（グリッド交換 → 信号レポート → RR73 → 73）。</p>
+<ol>
+  <li>デコード一覧のCQ行をタップしてDX局を選択し、TXフィールドにメッセージを入力します。</li>
+  <li><strong>TX周期</strong>（Even / Odd）を自分の送信スロットに合わせて設定します。</li>
+  <li>必要に応じて<strong>開始ステップ</strong>を選択します（Step1=最初の呼出、Step2=信号レポート送信、Step3=RR73送信）。</li>
+  <li><strong>QSOを開始</strong>をタップして自動シーケンスを開始します。</li>
+</ol>
+<div class="card">
+  <strong>自動QSOのステップ:</strong><br>
+  Step1: 「DX MY_CALL MY_GRID」を送信（最初の呼出）<br>
+  Step2: 「DX MY_CALL R±XX」を送信（信号レポート）<br>
+  Step3: 「DX MY_CALL RR73」を送信（確認）<br>
+  73またはRR73を受信するとQSO完了。
+</div>
+<div class="warn">相手局が信号レポートを送ってこない限り（グリッドロケーターなど不正なレポートを受信しても）次のステップへは進みません。相手局の応答を待ち続けます。</div>
+</div>
+
+<h3 id="ft8-cq" style="padding:0 16px;margin-top:12px">4.4 CQ AUTOモード</h3>
+<div class="section">
+<p>TXボタンを長押しすると<span class="badge orange">CQ AUTO</span>（オレンジ）になります。このモードではCQを自動的に繰り返し送信し、返信してきた局と自動的にQSOシーケンスを進め、73交換後に再びCQに戻ります。</p>
+<div class="card">
+  <strong>CQ AUTOのフロー:</strong><br>
+  1. CQを自動送信（設定したEven/Odd周期）<br>
+  2. 自局コールサインへの返信を検出したら自動QSO開始<br>
+  3. 信号レポート交換 → RR73 → 73送信<br>
+  4. QSO完了後、自動的にCQへ戻る（繰り返し）
+</div>
+<div class="tip">CQ AUTOを開始する前に、CQボタンで「CQ コールサイン グリッド」形式のメッセージをTXフィールドに入力してください。</div>
+</div>
+
+<!-- ===== 5. CWキーヤー ===== -->
+<h2 id="cw">5. CWキーヤー</h2>
+<div class="section">
+<p>CW画面では、PiのオーディオをトランシーバーのキーまたはMICジャックに接続してモールス符号を送信できます。</p>
+<table>
+  <tr><th>操作</th><th>説明</th></tr>
+  <tr><td>速度（WPM）</td><td>1分あたりの語数（Words Per Minute）でコード速度を設定</td></tr>
+  <tr><td>テキストフィールド</td><td>送信するテキストを入力。送信をタップして送信。</td></tr>
+  <tr><td>メモリーボタン（M1〜M6）</td><td>よく使うフレーズを保存・呼び出し。長押しで現在のテキストを保存。</td></tr>
+  <tr><td>Stop</td><td>現在の送信を即座に停止</td></tr>
+</table>
+<div class="tip">BLE CWキーヤー（DualKey-BLE / RemoteKeyer-BLE）はBluetoothキーヤー設定画面で接続できます。USB-NCM CWキーヤー（AtomS3 Lite）はUSBリレー設定画面で設定します。</div>
+</div>
+
+<!-- ===== 6. APRS ===== -->
+<h2 id="aprs">6. APRS</h2>
+<div class="section">
+<p>APRS画面では、PiのTNC（Direwolf等）が受信したAPRSパケットを表示します。</p>
+<table>
+  <tr><th>タブ</th><th>説明</th></tr>
+  <tr><td>受信</td><td>デコードされたAPRSパケット一覧（コールサイン、シンボル、位置、コメント）</td></tr>
+  <tr><td>設定</td><td>APRSコールサイン、SSID、ビーコン間隔の設定</td></tr>
+</table>
+<div class="warn">APRSはPiモードが必要です。CI-V直結では使用できません。</div>
+</div>
+
+<!-- ===== 7. Pi更新 ===== -->
+<h2 id="update">7. Pi更新</h2>
+<div class="section">
+<p>Pi更新画面では、アプリからPi側のソフトウェアを更新できます。</p>
+<table>
+  <tr><th>ボタン</th><th>説明</th></tr>
+  <tr><td><span class="badge green">Update Pi</span></td><td>api.pyをPiに転送してAPIサーバーを再起動します。アプリを更新した後にPiのソフトウェアを同期するために使用します。</td></tr>
+  <tr><td><span class="badge" style="background:#1565C0">Update Hamlib</span></td><td>Hamlib 4.7.2をPiにビルド・インストールします。Pi Zeroでは30〜60分かかります。完了するまで再起動しないでください。</td></tr>
+  <tr><td>Pi Log</td><td>Pi APIサーバーのリアルタイムログを表示</td></tr>
+  <tr><td>Hamlib Log</td><td>Hamlibビルドのログを表示</td></tr>
+  <tr><td>Reload</td><td>表示中のログを更新</td></tr>
+</table>
+<div class="tip">アプリを新しいバージョンにアップデートした後は、必ず<strong>Update Pi</strong>を実行してPi側のAPIを同期してください。</div>
+<div class="warn">Hamlibビルド中はアプリを閉じたりPiを再起動しないでください。Pi Zero環境では最大60分かかります。</div>
+</div>
+
+<!-- ===== 8. ヒント・トラブルシューティング ===== -->
+<h2 id="tips">8. ヒント・トラブルシューティング</h2>
+<div class="section">
+
+<h3>Piに接続できない</h3>
+<ul>
+  <li>iPhoneとPiが同じWi-Fiネットワークに接続されているか確認してください。</li>
+  <li>IPアドレス・ホスト名を確認してください。不明な場合は🔍スキャンを使用します。</li>
+  <li>Pi側のAPIが起動しているか確認します: <code>sudo systemctl status hamcat</code></li>
+  <li>ポート8210がファイアウォールでブロックされていないか確認してください。</li>
+</ul>
+
+<h3>FT8がデコードされない</h3>
+<ul>
+  <li>リグがUSB-DまたはFT8モードになっており、音声が正しく入力されているか確認してください。</li>
+  <li><strong>Sync</strong>をタップしてアプリの時刻をUTC時刻に同期します。</li>
+  <li>デコード深度を上げてください（D:3を推奨）。</li>
+  <li>Piモードの場合、Piにjt9（wsjtxパッケージ）がインストールされているか確認します。</li>
+</ul>
+
+<h3>TX周期のタイミング</h3>
+<div class="card">
+  FT8ピリオドは15秒ごとに繰り返されます：<br>
+  &bull; <strong>Even（偶数）</strong>: UTC 0秒と30秒<br>
+  &bull; <strong>Odd（奇数）</strong>: UTC 15秒と45秒<br><br>
+  DX局がEvenで送信している場合、自分はOddに設定します（逆も同様）。
+</div>
+
+<h3>mDNSが解決できない</h3>
+<ul>
+  <li>接続画面で<strong>USE mDNS</strong>スイッチを有効にしてください。</li>
+  <li>代替手段として、PiのIPアドレスを直接入力してください。</li>
+</ul>
+
+<h3>QSOが途中で止まる / 自動で進まない</h3>
+<ul>
+  <li>FT8では相手局が正しいフォーマット（±数字の信号レポート）を送信してきた場合のみ次のステップに進みます。</li>
+  <li>相手局がグリッドロケーターを再送している場合は、こちらのステップは進みません（仕様通りの動作です）。</li>
+  <li>状況に応じてQSOダイアログを開き直し、開始ステップを手動で設定してください。</li>
+</ul>
+
+<h3>USB-NCM CWキーヤーが認識されない</h3>
+<ul>
+  <li>AtomS3 Lite にClient FWが書き込まれているか確認してください。</li>
+  <li>USB接続後、iPhoneが192.168.7.x のインターフェースを取得するまで数秒待ちます。</li>
+  <li>USBリレー設定画面で「Start」をタップし、Atom Clientの「Detected」が緑になることを確認します。</li>
+  <li>Pi側に<code>cw_bridge_ncm.py</code>が配置されているか確認します（Admin → Update Pi で自動配置）。</li>
+</ul>
+</div>
+
+<div class="divider"></div>
+<p style="text-align:center;color:#999;font-size:12px;margin-top:16px">WifiRigCTRL v3.10 — JI1ORE</p>
+
+</body>
+</html>

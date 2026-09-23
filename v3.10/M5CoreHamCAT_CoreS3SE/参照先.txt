@@ -1,3 +1,6 @@
 M5CoreHamCAT_CoreS3SE 最新バージョン: v2.51
-参照先: Wifi_Rig_CTRL/v3.00/M5CoreHamCAT_CoreS3SE
+参照先（M5ファームウェア・ソース）: Wifi_Rig_CTRL/v3.00/M5CoreHamCAT_CoreS3SE
 ファームウェア: M5CoreHamCAT_CoreS3SE_v2.51.bin
+
+RaspberryPiSetup（api.py・セットアップスクリプト）は v3.10 を使用してください。
+参照先（RaspberryPiSetup）: Wifi_Rig_CTRL/v3.10/RaspberryPiSetup

@@ -1,0 +1,3 @@
+M5CoreHamCAT_Core2Tough 最新バージョン: v2.51
+参照先: Wifi_Rig_CTRL/v3.00/M5CoreHamCAT_Core2Tough
+ファームウェア: M5CoreHamCAT_Core2Tough_v2.51.bin

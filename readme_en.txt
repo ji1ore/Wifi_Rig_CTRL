@@ -84,7 +84,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v2.60/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.10/RaspberryPiSetup/readme.txt
 
 Main steps:
 
@@ -102,10 +102,10 @@ Run required commands
 Use M5Burner to write the firmware.
 
 Source code is available here, one folder per board:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_Core2Tough
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_Core2
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_CoreS3SE
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_M5StopWatch
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.00/M5CoreHamCAT_Core2Tough
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.00/M5CoreHamCAT_Core2
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.00/M5CoreHamCAT_CoreS3SE
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.00/M5CoreHamCAT_M5StopWatch
 
 The source is intended to be compiled using PlatformIO on Visual Studio Code.
 
@@ -178,11 +178,32 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v2.60)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.10)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v2.60)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.10)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v3.10 (compared to v2.60)
+
+MEM SET / SP2ALERT → FT8 screen navigation improvements:
+- Fixed: when selecting an FT8/FT4 entry from MEM SET or an SP2ALERT spot, the app
+  now navigates to the FT8 screen and correctly sets FT8 or FT4 mode
+  (previously, the FT8/FT4 toggle was not applied on navigation)
+- Fixed: switching bands from MEM SET while already on the FT8 screen now
+  immediately updates the FT8/FT4 mode within the screen
+
+UI fix:
+- MEM SET button text size unified to match other buttons
+
+Requirement update:
+- minSdkVersion updated 21 → 24 (Android 7.0 Nougat or later)
+
+Pi API update:
+- api.py updated to v3.10 (tap "Update Pi" to update your Pi)
+  - Improved FT4 TX period detection
+  - pkill direwolf on crash for better Direwolf stability
+  - Added aplay crash detection and auto-restart
 
 ● What's New in v2.60 (compared to v2.51)
 
@@ -648,7 +669,7 @@ FastAPI update (re-run create_api.sh required):
 - Remote access via WireGuard VPN
 
 ● Requirements
-- Android smartphone (Android 5.0 / API 21 or later)
+- Android smartphone (Android 7.0 / API 24 or later)
 - Raspberry Pi Zero 2W (already set up)
 - Wi-Fi environment
 
@@ -663,9 +684,9 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.10/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v2.60.apk
+  1. Download Wifi_RIG_CTRL_v3.10.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
@@ -673,7 +694,7 @@ Source code is also published in the same folder (buildable with Android Studio)
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.10/RaspberryPiSetup
 
 Upgrading from v2.03 or later: use the "Update" → "Update Pi" button in the app
 Hamlib 4.7.2 (added in v2.12): use the "Update" → "Update Hamlib" button in the app
@@ -686,17 +707,30 @@ If connecting from outside your home network (e.g., via mobile data), WireGuard 
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 (No changes from v1.40)
 
-⑦ iOS Version (WifiRigCTRL for iOS v2.60)
+⑦ iOS Version (WifiRigCTRL for iOS v3.10)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 An iPhone/iPad app that offers the same kind of remote rig control as the M5CoreS3SE,
-with source published on GitHub since v2.17 (latest: v2.60).
+with source published on GitHub since v2.17 (latest: v3.10).
 As with the Android app, no M5Core / Module Audio / Unit Encoder hardware is required.
 Raspberry Pi setup is identical to the M5Core and Android versions.
 
 ● App Store status
-As of 2026/9/6, v2.60 build is ready for App Store submission (not yet under review).
+As of 2026/9/23, v3.10 build is under review on the App Store.
 Until it is published, build it from source with Xcode (see "Build" below). A download
 link will be added here once it is live on the App Store.
+
+● What's New in v3.10 (compared to v2.60)
+
+MEM SET / SP2ALERT → FT8 screen navigation improvements:
+- Fixed: when selecting an FT8/FT4 entry from MEM SET or an SP2ALERT spot, the app
+  now navigates to the FT8 screen and correctly sets FT8 or FT4 mode
+- Fixed: FT8 Band selection dialog (single-tap on frequency) not appearing after
+  navigating from MEM SET to the FT8 screen; resolved by delaying navigation until
+  the sheet dismiss animation fully completes
+- Fixed FT8/FT4 navigation from the POTA and SOTA spot tabs
+
+Pi API update:
+- api.py updated to v3.10 (same as Android; tap "Update Pi" to update your Pi)
 
 ● What's New in v2.60 (compared to v2.51)
 
@@ -862,7 +896,7 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Source Code / Build
 Source is published in the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.10/M5CoreHamCAT_iOS
 
   1. Open WifiRigCTRL_iOS.xcodeproj in Xcode 15 or later
   2. Set your developer account under Signing & Capabilities
@@ -872,7 +906,7 @@ No external library dependencies (no Swift Package Manager / CocoaPods).
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core and Android versions.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.10/RaspberryPiSetup
 
 ● Remote Access from Outside Home (WireGuard VPN)
 As with the Android version, WireGuard setup is required to connect from outside your
@@ -901,4 +935,20 @@ v2.60 released — Android, iOS, and Pi-side API updated. See sections ⑥ and �
 - Pi API updated to 2.60
 
 Source code and firmware are in the v2.60 folder on GitHub.
+--
+2026/9/23
+v3.10 released — Android, iOS, and Pi-side API updated. See sections ⑥ and ⑦ for details.
+
+[Android v3.10 — Key Changes]
+- MEM SET / SP2ALERT: navigate to FT8 screen with correct FT8/FT4 mode applied
+- MEM SET button text size unified with other buttons
+- minSdkVersion updated 21 → 24 (Android 7.0 or later)
+- Pi API updated to 3.10 (tap "Update Pi" to update your Pi)
+
+[iOS v3.10 — Key Changes]
+- MEM SET / SP2ALERT: navigate to FT8 screen with correct FT8/FT4 mode applied
+- Fixed FT8 Band dialog not appearing after navigating from MEM SET
+- Pi API updated to 3.10
+
+Source code: v3.10 folder on GitHub (Android/iOS/Pi); M5 firmware: v3.00 folder (unchanged).
 --

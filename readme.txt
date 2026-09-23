@@ -65,7 +65,7 @@ APRS動作のために
 ・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
 ③セットアップ手順(Raspberry Pi Zero2W)
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v2.60/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.10/RaspberryPiSetup/readme.txt
 を参照してセットアップを行ってください(verに応じたフォルダを参照ください)。
 主な手順は以下の通りです。
 ・Raspberry Pi Imagerのインストール
@@ -76,10 +76,10 @@ https://github.com/ji1ore/M5CoreHamCAT/blob/main/v2.60/RaspberryPiSetup/readme.t
 ④セットアップ手順(M5CoreS3SE/M5Core2/M5Core2 Tough/M5 Stopwatch)
 M5CoreS3SE/M5Core2/M5Core2 Tough/M5Stopwatchでは、M5Burnerを用いてファームウェアの読み込みを行ってください。
 Git上の以下フォルダにソースは機種別に公開します。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_Core2Tough
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_Core2
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_CoreS3SE
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_M5StopWatch
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.00/M5CoreHamCAT_Core2Tough
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.00/M5CoreHamCAT_Core2
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.00/M5CoreHamCAT_CoreS3SE
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.00/M5CoreHamCAT_M5StopWatch
 ソースはVisual Studio Code上のPlatformI/O上でのコンパイルを前提にしています。
 
 ●各機種の紹介文（M5Burner掲載用）
@@ -133,12 +133,31 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v2.60）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v3.10）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v2.60）。
+アプリを v1.30 より公開しています（最新版：v3.10）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
+
+●v3.10 の変更点（v2.60 との比較）
+【MEM SET / SP2ALERT → FT8 画面遷移改善】
+・MEM SET または SP2ALERT のスポットから FT8/FT4 エントリを選択すると、
+  FT8 画面へ遷移するとともに FT8/FT4 モードが正しく設定されるよう修正
+  （以前は FT8/FT4 の切替が反映されないことがあった）
+・FT8 画面表示中に MEM SET から別バンドを選択した場合も、画面内でモード切替を即時反映
+
+【UI 修正】
+・MEM SET ボタンのテキストサイズを他のボタンと統一
+
+【対応要件更新】
+・minSdkVersion を 21 → 24（Android 7.0 Nougat 以上）に更新
+
+【Pi API 更新】
+・api.py を v3.10 に更新（Pi 側は「Update Pi」で更新してください）
+  - FT4 TX 周期検出の改善
+  - Direwolf クラッシュ時の pkill 対応
+  - aplay クラッシュ検出と自動再起動
 
 ●v2.60 の変更点（v2.51 との比較）
 【BT CI-V Bluetooth音声（Android）】
@@ -581,7 +600,7 @@ Raspberry Pi のセットアップは M5Core 版と共通です。
 ・WireGuard VPN 経由での外出先接続対応
 
 ●必要なもの
-・Android スマートフォン（Android 8.0 以上）
+・Android スマートフォン（Android 7.0 以上）
 ・Raspberry Pi Zero 2W（セットアップ済み）
 ・WiFi 環境
 
@@ -596,9 +615,9 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.10/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v2.60.apk をダウンロード
+  1. Wifi_RIG_CTRL_v3.10.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
@@ -606,7 +625,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_Android
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.10/RaspberryPiSetup
 
 v2.03 以降からのアップグレード: アプリの「Update」→「Update Pi」ボタンで自動更新
 v2.12 から Hamlib 4.7.2 対応: アプリの「Update」→「Update Hamlib」ボタンで追加インストール
@@ -619,16 +638,27 @@ v2.02 以前からのアップグレード: 初回のみ手動 scp が必要
 https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
 （v1.40 からの変更なし）
 
-⑦ iOS版について（WifiRigCTRL for iOS v2.60）
+⑦ iOS版について（WifiRigCTRL for iOS v3.10）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに iPhone / iPad でリグをリモート制御できるアプリです。
-v2.17 よりソースコードをGitHubで公開しています（最新版：v2.60）。
+v2.17 よりソースコードをGitHubで公開しています（最新版：v3.10）。
 Android版と同様、M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core版・Android版と共通です。
 
 ●App Storeでの配信について
-2026/9/6 時点では App Store への提出準備中（v2.60 ビルド準備完了）。App Store公開まではソースコードを
+2026/9/23 時点では App Store への審査中（v3.10 ビルド準備完了）。App Store公開まではソースコードを
 Xcodeでビルドしてご利用ください（下記「ビルド方法」参照）。公開でき次第、本readmeにリンクを追記します。
+
+●v3.10 の変更点（v2.60 との比較）
+【MEM SET / SP2ALERT → FT8 画面遷移改善】
+・MEM SET または SP2ALERT のスポットから FT8/FT4 エントリを選択すると、
+  FT8 画面へ遷移するとともに FT8/FT4 モードが正しく設定されるよう修正
+・MEM SET シートを閉じた直後に FT8 バンドダイアログが表示されない問題を修正
+  （シート閉じアニメーション完了後にナビゲーションを実行するよう改善）
+・POTA / SOTA スポットタブからの FT8/FT4 遷移も同様に修正
+
+【Pi API 更新】
+・api.py を v3.10 に更新（Android 版と共通。Pi 側は「Update Pi」で更新してください）
 
 ●v2.60 の変更点（v2.51 との比較）
 【BT CI-V Bluetooth音声（iOS）】
@@ -780,7 +810,7 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●ソースコード・ビルド方法
 GitHub の以下フォルダにソースを公開しています。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.10/M5CoreHamCAT_iOS
 
   1. Xcode 15 以上で WifiRigCTRL_iOS.xcodeproj を開く
   2. Signing & Capabilities で開発者アカウントを設定
@@ -790,7 +820,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/M5CoreHamCAT_iOS
 
 ●Raspberry Pi セットアップ
 M5Core版・Android版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.60/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.10/RaspberryPiSetup
 
 ●外出先からの接続（WireGuard VPN）
 Android版と同様、自宅外から接続する場合は WireGuard のセットアップが必要です。
@@ -819,4 +849,20 @@ Ver2.60にて、Android版・iOS版・Pi側APIを更新しました。主な変�
 ・Pi API を 2.60 に更新
 
 ソースコード・ファームウェアは GitHub フォルダ v2.60 を参照してください。
+--
+2026/9/23
+Ver3.10にて、Android版・iOS版・Pi側APIを更新しました。主な変更点は⑥⑦を参照ください。
+
+【Android v3.10 主な変更点】
+・MEM SET / SP2ALERT から FT8/FT4 画面に遷移する際、FT8/FT4 モードを正しく設定
+・MEM SET ボタンのテキストサイズを統一
+・minSdkVersion を 21 → 24（Android 7.0 以上）に更新
+・Pi API を 3.10 に更新（「Update Pi」で更新してください）
+
+【iOS v3.10 主な変更点】
+・MEM SET / SP2ALERT から FT8/FT4 画面に遷移する際、FT8/FT4 モードを正しく設定
+・MEM SET シート閉じ後に FT8 バンドダイアログが開かない問題を修正
+・Pi API を 3.10 に更新
+
+ソースコード・ファームウェアは GitHub フォルダ v3.10（Android/iOS/Pi）、v3.00（M5）を参照してください。
 --

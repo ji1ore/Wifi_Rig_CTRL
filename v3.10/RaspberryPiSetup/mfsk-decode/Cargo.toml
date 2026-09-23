@@ -1,0 +1,20 @@
+[package]
+name        = "mfsk-decode"
+version     = "0.1.0"
+edition     = "2021"
+license     = "GPL-3.0-or-later"
+publish     = false
+description = "FT8 decoder CLI: decodes a 12 kHz WAV and streams JSON Lines to stdout"
+
+[[bin]]
+name = "mfsk-decode"
+path = "src/main.rs"
+
+[dependencies]
+mfsk-core = { git = "https://github.com/jl1nie/mfsk-core", tag = "v0.11.0", package = "mfsk-core" }
+hound = "3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

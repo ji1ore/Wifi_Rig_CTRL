@@ -1,0 +1,1362 @@
+① Introduction
+M5CoreHamCAT is a system that uses a Raspberry Pi Zero 2W connected to a transceiver and an M5CoreS3SE.
+The Raspberry Pi Zero 2W performs CAT control of the radio, and the M5CoreS3SE retrieves information and performs operations through it.
+
+Technically, Hamlib running on the Raspberry Pi Zero 2W is wrapped with FastAPI, and the M5CoreS3SE accesses FastAPI to operate the radio and obtain radio information.
+
+The system can display radio information and receive audio.
+
+Version 1.10 added support for sending PTT signals.
+After sending audio to the rig using a radio microphone, this device can toggle PTT ON/OFF.
+
+Version 1.20 added support for APRS transmission  
+(confirmed working only with IC‑705 at 1200 bps).
+
+APRS transmission is mutually exclusive with audio reception, but for radios without APRS capability, you can use DireWolf on the Raspberry Pi to send APRS packets.
+In APRS mode, the system switches from the current frequency to a separately configured APRS frequency (e.g., 144.66 MHz) and transmits APRS.
+
+Note: The baud rate seems to depend on the transmitting radio, and APRS transmission did not work from the IC‑705 via USB.
+
+2026/3/1
+Since M5CoreHamCAT_Speaker can now output audio via Module Audio, it has been discontinued.
+
+2026/7/22
+Version 2.20 publishes source/firmware for M5Core2 / M5Core2 Tough / M5CoreS3SE, each in
+its own folder (M5CoreHamCAT_Core2 / M5CoreHamCAT_Core2Tough / M5CoreHamCAT_CoreS3SE).
+
+2026/7/25
+This README has been refreshed to cover every device shipped in v2.20
+(M5Core2 / M5Core2 Tough / M5CoreS3SE / Android / iOS). Added a short M5Burner-style
+description for each M5 firmware, plus a new section (⑦) introducing WifiRigCTRL for iOS.
+
+2026/10/08
+v3.17 released — Android and iOS updated; Pi API updated to v3.17. See sections ⑥ and ⑦ for details.
+--
+2026/10/09
+v3.18 released — Android, iOS, and Pi-side API updated (security hardening: ufw firewall integrated into
+WireGuard setup, rigctld bound to loopback, device-path validation; FT-991 BK-IN fix; default WireGuard
+config filename changed to WG_Raspi.conf). See sections ⑥ and ⑦ for details.
+--
+2026/10/07
+v3.16 released — Android and iOS updated (Pi API unchanged). See sections ⑥ and ⑦ for details.
+--
+2026/10/06
+v3.15 released — Android, iOS, and Pi-side API updated. See sections ⑥ and ⑦ for details.
+--
+2026/8/12
+v2.34 released — Android and iOS updated. See sections ⑥ and ⑦ for details.
+
+2026/8/10
+v2.33 released — Android and iOS updated. See sections ⑥ and ⑦ for details.
+
+2026/7/31
+v2.32 released — Android and iOS updated. See sections ⑥ and ⑦ for details.
+
+2026/7/27
+v2.31 released — Android and iOS updated. See sections ⑥ and ⑦ for details.
+
+2026/7/26
+v2.30 released — Android, iOS, and Pi-side API updated. See sections ⑥ and ⑦ for details.
+
+Currently, operation has only been confirmed with the Yaesu FT‑991A.
+Operation with other radios, M5CoreS3, M5CoreS3Lite, or other M5Core series devices has not been tested.
+
+② Required Items
+To run this system, you will need the following:
+
+M5CoreS3SE / M5Core2 ver1.1  
+(M5CoreS3SE performs more smoothly)
+
+Module Audio (M5 genuine, SKU: M144) — connect to Port A
+
+Raspberry Pi Zero 2W
+
+Wi‑Fi router (both devices must be on the same network)
+
+Unit Encoder (M5 genuine, SKU: U135)
+Optional, but improves usability
+(Note: M5Core2 Tough does not use the Unit Encoder — it wires a mechanical 2-phase
+rotary encoder directly to Port A instead, so no Unit Encoder is needed for that board.)
+
+Battery Bottom for M5Stack CoreS3  
+Optional, but increases convenience
+
+MicroSD card (16 GB or more, high reliability recommended)
+
+USB cables for powering devices and obtaining CAT data
+
+For APRS operation:
+Smartphone (must support the Tasker app)
+
+Tasker app (paid)
+
+For transmitting audio signals:
+Mechanical Key (M5 genuine, SK6812)
+Connect to Port C (M5Core2) or Port B (M5CoreS3SE)
+
+Microphone capable of sending audio to the radio (e.g., wireless mic)
+
+③ Setup Procedure (Raspberry Pi Zero 2W)
+Follow the instructions in:
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.16/RaspberryPiSetup/readme.txt
+
+Main steps:
+
+Install Raspberry Pi Imager
+
+Create the Raspberry Pi image
+(configure Wi‑Fi SSID and user password here)
+
+SSH login (or run from the Pi GUI desktop terminal — see below)
+
+Run required commands
+(shell scripts are provided; simple but time‑consuming)
+
+[Setting up from the Raspberry Pi GUI desktop]
+If you have a monitor and keyboard connected to your Pi, you can run the setup
+from the desktop without SSH:
+- Use Raspberry Pi OS (full version) — Raspberry Pi OS Lite has no GUI
+- Right-click the desktop → "Open Terminal", or open LXTerminal
+- Paste the same commands from step ③ above and run them in the terminal
+
+④ Setup Procedure (M5CoreS3SE / M5Core2 / M5Core2 Tough / M5 StopWatch)
+Use M5Burner to write the firmware.
+
+Source code is available here, one folder per board:
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.00/M5CoreHamCAT_Core2Tough
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.00/M5CoreHamCAT_Core2
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.00/M5CoreHamCAT_CoreS3SE
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.00/M5CoreHamCAT_M5StopWatch
+
+The source is intended to be compiled using PlatformIO on Visual Studio Code.
+
+● Board descriptions (as listed in M5Burner)
+Searching for “M5CoreHamCAT” in M5Burner shows one entry per board, with a short
+description along these lines:
+
+[M5CoreHamCAT_Core2]
+Firmware that turns an M5Stack Core2 into a remote controller for your radio (rig).
+Controls the rig via a Raspberry Pi (Wifi_Rig_CTRL FastAPI backend) or directly via
+ICOM WLAN Remote (CI-V over WiFi), with real-time frequency/mode/S-meter display,
+RX audio playback, PTT transmit, and APRS beacon TX/RX. Connect an M5 genuine Unit
+Encoder (I2C) to Port A, and a PTT switch + status LED to Port C. In addition to the
+built-in mic/speaker, an external Module Audio can be selected instead.
+
+[M5CoreHamCAT_Core2Tough]
+Firmware that turns an M5Stack Core2 Tough into a remote controller for your radio.
+Functionally identical to the Core2 build (rig control via Raspberry Pi/CI-V, RX
+audio, PTT transmit, APRS TX/RX), but tuned for the rugged Core2 Tough body: Port A
+wires directly to a mechanical 2-phase rotary encoder (no Unit Encoder required),
+and the display is rotated 180° at startup. Port C is used for the PTT switch and
+status LED.
+
+[M5CoreHamCAT_CoreS3SE]
+Firmware that turns an M5Stack CoreS3 SE into a remote controller for your radio.
+Controls the rig via Raspberry Pi or direct CI-V, with real-time frequency/mode/
+S-meter display, RX audio, PTT transmit, and APRS beacon TX/RX. The smoothest-running
+of the three supported boards. Connect a Unit Encoder (I2C) to Port A, and a PTT
+switch + status LED to Port B. The built-in mic/speaker and an external Module Audio
+can be switched independently.
+
+[M5CoreHamCAT_M5StopWatch]
+Firmware that turns an M5Stack Stopwatch Dev Kit (466×466 round AMOLED) into a remote
+controller for your radio (rig). Controls the rig via a Raspberry Pi (Wifi_Rig_CTRL
+FastAPI backend) or directly via ICOM WLAN Remote (CI-V over WiFi), with real-time
+frequency/mode/S-meter display, RX audio playback, PTT transmit, and APRS beacon TX/RX.
+No external rotary encoder or Module Audio port — uses built-in mic/speaker only.
+Features a UI optimized for the round display.
+
+Firmware installation steps:
+
+Download and install M5Burner
+
+Launch M5Burner and register an account
+
+Download M5CoreHamCAT
+
+Connect M5CoreS3SE/M5Core2 via USB and Burn
+(Search for “M5CoreHamCAT” in M5Burner)
+
+For APRS:
+Long‑press the grayed‑out APRS button on the main screen to modify settings.
+You can also send GPS data from your smartphone to the Raspberry Pi’s FastAPI using Tasker.
+See the “RaspberryPiSetup” folder for configuration instructions.
+
+⑤ Notes / Cautions
+The system is still somewhat unstable.
+If it doesn’t work properly, try rebooting a few times.
+
+If radio information stops updating, SSH into the Raspberry Pi Zero 2W and reboot it:
+
+コード
+sudo reboot now
+Be careful not to select the wrong CAT device, or it will fail to connect.
+
+Rapid tapping may cause the system to reboot.
+
+To prevent audio delay, the system reconnects every 10 minutes.
+During this time, audio may drop for a few seconds.
+
+On M5Core2, you may need to press and hold slightly longer on the main screen.
+
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.18)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.18)
+No M5Core / Module Audio / Unit Encoder hardware is required.
+The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v3.18 (compared to v3.17)
+
+Security hardening:
+- Integrated ufw firewall setup into WireGuard configuration
+  Auto-installs and enables ufw even on an unconfigured Pi. SSH (22) and WireGuard (51820/udp) are always
+  allowed (to prevent lockout). Default deny incoming; app ports (8000/50000/8443/8889) are allowed only
+  from the LAN subnet and the WireGuard subnet (10.0.0.0/24).
+- Bound rigctld to loopback (127.0.0.1) to block unauthorized direct control from the LAN
+- Added device-path validation (path traversal protection)
+
+Bug fixes:
+- Fixed FT-991 / FT-991A BK-IN (break-in) not turning OFF
+  (The command "BK" does not exist on the FT-991; switched to the official "BI": BI0;=OFF / BI1;=ON)
+
+Improvements:
+- Changed the default WireGuard config filename to WG_Raspi.conf
+
+Pi API update (v3.18):
+- API version updated to 3.18
+- start_rigctld adds -T 127.0.0.1; _validate_dev_name validates device names
+- FT-991 (model 1035) sets/reads BK-IN via raw CAT "BI"
+- WireGuard Setup (app GUI / setup_wireguard.sh) installs and enables ufw
+
+● What's New in v3.17 (compared to v3.16)
+
+New features:
+- WireGuard setup now automatically configures the API Key on the Pi (mandatory, improved security)
+  The key is stored securely on the device (EncryptedSharedPreferences)
+- FT8 screen now shows an alert when mfsk-decode is not yet built, with step-by-step instructions
+- Setup Pi now instructs users to run "Update Pi" afterward for mfsk-decode build (10–20 min)
+
+Bug fixes:
+- Fixed mfsk-decode build failure after Update Pi / Setup Pi
+  ("rustup could not choose a version" error resolved by running rustup toolchain install)
+- Fixed Setup Pi (SSH) using outdated files from GitHub; now transfers files from app bundle via SFTP
+- Fixed FT8 decode stopping after api.py restart (SSE reconnect now calls ft8Start automatically)
+- WireGuard Setup: added mandatory API Key field; removed unnecessary ufw toggle
+
+Pi API update (v3.17):
+- API version updated to 3.17
+- Added /admin/set_api_key endpoint
+- mfsk-decode build worker: improved rustup toolchain handling
+
+● What's New in v3.16 (compared to v3.15)
+
+Raspberry Pi one-tap setup (SETUP screen):
+- Added "SETUP Pi" button on the connection settings screen
+- Enter the Pi's IP address, SSH username, and password — one tap installs FastAPI, Hamlib, Direwolf,
+  and mfsk-decode on a freshly installed Raspberry Pi OS (~5–10 minutes)
+- Works with any SSH username (not limited to "pi")
+- After setup, mfsk-decode background build is triggered automatically (monitor progress in the Admin screen)
+
+Pi API:
+- No changes from v3.15
+
+● What's New in v3.15 (compared to v3.14)
+
+FT8 improvements:
+- Auto-reset QSO state when qso_done event is missed during SSE stream disconnect (60-second watchdog)
+- SSE reconnect delay reduced from 3 s to 1.5 s
+- All decoded messages are automatically saved to ~/ALL.TXT (WSJT-X compatible format)
+- Long-press the LOG button → dialog shows last 500 lines with Share and Clear options
+
+RTTY improvements:
+- Added PO (TX power output) and ALC meter display
+- Added TX power +5% / -5% buttons (with live reading)
+- TX gain slider range expanded from 10–100% to 1–100%
+- Extended RST buttons (519 / 529 / 539 / 549)
+- Added "73 DE [CALLSIGN] K" CQ button
+- All TX text is now automatically prefixed with "RTRT " (RTTY identification)
+- Added ×1/×2/×3 call-repeat selector to CQ and ANS panels
+- Removed non-functional POTA/JCC toggle buttons from CQ and ANS panels
+
+CW TX dialog:
+- Wrapped in ScrollView for small-screen compatibility
+
+About screen:
+- Added mfsk-core version display (v0.13.1)
+
+Pi API update (v3.15):
+- api.py updated to v3.15 (tap "Update" → "Update Pi" to update)
+  - mfsk-core updated to v0.13.1 (from v0.13.0)
+  - /admin/version now returns mfsk_version field
+  - Added /ft8/all_txt endpoint (GET to retrieve, DELETE to clear)
+
+● What's New in v3.14 (compared to v3.13)
+
+RTTY usability improvements:
+- Command button color scheme unified with CW TX screen (TX macros: dark purple, CQ REPEAT/TX: dark green, STOP: red)
+- Long-press any command button to fill the TX text field for editing before sending with TX or TX×2
+- TX gain adjustment button added (10–100%, seekbar)
+- FT-991A per-band carrier frequency calibration added (HF / 50 / 144 / 430 MHz independently adjustable)
+
+Pi API:
+- No Pi API changes from v3.13. "Update Pi" is not required.
+
+● What's New in v3.13 (compared to v3.12)
+
+New feature — QSO Log:
+- Log contacts directly in the app: callsign, RST sent/received, band, mode, frequency, date/time
+- POTA / SOTA reference fields for both your station and the other station
+- ADIF export — share selected QSOs or the full log as an .adi file
+- Edit previously logged QSOs
+
+Bug fixes:
+- Fixed Pi API version mismatch display: the "Pi API version mismatch" warning in the About
+  screen was incorrectly showing "3.12 is required" — now correctly shows "3.13"
+
+Pi API update (v3.13):
+- api.py updated to v3.13 (tap "Update" → "Update Pi" to update; takes a few minutes)
+  - FT8 decode depth default changed 3 (deep) → 1 (fast) for better speed/accuracy balance
+  - mfsk-decode updated to mfsk-core v0.13.0 (improved FT8/FT4 decode accuracy)
+  - PTT audio transmission now gracefully handles BrokenPipeError (prevents crash)
+  - setup_fastapi_radio.sh improvements: libncurses-dev, rpath, venv repair, Direwolf auto-detection
+
+● What's New in v3.12 (compared to v3.11)
+
+RTTY receive tuning overhaul:
+- The scrolling waterfall is replaced by a bar graph of the current frame's signal
+  strength, so the Mark/Space positions are visible at a glance
+- Auto-tune now tracks the Mark/Space tones with hysteresis and falls back to the
+  standard tones (2125/2295 Hz) when the signal disappears
+- FIX mode: long-press the Tune button to stop auto-tune; tap the spectrum to move the
+  decode position
+- RX level indicator added
+
+RTTY transmit:
+- TX path is now chosen automatically (AFSK audio through the Pi). The serial FSK
+  options were removed from the UI because they competed with the CAT port and took
+  rig control down
+- TX dial offset (Mark tone, plus the FT-991A's 1000 Hz DATA SHIFT) is applied
+  automatically so the signal lands on the displayed frequency
+- Transmission is refused while the dial frequency is unknown (e.g. after a link loss)
+- RTTY is disabled in direct CI-V mode (both RX and TX depend on the Pi's audio path)
+
+Connection stability:
+- Detects the "frequency stuck at 0" state left behind by a FastAPI restart on the Pi
+  and re-opens the rig automatically
+- Leaving the RTTY screen no longer stops the Pi RX audio stream (it was cutting audio
+  for other clients connected to the same Pi)
+
+Other:
+- FT8 screen applies/clears the FT8-specific ALSA device setting on enter/leave
+- Fixed "Update Hamlib" completion detection (it waited the full 60 minutes and
+  reported a timeout even after a successful build)
+
+Pi API update:
+- api.py updated to v3.12 (tap "Update" → "Update Pi" to update your Pi; takes a few minutes)
+  - Rig and audio device selections are persisted so the Pi recovers automatically
+    after a FastAPI restart
+  - RX audio chain gain reduced from +20 dB to +6 dB (removes clipping, improves RTTY decoding)
+  - FT8 capture is no longer torn down on reconnect when already streaming at the
+    requested rate (fixes audio dropouts)
+  - New diagnostics endpoint /admin/amixer (/radio/rtty_fsk_tx is experimental and
+    not used by the app)
+  - mfsk-decode updated to mfsk-core v0.12.0
+
+● What's New in v3.11 (compared to v3.10)
+- Version alignment with the iOS release
+- Further improved CW TX frequency shift accuracy
+
+● What's New in v3.10 (compared to v2.60)
+
+MEM SET / SP2ALERT → FT8 screen navigation improvements:
+- Fixed: when selecting an FT8/FT4 entry from MEM SET or an SP2ALERT spot, the app
+  now navigates to the FT8 screen and correctly sets FT8 or FT4 mode
+  (previously, the FT8/FT4 toggle was not applied on navigation)
+- Fixed: switching bands from MEM SET while already on the FT8 screen now
+  immediately updates the FT8/FT4 mode within the screen
+
+UI fix:
+- MEM SET button text size unified to match other buttons
+
+Requirement update:
+- minSdkVersion updated 21 → 24 (Android 7.0 Nougat or later)
+
+Pi API update:
+- api.py updated to v3.10 (tap "Update Pi" to update your Pi)
+  - Improved FT4 TX period detection
+  - pkill direwolf on crash for better Direwolf stability
+  - Added aplay crash detection and auto-restart
+
+● What's New in v2.60 (compared to v2.51)
+
+BT CI-V Bluetooth audio (Android):
+- RX audio from IC-705/IC-9700 connected over Bluetooth now plays through the phone
+  speaker (via Bluetooth SCO) — fully wireless RX audio without a Raspberry Pi
+
+CW BLE key:
+- BLE connection stability improvements
+
+Pi API update:
+- API_VERSION updated to "2.60" (Pi-side update required — tap "Update Pi")
+
+● What's New in v2.51 (compared to v2.50)
+
+SP2ALART integration (Android):
+- Tapping a POTA/SOTA spot notification banner in SP2ALART opens Wifi RIG CTRL with
+  the spot's frequency and mode automatically pre-set (via Sp2alertReceiver broadcast)
+
+Pi-side script update (create_api.sh):
+- DireWolf ADEVICE now read from ALSA_CAPTURE in .env instead of hardcoded plughw:0,0
+  (Fixes DireWolf audio device setup on systems with non-standard device names)
+- mawk compatibility fix: Pi setup now completes correctly on systems using mawk
+- API_VERSION updated to "2.51" (Pi-side update required — tap "Update Pi")
+
+● What's New in v2.50 (compared to v2.34)
+
+Pi-side script changes (api.py / create_api.sh):
+- Added PTT-OFF watchdog for rigs that ignore PTT-OFF during output ramp-up (e.g. FTX-1F)
+  - Background thread retries T 0 every second for up to 20 seconds until the rig confirms OFF
+  - If rigctld restarts during this period, two consecutive "0" responses are required before
+    declaring OFF (prevents false positives from a freshly restarted rigctld)
+  - Immediately aborted if CW / APRS / FT8 transmission takes over (no interference)
+- Added exclusive lock for rigctld restart to prevent race conditions when PTT is toggled rapidly
+- WebFT8 version now included in /radio/status response
+- webft8 server restart now supports systemd with direct-launch fallback
+- Hamlib per-model stop bits configuration (FTX-1 works with default radio settings for CAT PTT)
+- USB audio device auto-detection for ALSA_CAPTURE / ALSA_PLAYBACK
+  - Initial setup: interactive selection when multiple devices found, auto when only one
+  - Update Pi: fully automatic (headless-friendly)
+- API_VERSION updated to "2.50"
+
+App changes:
+- Pi API version check updated to "2.50" (run "Update Pi" to update your Pi)
+
+● What's New in v2.34 (compared to v2.33)
+
+Bug fixes:
+- Fixed WebFT8 version retrieval failure in the About screen (Android & iOS)
+  - After running "Update Pi" from the iOS app, both Android and iOS could no longer
+    retrieve the WebFT8 version; this has been fixed
+  - Android: removed certificate pinning for HTTPS connection; now uses cached IP directly
+  - create_api.sh: added /server_version endpoint to the embedded server.py
+    (version now retrievable immediately after Update Pi)
+
+Pi-side script changes:
+- create_api.sh: embedded server.py now includes /server_version endpoint (_VERSION = "2.34")
+- create_api.sh: embedded api.py API_VERSION updated to "2.34"
+
+● What's New in v2.33 (compared to v2.32)
+
+Bug fixes:
+- Fixed "stuck at Loading WASM" in the WebFT8 screen after a webft8 update
+  - Added missing wav-save.js to the create_api.sh download list
+  - server_webft8.py now auto-downloads the latest JS files from GitHub on every webft8 startup
+
+- Fixed USB CW keyer sidetone delay (Android)
+  - The USB read thread was blocked by Pi UDP SYNC round-trips (up to 300 ms), causing
+    key-state processing to be delayed and sidetone to lag behind the actual key press
+  - Added a dedicated SYNC forwarder thread (CwUsb-SyncFwd) to decouple USB read
+    from Pi communication (CwUsbService.kt)
+
+New features:
+- Added "Update WebFT8" button (orange) to the Update screen
+  - Deploys server_webft8.py instantly without rebooting the Pi
+- "Update Pi" now automatically triggers "Update WebFT8" afterward
+
+Pi-side script changes:
+- create_api.sh: added wav-save.js to webft8 file download list
+- server_webft8.py: auto-refresh JS files from GitHub on startup; SW.ready timeout patch; sw.js skipWaiting patch
+
+● What's New in v2.32 (compared to v2.31)
+
+New features (CI-V direct connection):
+- Repeater settings support added
+  - Set CTCSS tone mode (None / Tone / TSQL) and tone frequency
+  - Set offset direction (+/-) and offset frequency
+    Presets: 100 kHz / 600 kHz / 1 MHz / 1.6 MHz / 5 MHz / 7.6 MHz
+    Custom input also supported
+  - While transmitting (PTT ON), the frequency display shows the actual
+    TX frequency (RX frequency ± repeater offset)
+  - Settings are saved across app restarts
+
+Note:
+- No Pi-side script changes (same as v2.30)
+
+● What's New in v2.31 (compared to v2.30)
+
+New features:
+- P/W/S button: POW, WIDTH, and SQL merged into one button
+  - Tap to cycle Power → Width → SQL → deselect
+  - Selected item shown on second line of button
+- MEM band memory panel added
+  - Preset memories (common frequencies 160m–70cm, read-only)
+    · Added 70cm CW (430.050 MHz) and 70cm SSB (430.100 MHz) presets
+    · Presets displayed in per-band sections (160m / 80m / … / 70cm)
+  - User memories (store/edit/delete frequency + mode + step freely)
+    · User memories shown at the top of the list
+    · Mode selection changed from text input to dropdown
+      (LSB / USB / CW / CWR / AM / FM / C4FM / DV / RTTY / PSK)
+    · Memory name is now required (cannot save with blank name)
+  - Shared across all profiles regardless of connected rig
+  - Short-press MEM → recall, Long-press → manage (add / edit / delete)
+
+Changed:
+- PTT type default changed to CAT (RIG)
+
+Note:
+- No Pi-side script changes (same as v2.30)
+
+● What's New in v2.30 (compared to v2.20)
+
+Pi-side API update:
+- Mode list is now detected dynamically per connected rig (api.py)
+  - Previously, /radio/modes and /radio/caps returned a fixed generic list
+    (LSB/USB/CW etc.), making it impossible to select rig-specific digital
+    modes such as C4FM (FT-991) or D-STAR (IC-705)
+  - v2.30 runs dump_caps at connect time to auto-detect the supported mode
+    list and reflects it in the Mode selector
+  - Pi-side update required (use "Update" → "Update Pi" in the app)
+
+New features:
+- Color theme selector added to main control screen
+  - A button next to the TX indicator cycles through OCEAN / AMBER / MONO /
+    AQUA themes; selected theme is saved across restarts
+- FM button now dynamically includes digital modes (C4FM, FMN, FM-D, D-STAR)
+  when they appear in the dump_caps mode list for the connected rig
+
+Improvements:
+- Profile auto-save on connect
+  - Active profile is now automatically saved when the connect button is tapped
+    or when a rig is opened, eliminating the need to manually save the profile
+    after changing connection settings
+- APRS stability improvements (rig modem AP96/AP12 reliability)
+  - APRS settings are now re-sent to the server every 30 seconds to prevent
+    server/app settings from drifting out of sync
+  - Added heartbeat transmission while AP96/AP12 is running; prevents the Pi
+    watchdog from stopping the beacon (v2.20 would stop beacon after ~15 s)
+  - APRS Settings OK button now automatically stops a running beacon when
+    APRS Enabled is turned OFF or TX Method is changed
+
+Bug fixes:
+- Fixed CI-V direct mode sending USB instead of D-STAR when D-STAR is selected
+  (CivTcpService.kt setMode() was missing the D-STAR → 0x17 mapping)
+
+● What's New in v2.20 (compared to v2.18)
+
+New features:
+- Added APRS rig modem mode (CAT control of the built-in APRS modem on rigs such as FTX-1)
+  - New "TX Method" toggle in APRS settings screen (DireWolf / Rig Modem)
+  - In Rig Modem mode: APRS button cycles OFF → AP96 (9600 baud) → AP12 (1200 baud) → OFF
+  - Configurable modem select (AUTO / MAIN / SUB) and frequency/baud for each preset
+
+Bug fixes:
+- Fixed East longitude displayed as West in APRS Mic-E received packets
+  (Workaround for FTX-1 firmware bug: D6 encoded as plain digit instead of P-Y range)
+- Fixed symbol corruption in APRS Mic-E received packets (corrected byte offsets)
+
+● What's New in v2.18 (compared to v2.17)
+- versionCode increment for Google Play release alignment
+  - No changes to Pi-side scripts (same as v2.17)
+
+● What's New in v2.17 (compared to v2.16)
+
+Bug fixes & improvements:
+- Improved IC-705 Wi-Fi CI-V connection reliability
+  - Uses ephemeral ports (0) to generate a fresh ctrlMyId on each connection
+  - Resolves issue where IC-705 reused stale sessions (matches iOS behavior)
+  - Connection continues if civRemoteId was learned from pings even when IAH was not received
+
+- Fixed panel buttons showing only the top row (4 buttons) when returning from PiP (minimize) mode
+  - Moved requestLayout() inside post{} in onPictureInPictureModeChanged so the GridLayout
+    remeasures only after the window has fully restored to its normal size
+  - No changes to Pi-side scripts (same as v2.16)
+
+● What's New in v2.16 (compared to v2.15)
+
+Bug fixes:
+- Removed [TEST] label from "USE CI-V (IC-705 etc.)" in RIG CONNECT screen
+  (CI-V feature is now treated as a released feature)
+  - No changes to Pi-side scripts (same as v2.15)
+
+● What's New in v2.15 (compared to v2.14)
+
+Bug fixes:
+- Removed "(FT8)" label from My Callsign field in CI-V connect screen
+  (FT8 is not available in CI-V mode — label changed to "My Callsign")
+  - No changes to Pi-side scripts (same as v2.14)
+
+● What's New in v2.14 (compared to v2.13)
+
+New features:
+- Direct Wifi CI-V connection support for IC-705 / IC-9700 (no Raspberry Pi required)
+  - Toggle between Pi mode and direct CI-V mode with the "USE CI-V" switch in RIG CONNECT
+  - Configure CI-V port (default 50001) and CI-V address (IC-705: 0xA4)
+  - Supported: frequency, mode, S-meter, PTT, RF power, squelch, BK-IN
+  - Pi-mode only: audio streaming, CW text TX, FT8, APRS
+  - No changes to Pi-side scripts (same as v2.13)
+
+● What's New in v2.13 (compared to v2.12)
+
+Improvements:
+- CW sidetone cut-off timing improved (matches iOS response)
+  - AudioTrack buffer reduced from ~2 seconds → ~200ms
+
+New features:
+- Picture-in-Picture (PiP) support
+  - Auto-enter PiP when transmitting or keying CW and pressing the home button
+  - On Android 12+: automatic via setAutoEnterEnabled
+
+Bug fixes & improvements:
+- Full edge-to-edge display support (Google Play policy compliance)
+  - enableEdgeToEdge() + WindowInsetsCompat handles system bar insets
+  - Deprecated APIs setStatusBarColor / setNavigationBarColor removed
+- Fixed layout issue (1-row display) when connecting USB CW keyer
+  - suppressPip flag prevents PiP entry during USB permission dialog
+- App icon added to splash screen
+- Fixed "+ New" button being partially hidden
+- No changes to Pi-side scripts (same as v2.12)
+
+● What's New in v2.12 (compared to v2.11)
+
+New features:
+- Hamlib 4.7.2 support added
+  - Hamlib 4.7.x is not available via apt; source build is now supported
+  - Installed to ~/.local/bin/rigctld (no sudo required; built with RPATH)
+  - Install via the app's "Update" → "Update Hamlib" button (30–60 min on Pi Zero)
+  - rigctld uses ~/.local/bin/rigctld (4.7.2) preferentially; falls back to system version if not present
+
+- New "Update" screen (UI reorganization)
+  - Update Pi, Update Hamlib, Pi Log, and Hamlib Log consolidated into one screen
+  - Log area (green monospace) shows build progress in real time
+  - Reload button for manual refresh
+  - RIG CONNECT screen simplified to 6 buttons (2 rows × 3 columns)
+
+- About screen now displays Pi API version and Hamlib version
+  - Shows FastAPI version and rigctld version of the connected Pi
+
+Bug fixes:
+- Fixed webFT8 frequency change bug when editing Rig→TX / RX fields
+  - Occurred in landscape orientation only
+  - Cause: DOM change event listener was misinterpreting audio offset values as radio frequencies
+  - localStorage.setItem-based frequency sync continues to work correctly
+
+- WID (filter width), POW (TX power), and SQL (squelch) are now adjustable with ◀▶ buttons
+  - WID ±100 Hz, POW ±1%, SQL ±1% per button press
+  - Tap WID / POW / SQL button to select it, then use ◀▶ to adjust
+
+- Fixed "Pi API version mismatch" shown after Update Pi
+  - The app's expected-version constant was still set to v2.11, causing a false mismatch after update
+
+● What's New in v2.11 (compared to v2.10)
+
+New features:
+- BLE CW keyer support added (DualKey-BLE / RemoteKeyer-BLE)
+  - Connect DualKey-BLE (M5AtomS3) or RemoteKeyer-BLE to Android wirelessly via BLE (Bluetooth LE)
+  - Uses Nordic UART Service (NUS) protocol
+  - After pairing in Android Bluetooth settings, tap the BT button to auto-detect and connect
+  - DualKey-BLE USB CDC / BLE auto-switching
+    · Power-on window (10 sec): left paddle (DAH) → USB CDC mode,
+                                 right paddle (DIT) → BLE mode (default)
+    · While in BLE mode: USB app data received → auto-restart into USB CDC mode
+    · While in USB CDC mode: USB disconnected → auto-restart into BLE mode
+
+Improvements:
+- CW connection status display improved
+  - BLE connected: shows "BLE" in green
+  - Disconnected: shows "BLE" in grey
+
+● What's New in v2.10 (compared to v2.09)
+
+Bug fixes & improvements:
+- Enhanced Noise Reduction (NR) with 5 levels (unified to afftdn-based)
+  - Level 1 (Light)   : afftdn=nf=-30:nr=15
+  - Level 2 (Medium)  : afftdn=nf=-25:nr=20
+  - Level 3 (Strong)  : afftdn=nf=-20:nr=25:tn=1
+  - Level 4 (Stronger): afftdn=nf=-20:nr=33:tn=1
+  - Level 5 (Max)     : afftdn=nf=-20:nr=40:tn=1
+  - Long-press SQL button to cycle 0→1→2→3→4→5→0
+  - NR settings now synced to dual-server (apiPort / audioPort)
+
+- Improved Update Pi button reliability
+  - sudoers now generated with actual runtime username (fixed whoami bug during sudo)
+  - Fallback restart wait extended 3s → 15s (Pi Zero support)
+  - Fallback now also restarts fastapi-audio (port 50000)
+
+● What's New in v2.09 (compared to v2.08)
+
+Bug fixes & improvements:
+- CW decoder accuracy improvements (RX main screen & TX CW panel)
+  - dit/dah boundary threshold improved (×2 → ×1.8): reduced dah misdetection
+  - Inter-character gap threshold relaxed (×2 → ×2.5): reduced false character splits
+  - ditWins convergence slowed for better tolerance of rapid speed changes
+  - Energy calculation expanded from 3-bin to 5-bin total (improved SNR for weak signals)
+  - Noise floor estimation changed from 30th → 20th percentile (improved interference tolerance)
+  - TX side: ditMs lower limit changed 15ms → 20ms (prevents false counts)
+
+● What's New in v2.08 (compared to v2.07)
+
+Bug fixes & improvements:
+- Fixed CW TX start lag (USB serial connection)
+  - open_radio now saves effective PTT type (RIG) to current_ptt_type
+  - Eliminated rigctld restart on every CW TX for ttyACM/ttyUSB (was causing 0–7s lag)
+
+- CW TX panel UI improvements
+  - Enlarged buttons, layout now fits in one screen
+  - Landscape mode: 2-column layout
+
+● What's New in v2.07 (compared to v2.06)
+
+Bug fixes & improvements:
+- USB serial PTT auto-optimization (IC-705 USB enhancement)
+  - Auto-switch PTT from RTS → CAT (CI-V) for ttyACM/ttyUSB devices
+  - Avoids IC-705 USB audio reset issue
+
+- PTT forced release after rigctld start
+  - Prevents accidental TX during rigctld restart
+
+- Banned rigctld restart during TX
+  - Fixed: DTR would be cut during CW/voice transmission causing transmission drop
+
+- PTT type display changed "RIG" → "CAT" (UI unification)
+
+- CW CQ repeat UI improved
+
+● What's New in v2.06 (compared to v2.05)
+
+Bug fixes & improvements:
+- Fixed CW USB (DualKey) sync behavior when Pi is not connected
+  - Keying timing is now calculated correctly even without Pi present
+
+● What's New in v2.05 (compared to v2.04)
+
+Bug fixes & improvements:
+- Fixed CW TX being cut off mid-transmission
+  - Removed set_morse_code_speed (K command) which was blocking rigctld for 2+ seconds
+  - IC-7300 / IC-705 internal keyer manages PTT automatically; CAT PTT not needed
+
+- Added CW TX end mode selection
+  - Time-prediction mode (default): for IC-7300 / IC-705 internal keyer
+  - PTT polling mode: for rigs with CAT PTT support (FT-991, etc.)
+  - Toggle with "TX end: PTT poll" switch in CW TX panel
+
+- Reduced CW TX start delay (600ms → 100ms)
+
+- Fixed S-meter always showing S9 with IC-705
+
+- Improved Update Pi button
+  - One-tap update if Pi is already running v2.03 or later
+  - No longer depends on Pi username (pi / pizero / etc.)
+
+FastAPI update (via Update Pi button):
+- CW TX end mode selection (ptt_poll parameter)
+- BK-IN status auto-polling every 15 seconds
+- Path handling generalized (username-independent)
+
+● What's New in v2.04 (compared to v2.03)
+
+Bug fixes & improvements:
+- Fixed BK-IN status always showing OFF in CW mode
+  - Added SBKIN / FBKIN polling in FastAPI poll_signal() (15-second interval)
+  - Polling skipped during TX (IC-7300 PA relay protection)
+  - Auto-detects semi break-in (SBKIN) then full break-in (FBKIN)
+
+- Improved Update Pi button reliability
+  - Added retry logic for api.py resend after create_api.sh (up to 5 x 5s)
+  - Resend failure now reported to user (was silently ignored before)
+  - Fixed misleading success message
+
+FastAPI update (Update Pi button or re-run create_api.sh):
+- Added CW-mode BK-IN auto-polling to poll_signal()
+
+● What's New in v2.03 (compared to v2.02)
+
+New features:
+- FT8/FT4 decode (webft8-based), multi-profile support
+
+Improvements:
+- Sync Time button, SSL cert pinning, ALSA device separation
+
+FastAPI (re-run create_api.sh):
+- webft8 HTTPS server, improved time sync, home directory generalized
+- API version 2.03
+
+● What's New in v2.02 (compared to v2.01)
+
+New features:
+- CW TX panel added
+  - Preset buttons: CQ / CALL K / AGN / UR 5NN BK
+  - WPM slider (5–60 WPM, SeekBar)
+  - Free text input (automatically shows English keyboard)
+  - CW mode: sends morse via Hamlib keyer
+  - FM-CW mode: streams PCM tone to Raspberry Pi
+    Note: FM-CW has ~0.5–1 second latency due to audio buffering
+
+Improvements & fixes:
+- CW/CWR mode now automatically sets filter width to 500 Hz
+- POW UP/DOWN now uses 1% steps (was 5%)
+- Removed "%" from step labels in PWR/SQL dialogs
+- All in-app messages translated to English
+
+FastAPI update (re-run create_api.sh required):
+- Added CW morse TX API (/cw/send_morse / /cw/stop_morse / /cw/morse_status)
+- Added Break-in API (/radio/setbkin / /radio/getbkin)
+- Added time sync API (/time)
+- Added FT8 audio device API (/radio/audio_device_ft8)
+- Added cw_bridge.py remote update (/admin/update_cw_bridge)
+- APRS beacon now uses symbol/comment/destination from config
+- Fixed APRS PTT control to use rigctld via PTT RIG 2 (resolves "cannot transmit" issue)
+- Extended APRS KISS port wait timeout to handle Pi Zero startup time
+- Suppressed PTT watchdog during APRS TX (resolves TX being cut off mid-packet)
+- Made /aprs_config and /aprs_start non-blocking (fixes Android HTTP timeout)
+
+● What's New in v2.01 (for reference)
+- FT8/FT4 feature redesigned with WebView-based UI (requires port 8443 on Raspberry Pi)
+- Please re-run create_api.sh on the Raspberry Pi side
+
+● v2.00 Features (added from v1.50)
+- FT8/FT4 receive decode and transmit (experimental feature)
+- Selectable audio stream sampling rate (8k–48kHz)
+- Filter width control
+
+● v1.50 Features (no changes)
+- Multi-channel CW decoder (long-press SPK button to show/hide decode panel)
+  - Up to 5 simultaneous stations (TX row + RX rows ×5)
+  - Strongest signal always shown in yellow (RX0), auto-promoted
+  - Frequency drift tracking ±125 Hz (prevents duplicate channels)
+  - Automatic merging of duplicate channels for the same frequency
+  - Accurate decoding above 20 WPM
+  - VPN latency support: audio bursts exceeding 2 seconds are skipped
+
+● v1.40 Features (no changes)
+- USB CW relay mode (M5ATOM Lite / M5ATOM S3 Lite connected directly to Android via USB)
+  - CW mode: relays key state to Raspberry Pi /cw/key
+  - Non-CW mode (FM, etc.): streams CW audio tone to /radio/audio_tx
+  - Android sidetone playback (low latency, ON/OFF setting remembered)
+  - CW VPN buffer setting (key signal delay compensation)
+  - FM-CW PTT delay setting (prevents beginning cutoff on VPN; separate from CW delay)
+
+● Features
+- Real-time display of receive frequency, mode, and signal strength
+- Change frequency, mode, power, squelch, and filter width
+- Play received audio through the smartphone speaker (SPK)
+- PTT ON/OFF and audio transmission (send microphone audio to the radio)
+- WiFi PTT (PTT control via external devices such as M5Atom)
+- USB CW relay (connect M5ATOM / DualKey directly to Android to relay CW key signals)
+- BLE CW relay (connect DualKey-BLE or RemoteKeyer-BLE to Android via BLE to relay CW key signals)
+- FT8/FT4 receive decode and transmit (WebView-based)
+- APRS beacon transmission (via DireWolf or rig built-in modem AP96/AP12, with smartphone GPS support)
+- APRS received station list with distance and bearing (Mic-E format supported)
+- Multiple profile support (switch between connection targets)
+- API Key authentication support
+- Remote access via WireGuard VPN
+
+● Requirements
+- Android smartphone (Android 7.0 / API 24 or later)
+- Raspberry Pi Zero 2W (already set up)
+- Wi-Fi environment
+
+For USB CW relay:
+- M5ATOM Lite or M5ATOM S3 Lite (with Wifi_Rig_CW Ver1.40 firmware)
+- OTG-compatible USB cable
+
+For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
+- DualKey-BLE: M5AtomS3 (AtomS3) with Wifi_Rig_CW_DUALKEY Ver1.43 firmware
+- RemoteKeyer-BLE: M5Stack Core etc. with Remotekeyer_M5Stack_Server Ver1.43 firmware
+- Pair in Android Bluetooth settings (no OTG cable required)
+
+● Installation
+Download and install the APK from the following GitHub folder:
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.17/M5CoreHamCAT_Android
+
+  1. Download Wifi_RIG_CTRL_v3.17.apk
+  2. Enable "Install unknown apps" in Android settings
+  3. Tap the APK to install
+
+Source code is published in the same folder as Wifi_RIG_CTRL_Android_v3.17_src.zip
+(unzip and open in Android Studio to build).
+The zip also bundles the core sources of ft8_lib (kgoba/ft8_lib, MIT license) used by the JNI module.
+
+● Raspberry Pi Setup
+Follow the same setup procedure as for the M5Core version.
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.17/RaspberryPiSetup
+
+Upgrading from v2.03 or later: use the "Update" → "Update Pi" button in the app
+Hamlib 4.7.2 (added in v2.12): use the "Update" → "Update Hamlib" button in the app
+Upgrading from v2.02 or earlier: first-time manual scp required
+  scp api.py <username>@raspizero:~/fastapi/api.py
+  ssh <username>@raspizero "sudo systemctl restart fastapi"
+
+● Remote Access from Outside Home (WireGuard VPN)
+If connecting from outside your home network (e.g., via mobile data), WireGuard setup is required.
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
+(No changes from v1.40)
+
+⑦ iOS Version (WifiRigCTRL for iOS v3.18)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+An iPhone/iPad app that offers the same kind of remote rig control as the M5CoreS3SE,
+with source published on GitHub since v2.17 (latest: v3.18).
+As with the Android app, no M5Core / Module Audio / Unit Encoder hardware is required.
+Raspberry Pi setup is identical to the M5Core and Android versions.
+
+● App Store status
+As of 2026/10/9, v3.18 is being prepared for submission to App Store Connect.
+Until it is published, build it from source with Xcode (see "Build" below). A download
+link will be added here once it is live on the App Store.
+
+● What's New in v3.18 (compared to v3.17, same as Android v3.18)
+
+Security hardening:
+- Integrated ufw firewall setup into WireGuard configuration (auto-installs/enables even on an unconfigured Pi)
+- Bound rigctld to loopback (127.0.0.1)
+- Added device-path validation (path traversal protection)
+Bug fixes:
+- Fixed FT-991 / FT-991A BK-IN not turning OFF (switched CAT command to "BI")
+Improvements:
+- Changed the default WireGuard config filename to WG_Raspi.conf
+Pi API update (v3.18):
+- API version updated to 3.18 (update the Pi via "Update" → "Update Pi")
+
+● What's New in v3.17 (compared to v3.16)
+
+New features (same as Android v3.17):
+- WireGuard setup now automatically configures the API Key on the Pi (mandatory, improved security)
+  The key is stored securely in Keychain
+- FT8 screen now shows an alert when mfsk-decode is not yet built, with step-by-step instructions
+- Setup Pi now instructs users to run "Update Pi" afterward for mfsk-decode build
+
+Bug fixes (same as Android v3.17):
+- Fixed mfsk-decode build failure after Pi setup (rustup toolchain handling improved)
+- Fixed FT8 decode stopping after api.py restart
+- WireGuard Setup: added mandatory API Key field; removed unnecessary ufw toggle
+- Setup Pi now transfers files from app bundle via SFTP instead of GitHub download
+
+Pi API update (v3.17):
+- API version updated to 3.17
+- Added /admin/set_api_key endpoint
+
+● What's New in v3.16 (compared to v3.15)
+
+Pi Setup (SSH) feature added:
+- Added "Pi Setup (SSH)" option on the connection settings screen
+- Enter the Pi's IP address, SSH username, and password — one tap installs FastAPI, Hamlib,
+  Direwolf, and mfsk-decode on a freshly installed Raspberry Pi OS (~5–10 minutes)
+- Works with any SSH username (not limited to "pi")
+- After setup, mfsk-decode background build is triggered automatically (monitor progress in Admin screen)
+
+Pi API:
+- No changes from v3.15
+
+● What's New in v3.15 (compared to v3.14)
+
+FT8 improvements:
+- All decoded messages are automatically saved to ~/ALL.TXT (WSJT-X compatible format)
+- Tap the "ALL" button (FT8 screen, Row 2 rightmost) → sheet shows last 500 lines with Share and Clear options
+
+RTTY improvements:
+- All TX text is now automatically prefixed with "RTRT " (RTTY identification)
+- Added ×1/×2/×3 call-repeat selector to CQ and ANS panels (CQ panel selector is new in v3.15)
+- Removed non-functional POTA/JCC buttons from CQ and ANS panels
+
+Updates:
+- Pi API version check updated to "3.15"
+- Bundled api.py updated to v3.15 (mfsk-core v0.13.1; mfsk_version added to /admin/version; /ft8/all_txt endpoint added)
+
+● What's New in v3.14 (compared to v3.13)
+
+RTTY usability improvements:
+- Command panel redesigned with CQ / ANS tab layout (same as Android)
+- Command buttons now use the same color scheme as CW TX (TX macros: purple, TX: green)
+- Frequency display: tap → direct frequency input, long-press → memory recall (MEM button removed)
+- Added QSO LOG registration and log list access from the RTTY screen
+- Added TX gain (volume) adjustment button (10–100%, 5% steps)
+- FT-991A per-band carrier frequency calibration added (HF / 50 / 144 / 430 MHz independently adjustable)
+
+Pi API:
+- No Pi API changes from v3.13. "Update Pi" is not required.
+
+● What's New in v3.13 (compared to v3.12)
+
+New feature — QSO Log:
+- Log contacts directly in the app: callsign, RST sent/received, band, mode, frequency, date/time
+- POTA / SOTA reference fields for both your station and the other station
+- ADIF export — share selected QSOs or the full log as an .adi file
+- Edit previously logged QSOs
+
+Bug fixes:
+- Fixed Pi API version mismatch display: the "3.12 is required" text in the About screen
+  has been corrected to "3.13"
+
+Pi API update (v3.13):
+- api.py updated to v3.13 (same as Android; tap "Admin" → "Update Pi" to update your Pi)
+  - FT8 decode depth default changed to fast mode
+  - mfsk-decode updated to mfsk-core v0.13.0
+  - PTT audio BrokenPipeError handling added
+  - setup_fastapi_radio.sh improvements
+
+● What's New in v3.12 (compared to v3.11)
+
+RTTY RX/TX screen added:
+- RTTY button on the main screen (same feature set as Android v3.10's RTTY)
+- RX: software AFSK modem (Goertzel-based 2125/2295 Hz demodulation, ITA2 decode) with
+  spectrum display and auto-tune
+- TX: AFSK audio via the Raspberry Pi (dial offset applied automatically, including the
+  FT-991A's DATA SHIFT)
+- RTTY is not available in direct CI-V mode (both RX and TX depend on the Pi's audio path)
+
+Connection stability:
+- No longer disconnects immediately when polling fails; the app shows "reconnecting"
+  for up to 8 seconds, keeps the session and re-opens the rig automatically once the
+  Pi is back (Pi restarts and brief Wi-Fi stalls no longer drop the session)
+- Detects the "frequency stuck at 0" state left behind by a FastAPI restart on the Pi
+  and re-opens the rig automatically
+
+Audio / stability:
+- AVAudioSession work moved off the main thread; fixes the app freezing while audio restarts
+- CI-V audio engine auto-recovery (fixes a crash on playback after PTT)
+- Fixed a crash after repeated PTT audio transmissions
+- Fixed silent RX audio on iOS 26 when .local names fail to resolve (uses the resolved IP)
+
+Admin:
+- "Update Pi" completion detection now matches the create_api.sh output, and the flow
+  is identical to the Android app (no api.py re-send; wait extended to 8 minutes)
+
+Pi API update:
+- api.py updated to v3.12 (same as Android; tap "Admin" → "Update Pi" to update your Pi)
+
+● What's New in v3.11 (compared to v3.10)
+- Version alignment with the Android release (Pi API 3.10)
+
+● What's New in v3.10 (compared to v2.60)
+
+MEM SET / SP2ALERT → FT8 screen navigation improvements:
+- Fixed: when selecting an FT8/FT4 entry from MEM SET or an SP2ALERT spot, the app
+  now navigates to the FT8 screen and correctly sets FT8 or FT4 mode
+- Fixed: FT8 Band selection dialog (single-tap on frequency) not appearing after
+  navigating from MEM SET to the FT8 screen; resolved by delaying navigation until
+  the sheet dismiss animation fully completes
+- Fixed FT8/FT4 navigation from the POTA and SOTA spot tabs
+
+Pi API update:
+- api.py updated to v3.10 (same as Android; tap "Update Pi" to update your Pi)
+
+● What's New in v2.60 (compared to v2.51)
+
+BT CI-V Bluetooth audio (iOS):
+- IC-705 RX audio now plays through the iPhone speaker while connected over Bluetooth
+  (via Bluetooth SCO → AVAudioEngine)
+
+Pi API update:
+- API_VERSION updated to "2.60" (Pi-side update required — tap "Update Pi")
+
+● What's New in v2.51 (compared to v2.50)
+
+SP2ALART integration (iOS):
+- Tapping a POTA/SOTA spot in SP2ALART (v0.84 or later) opens Wifi RIG CTRL via URL scheme
+  (wifirigctrl://setfreq) with the spot frequency and mode automatically pre-set
+- Enable in SP2ALART Settings → Wifi RIG CTRL Link (select any mode other than OFF)
+- Note: on iOS the app always comes to the foreground (background-only delivery is not
+  possible on iOS, unlike the Android "Send freq/mode only" mode)
+
+Pi-side script update (create_api.sh):
+- DireWolf ADEVICE now read from ALSA_CAPTURE in .env instead of hardcoded plughw:0,0
+  (Fixes DireWolf audio device setup on systems with non-standard device names)
+- mawk compatibility fix: Pi setup now completes correctly on systems using mawk
+- API_VERSION updated to "2.51" (Pi-side update required — tap "Update Pi")
+
+● What's New in v2.50 (compared to v2.34)
+
+Pi-side script changes (api.py / create_api.sh):
+- Added PTT-OFF watchdog for rigs that ignore PTT-OFF during output ramp-up (e.g. FTX-1F)
+  - Background thread retries T 0 every second for up to 20 seconds until the rig confirms OFF
+  - Two consecutive OFF confirmations required after a rigctld restart (prevents false positives)
+  - Immediately aborted if CW / APRS / FT8 transmission takes over
+- Added exclusive lock for rigctld restart to prevent race conditions on rapid PTT toggling
+- WebFT8 version now included in /radio/status response
+- webft8 server restart now supports systemd with direct-launch fallback
+- Hamlib per-model stop bits configuration (FTX-1 works with default radio settings for CAT PTT)
+- USB audio device auto-detection for ALSA_CAPTURE / ALSA_PLAYBACK
+  - Initial setup: interactive selection when multiple devices found, auto when only one
+  - Update Pi: fully automatic (headless-friendly)
+- API_VERSION updated to "2.50"
+
+App changes:
+- Pi API version check updated to "2.50" (run "Update Pi" to update your Pi)
+
+● What's New in v2.34 (compared to v2.33)
+
+Bug fixes:
+- Fixed WebFT8 version retrieval failure after "Update Pi"
+  - After running "Update Pi" from iOS, the WebFT8 version could no longer be retrieved;
+    this has been fixed
+  - URLSession SSL challenge handling fixed
+    (changed from async data(for:) to dataTask + withCheckedContinuation)
+  - adminUpdatePi: added a wait step for api.py restart before triggering WebFT8 update,
+    ensuring the new api.py handles the request (not the old one still running)
+  - create_api.sh: embedded server.py now includes /server_version endpoint
+
+Pi-side script changes:
+- create_api.sh: embedded server.py now includes /server_version endpoint (_VERSION = "2.34")
+- create_api.sh: embedded api.py API_VERSION updated to "2.34"
+
+● What's New in v2.33 (compared to v2.32)
+
+Bug fix:
+- Fixed WebFT8 "stuck at Loading WASM" issue (Pi-side script update, same as Android)
+
+New features:
+- "Update WebFT8 Server" button added to the Admin screen
+  - Deploys server_webft8.py immediately without restarting the Pi
+- "Update Pi API" now automatically runs "Update WebFT8" on completion
+
+Pi-side script updates:
+- create_api.sh: wav-save.js added to download list
+- server_webft8.py: auto-fetches latest JS files from GitHub on startup
+
+● What's New in v2.32 (compared to v2.31)
+
+New features (CI-V direct connection):
+- Repeater settings support added
+  - Long-press the frequency display to open the Repeater Settings sheet
+  - Set CTCSS tone mode (None / Tone / TSQL / DTCS) and tone frequency
+  - Set offset direction (+/-) and offset frequency
+    Presets: 100 kHz / 600 kHz / 1 MHz / 1.6 MHz / 5 MHz / 7.6 MHz
+    Custom input also supported
+  - While transmitting (PTT ON), the frequency display shows the actual
+    TX frequency (RX frequency ± repeater offset)
+  - Settings are saved across app restarts
+
+Note:
+- No Pi-side script changes (same as v2.30)
+
+● What's New in v2.31 (compared to v2.30)
+
+New features:
+- MEM band memory panel added (equivalent to Android version)
+  - Preset memories (160m–70cm), displayed in per-band sections
+    · Added 70cm CW (430.050 MHz) and 70cm SSB (430.100 MHz)
+  - User memories (add / edit / delete frequency + mode + step)
+    · User memories shown at the top of the list
+    · Mode selection changed to a dropdown picker
+    · Frequency and mode default to the current rig values when adding
+- BK-IN / APRS conditional panel display
+  - CW mode (CW / CWR / etc.) → shows BK-IN panel
+  - All other modes → shows APRS panel
+  (Auto-switches in the same grid position, maximizing panel space)
+
+Note:
+- No Pi-side script changes (same as v2.30)
+
+● What's New in v2.30 (compared to v2.20)
+
+Pi-side API update:
+- Same as the Android version (see ⑥ above)
+
+New features:
+- Network search button added to Raspberry Pi connection settings screen
+  - Tap "Network Search" to discover Pi servers via UDP broadcast (same
+    protocol as Android); API Port and Audio Port are not overwritten
+
+Improvements:
+- Profile auto-save on connect
+  - Active profile is automatically saved when the connect button is tapped
+    or when a rig is opened
+- APRS stability improvements
+  - Settings re-sent every 30 seconds (same as Android)
+  - Heartbeat added while AP96/AP12 is running to prevent beacon drop
+  - APRS Settings OK button stops running beacon when Enabled goes OFF
+    or TX Method is changed
+
+Bug fixes:
+- PTT type display unified to "CAT" (was "RIG")
+- C4FM / D-STAR mode switching reliability improved
+  - C4FM now forces filter width to 0 (avoids errors on rigs that reject
+    filter width commands in this mode)
+  - getCaps (mode list fetch) now auto-retries on timeout
+- Fixed CI-V direct mode sending USB instead of D-STAR when D-STAR is selected
+
+● Features
+- Real-time display of RX frequency, mode, and signal strength
+- Change frequency, mode, power, squelch, and filter width
+- Play received audio through the speaker (with noise reduction)
+- PTT ON/OFF and audio transmission (send microphone audio to the radio)
+- Wi-Fi PTT (PTT control via external devices such as M5Atom)
+- BLE CW relay (connect DualKey-BLE or RemoteKeyer-BLE via BLE to relay CW key signals;
+  USB CW relay is Android-only)
+- FT8/FT4 receive decode and transmit (WebView-based)
+- APRS beacon transmission (via DireWolf, with GPS support)
+- Multiple profile support (switch between connection targets)
+- API Key authentication support
+- Remote access via WireGuard VPN
+- Direct CI-V connection (IC-705 / IC-9700, no Raspberry Pi required. Supports frequency,
+  mode, S-meter, PTT, RF power, squelch, BK-IN, mic TX, and RX audio. CW TX/BLE keyer are
+  partially supported; FT8, APRS, NR, and Wi-Fi PTT are not available in this mode)
+
+● Requirements
+- iPhone / iPad (iOS 17.0 or later)
+- Raspberry Pi Zero 2W (already set up), or an Icom IC-705 / IC-9700 (for direct CI-V)
+- Wi-Fi environment
+
+For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
+- DualKey-BLE: M5AtomS3 with Wifi_Rig_CW_DUALKEY Ver1.43 firmware
+- RemoteKeyer-BLE: M5Stack Core etc. with Remotekeyer_M5Stack_Server Ver1.43 firmware
+- Pair in the iPhone's Bluetooth settings
+
+● Source Code / Build
+Source is published in the following GitHub folder:
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.16/M5CoreHamCAT_iOS
+
+Source is packaged as WifiRigCTRL_iOS_v3.16_src.zip
+(README.md / LICENSES.md / PRIVACY_POLICY are also available outside the zip).
+
+  1. Download and unzip WifiRigCTRL_iOS_v3.16_src.zip
+  2. Open WifiRigCTRL_iOS.xcodeproj in Xcode 15 or later
+  3. Set your developer account under Signing & Capabilities
+  4. Set the target device to iPhone / iPad and build
+
+No external library dependencies (no Swift Package Manager / CocoaPods).
+
+● Raspberry Pi Setup
+Follow the same setup procedure as for the M5Core and Android versions.
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.16/RaspberryPiSetup
+
+● Remote Access from Outside Home (WireGuard VPN)
+As with the Android version, WireGuard setup is required to connect from outside your
+home network.
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
+
+2026/10/7
+--
+2026/8/18
+v2.50 released — Android, iOS, and Pi-side API updated. See sections ⑥ and ⑦ for details.
+--
+2026/8/23
+v2.51 released — Android, iOS, and Pi-side scripts updated. See sections ⑥ and ⑦ for details.
+--
+2026/9/6
+v2.60 released — Android, iOS, and Pi-side API updated. See sections ⑥ and ⑦ for details.
+
+[Android v2.60 — Key Changes]
+- BT CI-V Bluetooth audio: RX audio from IC-705/IC-9700 now streams to the phone speaker
+  via Bluetooth SCO when connected in BT CI-V mode
+- CW BLE key stability improvements
+- Pi API updated to 2.60 (tap "Update Pi" to update your Pi)
+
+[iOS v2.60 — Key Changes]
+- BT CI-V audio and stability improvements
+- Pi API updated to 2.60
+
+Source code and firmware are in the v2.60 folder on GitHub.
+--
+2026/9/23
+v3.10 released — Android, iOS, and Pi-side API updated. See sections ⑥ and ⑦ for details.
+
+[Android v3.10 — Key Changes]
+- MEM SET / SP2ALERT: navigate to FT8 screen with correct FT8/FT4 mode applied
+- MEM SET button text size unified with other buttons
+- minSdkVersion updated 21 → 24 (Android 7.0 or later)
+- Pi API updated to 3.10 (tap "Update Pi" to update your Pi)
+
+[iOS v3.10 — Key Changes]
+- MEM SET / SP2ALERT: navigate to FT8 screen with correct FT8/FT4 mode applied
+- Fixed FT8 Band dialog not appearing after navigating from MEM SET
+- Pi API updated to 3.10
+
+Source code: v3.10 folder on GitHub (Android/iOS/Pi); M5 firmware: v3.00 folder (unchanged).
+--
+2026/9/28
+v3.11 released — Android and iOS updated (version alignment; further CW TX shift drift fix).
+--
+2026/10/4
+v3.13 released — Android, iOS, and Pi-side API updated. See sections ⑥ and ⑦ for details.
+
+[Android v3.13 — Key Changes]
+- Fixed "Pi API version mismatch" in About screen (was incorrectly showing "3.12 is required")
+- Pi API updated to 3.13 (tap "Update Pi" to update your Pi)
+  - FT8 decode speed improved (default changed to fast mode)
+  - mfsk-decode v0.13.0 with improved FT8/FT4 accuracy
+  - PTT audio BrokenPipeError handled gracefully
+  - Pi setup scripts improved
+
+[iOS v3.13 — Key Changes]
+- Fixed "Pi API version mismatch" in About screen (same as Android)
+- Pi API updated to 3.13 (same as Android)
+
+Source code: v3.13 folder on GitHub (Android/iOS/Pi); M5 firmware: v3.00 folder (unchanged).
+--
+2026/10/7
+v3.16 released — Android and iOS updated (Pi API unchanged). Added Raspberry Pi SSH one-tap setup (SETUP screen).
+
+[Android v3.16 — Key Changes]
+- Added "SETUP Pi" screen: enter IP/SSH username/password to auto-install Hamlib, FastAPI, and mfsk-decode on a clean Pi OS
+- Works with any SSH username (not limited to "pi")
+
+[iOS v3.16 — Key Changes]
+- Added "Pi Setup (SSH)" screen: same one-tap Pi setup as Android
+
+Source code: v3.16 folder on GitHub (Android/iOS); Pi scripts: v3.16 folder (api.py version unchanged from v3.15); M5 firmware: v3.00 folder (unchanged).
+--
+2026/10/6
+v3.15 released — Android, iOS, and Pi API updated (mfsk-core v0.13.1, RTTY/FT8 improvements).
+v3.14 released — Android and iOS updated (no Pi API changes).
+
+[Android v3.15 — Key Changes]
+- FT8: auto-reset QSO state when qso_done is missed during SSE disconnect (60-second watchdog)
+- FT8: SSE reconnect delay reduced from 3 s to 1.5 s
+- FT8: all decoded messages saved automatically to ~/ALL.TXT (WSJT-X compatible)
+- RTTY: added PO/ALC meter; TX power ±5% buttons; TX gain expanded to 1–100%
+- Pi API updated to v3.15 (mfsk-core v0.13.1; /ft8/all_txt endpoint added)
+
+[iOS v3.15 — Key Changes]
+- FT8: all decoded messages saved automatically to ~/ALL.TXT; "ALL" button shows last 500 lines
+- RTTY: "RTRT " prefix auto-added; ×1/×2/×3 call-repeat selector added to CQ and ANS panels
+- Pi API version check updated to "3.15" (api.py v3.15 bundled)
+
+Source code: v3.15 folder on GitHub (Android/iOS/Pi); M5 firmware: v3.00 folder (unchanged).
+--
+2026/10/6
+[Android v3.14 — Key Changes]
+- RTTY command button color scheme unified with CW TX screen (TX macros: dark purple, CQ REPEAT/TX: dark green)
+- Long-press any command button to fill the TX text field for editing before sending
+- TX gain adjustment button added (10–100%, seekbar)
+- FT-991A per-band carrier frequency calibration added (HF / 50 / 144 / 430 MHz)
+
+[iOS v3.14 — Key Changes]
+- RTTY command panel redesigned with CQ / ANS tab layout (same as Android)
+- Frequency display: tap → direct input, long-press → memory recall (MEM button removed)
+- QSO LOG registration and log list access added to the RTTY screen
+- TX gain adjustment button added (10–100%, 5% steps)
+- FT-991A per-band carrier frequency calibration added
+
+Source code: v3.14 folder on GitHub (Android/iOS); Pi scripts: v3.13 folder (unchanged); M5 firmware: v3.00 folder.
+--
+2026/10/3
+v3.12 released — Android, iOS, and Pi-side API updated. See sections ⑥ and ⑦ for details.
+
+[Android v3.12 — Key Changes]
+- RTTY receive tuning overhaul (spectrum display, auto-tune, FIX mode)
+- RTTY TX path unified to AFSK via the Pi (dial offset applied automatically); RTTY disabled in direct CI-V mode
+- Auto-recovers when the Pi reports frequency 0 after a service restart
+- Fixed RX audio dropping for other clients when leaving the RTTY screen
+- Fixed "Update Hamlib" completion detection
+- Pi API updated to 3.12 (tap "Update Pi" to update your Pi)
+
+[iOS v3.12 — Key Changes]
+- RTTY RX/TX screen added (via the Pi; not available in direct CI-V mode)
+- Keeps the session through Pi restarts and brief Wi-Fi stalls, re-opening the rig automatically
+- Audio freeze/crash fixes (audio session work off the main thread, CI-V engine auto-recovery)
+- Fixed silent RX audio on iOS 26
+- "Update Pi" flow aligned with the Android app
+- Pi API updated to 3.12
+
+[Pi API 3.12 — Key Changes]
+- Rig and audio device selections persisted; auto-recovery survives a FastAPI restart
+- RX audio clipping removed (+20 dB → +6 dB); audio dropouts on reconnect fixed
+- Diagnostics endpoint /admin/amixer added; mfsk-core v0.12.0
+
+[GitHub folder layout change (v3.12)]
+- Android / iOS sources are published as zip archives (Wifi_RIG_CTRL_Android_v3.12_src.zip / WifiRigCTRL_iOS_v3.12_src.zip)
+- APK, README, LICENSES, PRIVACY_POLICY, RaspberryPiSetup and WireGuard remain as individual files
+- Files not needed to build (e.g. ft8_lib test WAV data) are omitted
+
+Source code: v3.12 folder on GitHub (Android/iOS/Pi); M5 firmware: v3.00 folder (unchanged).
+--

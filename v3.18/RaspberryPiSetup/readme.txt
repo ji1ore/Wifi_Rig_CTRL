@@ -114,12 +114,12 @@ Raspberry Pi Imager でイメージを作成:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 --- ネットワーク設定（任意・Raspberry Pi Zero 2W 推奨）---
 ※ Raspberry Pi Zero 2W を使用する場合は、このスクリプトでネットワーク設定を行うことを推奨します
-wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v3.15/RaspberryPiSetup/setup_netwk.sh
+wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v3.18/RaspberryPiSetup/setup_netwk.sh
 chmod +x setup_netwk.sh
 bash setup_netwk.sh
 
 --- 環境構築（FT8 含む全機能セットアップ・UpdatePi 相当）---
-BASE=https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v3.15/RaspberryPiSetup
+BASE=https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v3.18/RaspberryPiSetup
 wget $BASE/setup_fastapi_radio.sh
 wget $BASE/create_api.sh
 wget $BASE/set_api_key.sh
@@ -166,7 +166,7 @@ bash ~/set_api_key.sh ""   # 無効化
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FT8/FT4 送信を使う場合、通常は create_api.sh が ft8_encode を自動ビルドします。
 失敗した場合のみ手動で:
-  wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v3.15/RaspberryPiSetup/setup_ft8_encode.sh
+  wget https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v3.18/RaspberryPiSetup/setup_ft8_encode.sh
   chmod +x setup_ft8_encode.sh
   bash setup_ft8_encode.sh
 
@@ -182,7 +182,7 @@ FT8/FT4 送信を使う場合、通常は create_api.sh が ft8_encode を自動
 
 【GitHub から再取得】
   Pi に SSH でログイン後:
-  wget -O ~/create_api.sh https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v3.15/RaspberryPiSetup/create_api.sh
+  wget -O ~/create_api.sh https://raw.githubusercontent.com/ji1ore/M5CoreHamCAT/main/v3.18/RaspberryPiSetup/create_api.sh
   chmod +x ~/create_api.sh
   sudo bash ~/create_api.sh
 

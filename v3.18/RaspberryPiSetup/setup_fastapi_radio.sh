@@ -308,6 +308,94 @@ if [ -f "$SCRIPT_DIR/cw_bridge.py" ] && ! [ "$SCRIPT_DIR/cw_bridge.py" -ef "$ME_
     echo "cw_bridge.py   : 最新版を適用"
 fi
 
+# ── オンデマンドGUI: 常時CUI起動 + VNC接続時だけ X を起動 ──
+# 無線サーバーはCPUリアルタイム性が重要なため既定はコンソール起動。
+# GUIが必要な時だけ TigerVNC 仮想デスクトップ(X11)を手動起動して使う。
+# Wayland非依存・lightdm不要。固定パスワードを焼き込み、Pi側での入力を不要にする。
+# 第1引数でデスクトップ種別を選択: xfce(既定) / pixel
+VNC_DESKTOP="${1:-xfce}"
+case "$VNC_DESKTOP" in
+    pixel) VNC_DE_PKGS="raspberrypi-ui-mods"; VNC_DE_SESSION="startlxde-pi"; VNC_DE_CHECK="startlxde-pi" ;;
+    *)     VNC_DESKTOP="xfce"; VNC_DE_PKGS="xfce4"; VNC_DE_SESSION="startxfce4"; VNC_DE_CHECK="startxfce4" ;;
+esac
+echo ""
+echo "=== オンデマンドGUI (TigerVNC / デスクトップ=$VNC_DESKTOP) をセットアップ中 ==="
+
+# (a) グラフィカル起動が既定なら コンソール起動へ切替（Liteは元からCUIなので何もしない・可逆）
+if command -v systemctl >/dev/null 2>&1; then
+    if [ "$(systemctl get-default 2>/dev/null)" = "graphical.target" ]; then
+        echo "  デスクトップ常時起動を検出 → コンソール起動へ切替"
+        sudo systemctl set-default multi-user.target
+        for dm in lightdm gdm gdm3; do
+            systemctl list-unit-files 2>/dev/null | grep -q "^$dm" && sudo systemctl disable "$dm" 2>/dev/null || true
+        done
+    else
+        echo "  起動ターゲット: $(systemctl get-default 2>/dev/null)（変更なし）"
+    fi
+fi
+
+# (b)-(e) デスクトップ/VNC の導入と設定は「バックグラウンドで」実行する。
+#   理由: Pi Zero 2W など低速機では xfce4/raspberrypi-ui-mods の apt 導入に時間がかかり、
+#   本体セットアップ(Hamlibビルド等)と合わせて SSH セッションを長時間占有し、
+#   アプリ側がタイムアウトする。GUI 導入を detached(setsid+nohup) 化することで
+#   本体セットアップは短時間で完了・SSH を解放し、GUI は Pi 側で継続導入される。
+VNC_PASS="raspberry"
+export ME ME_HOME VNC_DESKTOP VNC_DE_PKGS VNC_DE_SESSION VNC_DE_CHECK VNC_PASS
+GUI_LOG="$ME_HOME/ondemand_gui_setup.log"
+
+# クォート付きヒアドキュメント(<<'GUISCRIPT')で literal に書き出し、実行時に環境変数で展開する。
+cat > /tmp/ondemand_gui.sh <<'GUISCRIPT'
+#!/bin/bash
+# On-demand GUI (TigerVNC + 選択DE) installer — runs detached (root).
+set +e
+echo "[on-demand-gui] start desktop=$VNC_DESKTOP"
+# 共通土台
+if ! command -v tigervncserver >/dev/null 2>&1; then
+    apt install -y xserver-xorg xfonts-base dbus-x11 openbox lxterminal \
+                   tigervnc-standalone-server tigervnc-common
+fi
+# 選択デスクトップ
+if ! command -v "$VNC_DE_CHECK" >/dev/null 2>&1; then
+    apt install -y $VNC_DE_PKGS
+fi
+# 固定パスワード(TigerVNC版 tigervncpasswd -f。RealVNC版 vncpasswd は使わない)
+mkdir -p "$ME_HOME/.vnc"
+printf '%s' "$VNC_PASS" | tigervncpasswd -f > "$ME_HOME/.vnc/passwd"
+chown "$ME":"$ME" "$ME_HOME/.vnc/passwd"; chmod 600 "$ME_HOME/.vnc/passwd"
+# 接続時に起動するデスクトップ
+cat > "$ME_HOME/.vnc/xstartup" <<XEOF
+#!/bin/sh
+unset SESSION_MANAGER DBUS_SESSION_BUS_ADDRESS
+exec $VNC_DE_SESSION
+XEOF
+chown "$ME":"$ME" "$ME_HOME/.vnc/xstartup"; chmod +x "$ME_HOME/.vnc/xstartup"
+# オンデマンド systemd サービス(切断60秒/無操作15分で自動終了)
+cat > /etc/systemd/system/vncserver@.service <<SEOF
+[Unit]
+Description=TigerVNC virtual desktop for display %i
+After=network.target
+[Service]
+Type=simple
+User=$ME
+WorkingDirectory=$ME_HOME
+ExecStartPre=-/usr/bin/tigervncserver -kill :%i
+ExecStart=/usr/bin/tigervncserver :%i -fg -geometry 1280x720 -depth 24 -localhost no -MaxDisconnectionTime=60 -MaxIdleTime=900
+ExecStop=/usr/bin/tigervncserver -kill :%i
+[Install]
+WantedBy=multi-user.target
+SEOF
+systemctl daemon-reload
+echo "[on-demand-gui] done. start: sudo systemctl start vncserver@1 ; VNC <IP>:5901 pass=$VNC_PASS"
+GUISCRIPT
+chmod +x /tmp/ondemand_gui.sh
+setsid nohup bash /tmp/ondemand_gui.sh > "$GUI_LOG" 2>&1 < /dev/null &
+chown "$ME":"$ME" "$GUI_LOG" 2>/dev/null || true
+echo "  → デスクトップ/VNC はバックグラウンドで導入中（ログ: $GUI_LOG）"
+echo "    完了後: sudo systemctl start vncserver@1  → VNC <PiのIP>:5901 (パス: $VNC_PASS)"
+sudo systemctl daemon-reload
+echo "  GUIが必要な時: sudo systemctl start vncserver@1  → VNCで <PiのIP>:5901 (パス: $VNC_PASS)"
+echo "  終了:          sudo systemctl stop  vncserver@1"
+
 # ── サービス起動 ──────────────────────────────────────────────
 echo ""
 echo "=== サービスを起動中 ==="

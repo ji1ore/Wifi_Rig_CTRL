@@ -34,12 +34,14 @@ cd hamlib-${HAMLIB_VER}
 
 echo "=== configure 中 ==="
 mkdir -p "${PREFIX}/bin" "${PREFIX}/lib"
-./configure --disable-static --prefix="${PREFIX}" \
+./configure --disable-static --without-cxx-binding --prefix="${PREFIX}" \
     LDFLAGS="-Wl,-rpath,${PREFIX}/lib" \
     && echo "configure 完了" || { echo "エラー: configure 失敗"; exit 1; }
 
-echo "=== コンパイル中 ($(nproc) コア) ==="
-make -j$(nproc) && echo "make 完了" || { echo "エラー: make 失敗"; exit 1; }
+# 512MB機(Zero 2W)は -j(nproc=4) だとスワップで逆に遅く/OOMになるため -j2 に抑える（1GB未満判定）
+HJOBS=$(nproc); [ "$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null || echo 999999)" -lt 1048576 ] && HJOBS=2
+echo "=== コンパイル中 (${HJOBS} 並列) ==="
+make -j"$HJOBS" && echo "make 完了" || { echo "エラー: make 失敗"; exit 1; }
 
 echo "=== インストール中 (sudo 不要) ==="
 make install && echo "インストール完了" || { echo "エラー: make install 失敗"; exit 1; }

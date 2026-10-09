@@ -98,7 +98,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.16/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.18/RaspberryPiSetup/readme.txt
 
 Main steps:
 
@@ -206,6 +206,17 @@ No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
 
 ● What's New in v3.18 (compared to v3.17)
+
+CW sidetone & connection stability (build 133):
+- Fixed the first (occasionally second) element after an idle period sometimes not sounding (Android / iOS).
+  An inaudible dither is emitted during silence so the audio amp stays awake; keying timing is unchanged.
+- Hold a high-performance Wi-Fi lock while the CW keyer is connected (Android), preventing Wi-Fi power-save
+  from dropping the link or losing the key-off (stuck transmit).
+- Raspberry Pi setup now boots to console and starts a TigerVNC virtual desktop only on demand
+  (auto-terminates after disconnect); desktop selectable (XFCE / PIXEL) on the Setup screen.
+  Lower idle CPU - fixes audio dropouts / SYNC drops caused by a resident desktop.
+- Improved Setup/Update reliability on slow devices (Pi Zero 2W): SSH keep-alive plus background
+  desktop install to prevent timeouts.
 
 Security hardening:
 - Integrated ufw firewall setup into WireGuard configuration

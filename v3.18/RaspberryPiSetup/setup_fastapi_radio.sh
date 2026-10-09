@@ -29,6 +29,19 @@ sudo modprobe ch341   2>/dev/null || true
 grep -q "ftdi_sio" /etc/modules || echo "ftdi_sio" | sudo tee -a /etc/modules
 grep -q "ch341"    /etc/modules || echo "ch341"    | sudo tee -a /etc/modules
 
+# ── Wi-Fi 省電力(パワーセーブ)を無効化 ───────────────────────
+# Pi Zero 2W は Wi-Fi パワーセーブ有効だとアイドル時に無線が眠り「ネットワークから消える/
+# Unknown host」が頻発する。恒久化(conf.d)＋即時適用(iw)で無効化する。
+# ※ SSH は Wi-Fi 経由のため NetworkManager の restart は行わない(セッション切断防止)。
+#    conf.d は次回起動(本スクリプト末尾で再起動推奨)から恒久的に効く。
+if command -v nmcli >/dev/null 2>&1; then
+    sudo mkdir -p /etc/NetworkManager/conf.d
+    printf '[connection]\nwifi.powersave = 2\n' | sudo tee /etc/NetworkManager/conf.d/wifi-powersave-off.conf >/dev/null
+    echo "Wi-Fi パワーセーブ恒久無効化 (NetworkManager wifi.powersave=2, 再起動後有効)"
+fi
+# 即時適用(再起動前から効かせる・接続は切らない)。失敗は無視。
+for _wif in wlan0 wlan1; do sudo iw dev "$_wif" set power_save off 2>/dev/null && echo "iw $_wif power_save off" || true; done
+
 # ── Hamlib ビルド・インストール（未インストールの場合のみ）────
 # 判定は PATH 上の rigctl ではなく /usr/local/bin/rigctl で行う（apt 版 /usr/bin/rigctl が残っていても誤判定しない）
 # --version はライブラリ側のバージョンを表示するため、apt 版 libhamlib を誤って読み込んでいる場合も再ビルド対象になる
@@ -39,8 +52,13 @@ if ! /usr/local/bin/rigctl --version 2>/dev/null | grep -q "4\.7\.2"; then
     tar xf hamlib-4.7.2.tar.gz
     cd hamlib-4.7.2
     # rpath を埋め込み、apt 版 libhamlib (同じ soname libhamlib.so.4) より /usr/local/lib を必ず優先させる
-    ./configure --prefix=/usr/local LDFLAGS="-Wl,-rpath,/usr/local/lib"
-    make -j4
+    # --disable-static: 静的ライブラリを作らずビルド量を約半分に。--without-cxx-binding: 不要なC++束縛を省略
+    #   (rigctld はCのみ使用)。Pi Zero 2W のビルド時間を大幅短縮。
+    ./configure --prefix=/usr/local --disable-static --without-cxx-binding LDFLAGS="-Wl,-rpath,/usr/local/lib"
+    # 512MB機(Zero 2W)は -j4 だとスワップで逆に遅く/OOMになるため -j2 に抑える（1GB未満判定）
+    HJOBS=$(nproc); [ "$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null || echo 999999)" -lt 1048576 ] && HJOBS=2
+    echo "Hamlib make -j${HJOBS}"
+    make -j"$HJOBS"
     sudo make install
     echo "/usr/local/lib" | sudo tee /etc/ld.so.conf.d/hamlib.conf
     sudo ldconfig
@@ -312,12 +330,17 @@ fi
 # 無線サーバーはCPUリアルタイム性が重要なため既定はコンソール起動。
 # GUIが必要な時だけ TigerVNC 仮想デスクトップ(X11)を手動起動して使う。
 # Wayland非依存・lightdm不要。固定パスワードを焼き込み、Pi側での入力を不要にする。
-# 第1引数でデスクトップ種別を選択: xfce(既定) / pixel
+# 第1引数でデスクトップ種別を選択: none(VNCなし) / xfce(既定) / pixel
 VNC_DESKTOP="${1:-xfce}"
 case "$VNC_DESKTOP" in
+    none|off|no|"") VNC_DESKTOP="none" ;;
     pixel) VNC_DE_PKGS="raspberrypi-ui-mods"; VNC_DE_SESSION="startlxde-pi"; VNC_DE_CHECK="startlxde-pi" ;;
     *)     VNC_DESKTOP="xfce"; VNC_DE_PKGS="xfce4"; VNC_DE_SESSION="startxfce4"; VNC_DE_CHECK="startxfce4" ;;
 esac
+if [ "$VNC_DESKTOP" = "none" ]; then
+echo ""
+echo "=== VNC/デスクトップ: なし（インストールをスキップ。起動ターゲットも変更しない） ==="
+else
 echo ""
 echo "=== オンデマンドGUI (TigerVNC / デスクトップ=$VNC_DESKTOP) をセットアップ中 ==="
 
@@ -358,18 +381,28 @@ fi
 if ! command -v "$VNC_DE_CHECK" >/dev/null 2>&1; then
     apt install -y $VNC_DE_PKGS
 fi
-# 固定パスワード(TigerVNC版 tigervncpasswd -f。RealVNC版 vncpasswd は使わない)
-mkdir -p "$ME_HOME/.vnc"
-printf '%s' "$VNC_PASS" | tigervncpasswd -f > "$ME_HOME/.vnc/passwd"
-chown "$ME":"$ME" "$ME_HOME/.vnc/passwd"; chmod 600 "$ME_HOME/.vnc/passwd"
+# 新しいTigerVNC(Debian13/trixie等)は設定を ~/.config/tigervnc に置く。旧 ~/.vnc からの自動移行が
+# headless環境で失敗し起動できないため、最初から ~/.config/tigervnc に作成し、旧 ~/.vnc は撤去して
+# 移行を回避する（実機 Pi Zero 2W/trixie で起動成功を確認済みの構成）。
+VNC_CFG="$ME_HOME/.config/tigervnc"
+mkdir -p "$VNC_CFG"
+# 固定パスワード(TigerVNC版 tigervncpasswd -f。RealVNC版 /usr/bin/vncpasswd は使わない)
+printf '%s' "$VNC_PASS" | tigervncpasswd -f > "$VNC_CFG/passwd"
+chmod 600 "$VNC_CFG/passwd"
 # 接続時に起動するデスクトップ
-cat > "$ME_HOME/.vnc/xstartup" <<XEOF
+cat > "$VNC_CFG/xstartup" <<XEOF
 #!/bin/sh
 unset SESSION_MANAGER DBUS_SESSION_BUS_ADDRESS
 exec $VNC_DE_SESSION
 XEOF
-chown "$ME":"$ME" "$ME_HOME/.vnc/xstartup"; chmod +x "$ME_HOME/.vnc/xstartup"
-# オンデマンド systemd サービス(切断60秒/無操作15分で自動終了)
+chmod +x "$VNC_CFG/xstartup"
+# 旧 ~/.vnc があると起動時に移行を試みて失敗するため撤去
+rm -rf "$ME_HOME/.vnc"
+# 背景インストールは root 実行のため所有者を本ユーザーに戻す
+chown -R "$ME":"$ME" "$ME_HOME/.config"
+# オンデマンド systemd サービス。自動終了タイマーは付けない:
+# -MaxDisconnectionTime/-MaxIdleTime は「未接続」を起動直後からカウントし、接続前にサーバが落ちて
+# "connection refused" になる不具合があったため廃止。使い終わりは手動で stop して解放する。
 cat > /etc/systemd/system/vncserver@.service <<SEOF
 [Unit]
 Description=TigerVNC virtual desktop for display %i
@@ -379,7 +412,7 @@ Type=simple
 User=$ME
 WorkingDirectory=$ME_HOME
 ExecStartPre=-/usr/bin/tigervncserver -kill :%i
-ExecStart=/usr/bin/tigervncserver :%i -fg -geometry 1280x720 -depth 24 -localhost no -MaxDisconnectionTime=60 -MaxIdleTime=900
+ExecStart=/usr/bin/tigervncserver :%i -fg -geometry 1280x720 -depth 24 -localhost no
 ExecStop=/usr/bin/tigervncserver -kill :%i
 [Install]
 WantedBy=multi-user.target
@@ -395,6 +428,7 @@ echo "    完了後: sudo systemctl start vncserver@1  → VNC <PiのIP>:5901 (�
 sudo systemctl daemon-reload
 echo "  GUIが必要な時: sudo systemctl start vncserver@1  → VNCで <PiのIP>:5901 (パス: $VNC_PASS)"
 echo "  終了:          sudo systemctl stop  vncserver@1"
+fi
 
 # ── サービス起動 ──────────────────────────────────────────────
 echo ""

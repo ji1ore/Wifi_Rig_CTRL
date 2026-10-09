@@ -79,7 +79,7 @@ APRS動作のために
 ・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
 ③セットアップ手順(Raspberry Pi Zero2W)
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.16/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.18/RaspberryPiSetup/readme.txt
 を参照してセットアップを行ってください(verに応じたフォルダを参照ください)。
 主な手順は以下の通りです。
 ・Raspberry Pi Imagerのインストール
@@ -161,6 +161,12 @@ M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
 
 ●v3.18 の変更点（v3.17 との比較）
+【CW サイドトーン・接続安定化（build 133）】
+・アイドル後の最初（まれに2番目）の音が出ないことがある問題を修正（Android/iOS）。無音中に可聴域外の極小ディザを出力しアンプの省電力化を防止。発音タイミングは不変。
+・CW キーヤー接続中に Wi-Fi 高性能ロックを取得（Android）。アイドル時の省電力による接続断・キーオフ欠落（送信しっぱなし）を抑止。
+・Raspberry Pi をコンソール起動化し、VNC は TigerVNC 仮想デスクトップをオンデマンド起動（切断で自動終了）。Setup 画面で XFCE/PIXEL を選択可能。デスクトップ常駐による音切れ・SYNC 遅延を解消。
+・低速機(Pi Zero 2W)の Setup/Update タイムアウトを改善（SSH キープアライブ＋デスクトップ導入のバックグラウンド化）。
+
 【セキュリティ強化】
 ・WireGuard 設定に ufw ファイアウォール設定を統合
   →未設定の Pi でも ufw を自動導入・有効化。SSH(22)・WireGuard(51820/udp) は常時許可（締め出し防止）

@@ -1,3 +1,33 @@
+⚠️⚠️ 重要・安全上の注意（接続前に必ずお読みください）⚠️⚠️
+
+■ 誤送信（誤発信）防止 ── 接続前に必ず対策してください
+　【なぜ起きるか】Raspberry Pi と無線機をUSBで接続すると、USBシリアルが認識される際に
+　　シリアル制御線（RTS/DTR）がトグルします。PTTをRTS/DTRに割り当てていると、この瞬間に
+　　送信がONになり、意図せず電波を出してしまう（誤発信）恐れがあります。
+　【対策（効果の大きい順）】
+　　1. PTTは可能なら「CATコマンド方式」を使う（RTS/DTRでPTTしない）。
+　　   Hamlib/rigctld の ptt-type を CAT 系に設定すれば、線のトグルで送信されません。
+　　2. RTS/DTR方式しか使えない場合は、PTTが既定でRX（プルダウンでOFF）になる回路の
+　　   インターフェースを選ぶ（線がフロートしても送信しない設計）。
+　　3. ModemManager を無効化する。LinuxのModemManagerは新しいUSBシリアル（CATケーブル）を
+　　   検出すると自動でポートを開いて探りを入れ、その際RTS/DTRをトグルして誤発信の原因に
+　　   なります。Piで次を実行：
+　　     sudo systemctl mask ModemManager
+　　   （特定デバイスだけ除外する場合は udev ルールで ENV{ID_MM_DEVICE_IGNORE}="1" を設定）
+　　4. 無線機の「TX タイムアウトタイマー（TOT）」を必ずON＝最後の安全網。PTTが張り付いても
+　　   一定時間で自動的に送信が止まります。
+　　5. 初回接続時は必ずダミーロードまたはアンテナを確実に接続し、空中線電力を絞ってPTT挙動を
+　　   確認してから本運用へ。
+　　※ 設定方法は各無線機の取扱説明書、および本手順書（設定ガイドPDF）の該当ページを参照。
+
+■ USBポートの選択：無線機のUSBは「USB2ポート（黒）」へ接続
+　無線機のUSB（CAT／音声／PTT）は、Raspberry Pi／PCの USB2ポート（黒）に接続してください。
+　USB3ポート（青）は2.4GHz帯に強いノイズ（RFI）を放射し、受信へのノイズ混入や
+　2.4GHz WiFiの不安定化の原因になります。やむを得ずUSB3を使う場合は、シールドの良い
+　ケーブル＋フェライトコアを用い、本体から離して配置してください。
+
+================================================================
+
 ①はじめに
 M5CoreHamCATは、Raspberry Pi Zero2WとM5CoreS3SEを用い、無線機に接続したRaspberry Pi Zero2Wを使って
 無線機をCAT操作し、その情報の取得、及び操作をM5CoreS3SE上で行うシステムです。
@@ -31,6 +61,12 @@ Ver3.17にて、Android版・iOS版・Pi側APIを更新しました。主な変�
 Ver3.18にて、Android版・iOS版・Pi側APIを更新しました（セキュリティ強化：WireGuard設定にufw統合／
 rigctldループバック限定／デバイスパス検証、FT-991 BK-IN修正、WireGuard設定ファイル名をWG_Raspi.confに）。
 主な変更点は⑥⑦を参照ください。
+--
+2026/10/10
+Ver3.19にて、Android版・iOS版・Pi側APIを更新しました（CWキーヤーとWifi_RIGの受信音声を同時運用した際に
+送信CWが最初や途中で途切れる「音切れ」を修正：CWキー信号をUDPで冗長送信し、Wi-Fi混雑時のパケット欠落による
+キーイング要素の抜けを解消。Android/iOS両対応。あわせて、ファイアウォール(ufw)有効時にネットワーク検索
+(Pi自動発見)が効かない問題を修正(ufw許可にUDP5001を追加)。Pi APIをv3.19に統一）。主な変更点は⑥⑦を参照ください。
 --
 2026/10/07
 Ver3.16にて、Android版・iOS版を更新しました。主な変更点は⑥⑦を参照ください。
@@ -79,7 +115,7 @@ APRS動作のために
 ・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
 ③セットアップ手順(Raspberry Pi Zero2W)
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.18/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.19/RaspberryPiSetup/readme.txt
 を参照してセットアップを行ってください(verに応じたフォルダを参照ください)。
 主な手順は以下の通りです。
 ・Raspberry Pi Imagerのインストール
@@ -153,12 +189,32 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v3.18）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v3.19）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v3.18）。
+アプリを v1.30 より公開しています（最新版：v3.19）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
+
+●v3.19 の変更点（v3.18 との比較）
+【CW 送信の音切れ修正（Android / iOS 共通）】
+・CW キーヤーと受信音声（Wifi_RIG）を同時運用した際に、送信 CW が最初や途中で途切れる「音切れ」を修正
+  - CW キー信号（ON/OFF）を UDP で冗長送信（5 回・約 4ms 間隔）し、Wi-Fi 混雑時のパケット欠落による
+    キーイング要素（短点・長点）の抜けを解消。サーバ側は送信タイムスタンプで重複を排除するため、
+    最低 1 発が確実に届きつつ、重複パケットは無害に集約される（PTT OFF の信頼化と同じ設計思想）
+
+【リグ通信断の警告（rig_ok）】
+・Pi が応答していてもリグ（rigctld 経由）と通信できていない場合に警告を表示できるよう、
+  /radio/status に rig_ok 判定を追加（旧 api.py は本フィールドを返さないため、UPDATE で最新化が必要）
+
+【ネットワーク検索（Pi 自動発見）の修正】
+・ファイアウォール（ufw）有効時に「ネットワーク検索」が効かない問題を修正
+  - デバイス発見用の UDP 5001 を ufw 許可ポートに追加（LAN + WireGuard サブネット）
+  - 既に ufw 設定済みの場合は、UPDATE で最新 api.py 反映後に WireGuard 設定を再実行すると規則が適用されます
+
+【Pi API 更新（v3.19）】
+・api.py を Android 埋め込み版・iOS 埋め込み版・FastAPI 配布版で v3.19 に統一
+・アプリ側の Pi API バージョン不一致チェックを v3.19 に更新
 
 ●v3.18 の変更点（v3.17 との比較）
 【CW サイドトーン・接続安定化（build 133）】
@@ -786,19 +842,19 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.17/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v3.17.apk をダウンロード
+  1. Wifi_RIG_CTRL_v3.19.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
-ソースコードは同フォルダの Wifi_RIG_CTRL_Android_v3.17_src.zip として公開しています
+ソースコードは同フォルダの Wifi_RIG_CTRL_Android_v3.19_src.zip として公開しています
 （展開して Android Studio で開けばビルド可能）。
 zip には JNI 用の ft8_lib（kgoba/ft8_lib、MIT ライセンス）のコアソースも同梱しています。
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.17/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/RaspberryPiSetup
 
 v2.03 以降からのアップグレード: アプリの「Update」→「Update Pi」ボタンで自動更新
 v2.12 から Hamlib 4.7.2 対応: アプリの「Update」→「Update Hamlib」ボタンで追加インストール
@@ -808,19 +864,30 @@ v2.02 以前からのアップグレード: 初回のみ手動 scp が必要
 
 ●外出先からの接続（WireGuard VPN）
 モバイル回線など自宅外から接続する場合は WireGuard のセットアップが必要です。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
-（v1.40 からの変更なし）
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/WireGuard
+（v3.19 で ufw ファイアウォールにデバイス発見用 UDP 5001 の許可を追加。既に ufw 設定済みの場合は
+　最新 api.py 反映後に WireGuard 設定を再実行してください）
 
-⑦ iOS版について（WifiRigCTRL for iOS v3.18）
+⑦ iOS版について（WifiRigCTRL for iOS v3.19）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに iPhone / iPad でリグをリモート制御できるアプリです。
-v2.17 よりソースコードをGitHubで公開しています（最新版：v3.18）。
+v2.17 よりソースコードをGitHubで公開しています（最新版：v3.19）。
 Android版と同様、M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core版・Android版と共通です。
 
 ●App Storeでの配信について
-2026/10/9 時点で v3.18 を App Store Connect へ提出準備中です。App Store公開まではソースコードを
+2026/10/11 時点で v3.19 を App Store Connect へ提出準備中です。App Store公開まではソースコードを
 Xcodeでビルドしてご利用ください（下記「ビルド方法」参照）。公開でき次第、本readmeにリンクを追記します。
+
+●v3.19 の変更点（v3.18 との比較、Android v3.19 と共通）
+【CW 送信の音切れ修正】
+・CW キーヤーと受信音声を同時運用した際の送信 CW「音切れ」を修正（CW キー信号を UDP で冗長送信）
+【リグ通信断の警告（rig_ok）】
+・Pi が応答していてもリグと通信できていない場合に警告表示（/radio/status に rig_ok 判定を追加）
+【ネットワーク検索の修正】
+・ufw 有効時に Pi 自動発見が効かない問題を修正（UDP 5001 を許可ポートに追加）
+【Pi API 更新（v3.19）】
+・API バージョンを 3.19 に更新（Pi 側は「Update」→「Update Pi」で更新してください）
 
 ●v3.18 の変更点（v3.17 との比較、Android v3.18 と共通）
 【セキュリティ強化】
@@ -1090,12 +1157,12 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●ソースコード・ビルド方法
 GitHub の以下フォルダにソースを公開しています。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.16/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/M5CoreHamCAT_iOS
 
-ソースは WifiRigCTRL_iOS_v3.16_src.zip にまとめています
+ソースは WifiRigCTRL_iOS_v3.19_src.zip にまとめています
 （README.md / LICENSES.md / PRIVACY_POLICY は zip の外にもあります）。
 
-  1. WifiRigCTRL_iOS_v3.16_src.zip をダウンロードして展開
+  1. WifiRigCTRL_iOS_v3.19_src.zip をダウンロードして展開
   2. Xcode 15 以上で WifiRigCTRL_iOS.xcodeproj を開く
   3. Signing & Capabilities で開発者アカウントを設定
   4. ターゲットデバイスを iPhone / iPad に設定してビルド
@@ -1104,11 +1171,11 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.16/M5CoreHamCAT_iOS
 
 ●Raspberry Pi セットアップ
 M5Core版・Android版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.16/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/RaspberryPiSetup
 
 ●外出先からの接続（WireGuard VPN）
 Android版と同様、自宅外から接続する場合は WireGuard のセットアップが必要です。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/WireGuard
 
 2026/10/7
 以上。

@@ -1,3 +1,34 @@
+⚠️⚠️ IMPORTANT SAFETY NOTICE (please read before connecting) ⚠️⚠️
+
+■ Prevent accidental transmission — take these steps before connecting
+  [Why it happens] When the Raspberry Pi is connected to the transceiver via USB,
+    the serial control lines (RTS/DTR) toggle as the USB serial device is detected.
+    If PTT is wired to RTS/DTR, this can key the transmitter and cause an
+    unintended on-air transmission.
+  [Countermeasures, most effective first]
+    1. Use CAT-command PTT where possible (do NOT use RTS/DTR for PTT). Set
+       Hamlib/rigctld ptt-type to a CAT method so line toggling cannot transmit.
+    2. If you must use RTS/DTR, choose an interface whose PTT defaults to RX
+       (pulled down / OFF) so a floating line never keys TX.
+    3. Disable ModemManager. On Linux, ModemManager probes newly detected USB
+       serial devices (your CAT cable) by opening the port, toggling RTS/DTR and
+       potentially keying TX. On the Pi run:
+         sudo systemctl mask ModemManager
+       (or add a udev rule setting ENV{ID_MM_DEVICE_IGNORE}="1" for just the CAT device)
+    4. Always enable the radio's TX time-out timer (TOT) as a last-resort safety
+       net so transmission stops automatically even if PTT sticks ON.
+    5. On first connection, connect a dummy load or antenna and test PTT behavior
+       at reduced RF power before normal operation.
+  See your radio's manual and the relevant page of this guide (Setup PDF).
+
+■ Use a USB2 port for the radio
+  Connect the radio's USB (CAT / audio / PTT) to a USB2 port (black) on the
+  Raspberry Pi / PC. USB3 ports (blue) radiate strong 2.4 GHz interference (RFI)
+  that can add noise to reception and destabilize 2.4 GHz Wi-Fi. If you must use
+  USB3, use a well-shielded cable with a ferrite core and keep it away from the unit.
+
+================================================================
+
 ① Introduction
 M5CoreHamCAT is a system that uses a Raspberry Pi Zero 2W connected to a transceiver and an M5CoreS3SE.
 The Raspberry Pi Zero 2W performs CAT control of the radio, and the M5CoreS3SE retrieves information and performs operations through it.
@@ -36,6 +67,13 @@ v3.17 released — Android and iOS updated; Pi API updated to v3.17. See section
 v3.18 released — Android, iOS, and Pi-side API updated (security hardening: ufw firewall integrated into
 WireGuard setup, rigctld bound to loopback, device-path validation; FT-991 BK-IN fix; default WireGuard
 config filename changed to WG_Raspi.conf). See sections ⑥ and ⑦ for details.
+--
+2026/10/10
+v3.19 released — Android, iOS, and Pi-side API updated. Fixed transmitted CW breaking up at the start and
+intermittently when the CW keyer is used together with Wifi_RIG RX audio: CW key events are now sent
+redundantly over UDP, eliminating dropped keying elements from packet loss on a busy Wi-Fi (Android/iOS).
+Also fixed network search (Pi auto-discovery) failing when the firewall (ufw) is enabled, by adding UDP 5001
+to the ufw allow rules. Pi API unified to v3.19. See sections ⑥ and ⑦ for details.
 --
 2026/10/07
 v3.16 released — Android and iOS updated (Pi API unchanged). See sections ⑥ and ⑦ for details.
@@ -98,7 +136,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.18/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.19/RaspberryPiSetup/readme.txt
 
 Main steps:
 
@@ -188,8 +226,8 @@ If it doesn’t work properly, try rebooting a few times.
 
 If radio information stops updating, SSH into the Raspberry Pi Zero 2W and reboot it:
 
-コード
 sudo reboot now
+
 Be careful not to select the wrong CAT device, or it will fail to connect.
 
 Rapid tapping may cause the system to reboot.
@@ -199,11 +237,31 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.18)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.19)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.18)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.19)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v3.19 (compared to v3.18)
+
+Fixed CW keying dropouts on transmit (Android / iOS):
+- Fixed transmitted CW breaking up at the start and intermittently when the CW keyer is used together
+  with Wifi_RIG (RX audio streaming). Each CW key event (ON/OFF) is now sent redundantly over UDP
+  (5 times, ~4 ms apart); the server deduplicates by timestamp, so at least one copy is guaranteed to
+  arrive while duplicates collapse harmlessly (same reliability design already used for the PTT OFF packet).
+
+Rig-communication-lost warning (rig_ok):
+- /radio/status now reports a rig_ok flag so the app can warn when the Pi answers but cannot reach the rig
+  (via rigctld). Older api.py does not return this field, so update the Pi via "Update Pi".
+
+Fixed network search (Pi auto-discovery) when the firewall is enabled:
+- Added UDP 5001 (device discovery) to the ufw allow rules (LAN + WireGuard subnet). If your firewall is
+  already configured, re-run WireGuard setup after updating the Pi to the latest api.py to apply the rule.
+
+Pi API update (v3.19):
+- Unified api.py across the Android bundle, the iOS bundle, and the FastAPI distribution at v3.19
+- Updated the app-side Pi API version-mismatch check to v3.19
 
 ● What's New in v3.18 (compared to v3.17)
 
@@ -877,19 +935,19 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.17/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v3.17.apk
+  1. Download Wifi_RIG_CTRL_v3.19.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
-Source code is published in the same folder as Wifi_RIG_CTRL_Android_v3.17_src.zip
+Source code is published in the same folder as Wifi_RIG_CTRL_Android_v3.19_src.zip
 (unzip and open in Android Studio to build).
 The zip also bundles the core sources of ft8_lib (kgoba/ft8_lib, MIT license) used by the JNI module.
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.17/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/RaspberryPiSetup
 
 Upgrading from v2.03 or later: use the "Update" → "Update Pi" button in the app
 Hamlib 4.7.2 (added in v2.12): use the "Update" → "Update Hamlib" button in the app
@@ -899,20 +957,28 @@ Upgrading from v2.02 or earlier: first-time manual scp required
 
 ● Remote Access from Outside Home (WireGuard VPN)
 If connecting from outside your home network (e.g., via mobile data), WireGuard setup is required.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
-(No changes from v1.40)
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/WireGuard
+(v3.19 adds a ufw allow rule for UDP 5001, used for device discovery. If ufw is already configured,
+ re-run WireGuard setup after updating the Pi to the latest api.py.)
 
-⑦ iOS Version (WifiRigCTRL for iOS v3.18)
+⑦ iOS Version (WifiRigCTRL for iOS v3.19)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 An iPhone/iPad app that offers the same kind of remote rig control as the M5CoreS3SE,
-with source published on GitHub since v2.17 (latest: v3.18).
+with source published on GitHub since v2.17 (latest: v3.19).
 As with the Android app, no M5Core / Module Audio / Unit Encoder hardware is required.
 Raspberry Pi setup is identical to the M5Core and Android versions.
 
 ● App Store status
-As of 2026/10/9, v3.18 is being prepared for submission to App Store Connect.
+As of 2026/10/11, v3.19 is being prepared for submission to App Store Connect.
 Until it is published, build it from source with Xcode (see "Build" below). A download
 link will be added here once it is live on the App Store.
+
+● What's New in v3.19 (compared to v3.18, same as Android v3.19)
+
+- Fixed transmitted CW breaking up when the CW keyer and RX audio are used together (redundant UDP key packets)
+- Added a rig-communication-lost warning (rig_ok flag in /radio/status)
+- Fixed network search (Pi auto-discovery) when ufw is enabled (added UDP 5001 to the allow rules)
+- Pi API updated to v3.19 (update the Pi via "Update" → "Update Pi")
 
 ● What's New in v3.18 (compared to v3.17, same as Android v3.18)
 
@@ -1214,12 +1280,12 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Source Code / Build
 Source is published in the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.16/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/M5CoreHamCAT_iOS
 
-Source is packaged as WifiRigCTRL_iOS_v3.16_src.zip
+Source is packaged as WifiRigCTRL_iOS_v3.19_src.zip
 (README.md / LICENSES.md / PRIVACY_POLICY are also available outside the zip).
 
-  1. Download and unzip WifiRigCTRL_iOS_v3.16_src.zip
+  1. Download and unzip WifiRigCTRL_iOS_v3.19_src.zip
   2. Open WifiRigCTRL_iOS.xcodeproj in Xcode 15 or later
   3. Set your developer account under Signing & Capabilities
   4. Set the target device to iPhone / iPad and build
@@ -1228,12 +1294,12 @@ No external library dependencies (no Swift Package Manager / CocoaPods).
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core and Android versions.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.16/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/RaspberryPiSetup
 
 ● Remote Access from Outside Home (WireGuard VPN)
 As with the Android version, WireGuard setup is required to connect from outside your
 home network.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v2.02/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/WireGuard
 
 2026/10/7
 --

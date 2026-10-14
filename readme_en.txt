@@ -68,6 +68,26 @@ v3.18 released — Android, iOS, and Pi-side API updated (security hardening: uf
 WireGuard setup, rigctld bound to loopback, device-path validation; FT-991 BK-IN fix; default WireGuard
 config filename changed to WG_Raspi.conf). See sections ⑥ and ⑦ for details.
 --
+2026/10/14
+v3.21 released — Android and iOS updated. The QSO log gains a QRA (name) field (ADIF NAME); the entry screen now
+preserves input when closed and restores it on reopen (draft), with a Clear button. FT8: tapping a decoded row
+reliably opens QSO start (including CQ POTA); frequency tap shows the band list and long-press opens memory (conflicts
+fixed). FT8/FT4 now logs the worked station's POTA/SOTA and your operating location; eQSL and Smart Ham Log are sent
+automatically for FT8 auto-QSOs; Smart Ham Log POTA/SOTA is written to the proper fields. Added iCloud backup (iOS),
+a POTA-hunted mark in MEMSET (Android), and a fix for the RTTY "UR 599 BK" x2 preview. App bundle locales are limited
+to en/ja (fixes Google Play auto-translation failures). See sections 6 and 7 for details.
+--
+2026/10/14
+v3.20 released — Android, iOS, and Pi-side API updated. RTTY receive was rebuilt as a continuous quadrature
+matched-filter demodulator with sub-sample timing recovery (more robust under noise, off-nominal baud, and
+fractional sample rates); the RTTY spectrum now zooms to the mark/space band to fill the screen width. Added
+operating-location (JCC/JGC + Maidenhead grid) management with POTA/SOTA operating sessions, an operating-location
+selector on the FT8/RTTY/CW transmit screens, and per-park/summit bulk ADIF export. The QSO log gains a QSL-method
+field, worked-station GL/QTH, My GL, operating place, and a UTC/local time toggle. Added automatic eQSL upload per
+My-Call account, Smart Ham Log (Cloudlog-compatible) QSO upload, and a PSKReporter reception-report sending toggle.
+Added settings/QSO-log backup and restore to a chosen folder (Android). Fixed the FTX-1 built-in APRS beacon not
+starting. Note: PSKReporter sending requires updating the Pi (Admin -> Update Pi). See sections 6 and 7 for details.
+--
 2026/10/10
 v3.19 released — Android, iOS, and Pi-side API updated. Fixed transmitted CW breaking up at the start and
 intermittently when the CW keyer is used together with Wifi_RIG RX audio: CW key events are now sent
@@ -136,7 +156,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.19/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.21/RaspberryPiSetup/readme.txt
 
 Main steps:
 
@@ -237,11 +257,70 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.19)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.21)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.19)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.21)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v3.21 (compared to v3.20)
+
+QSO log:
+- New QRA (name) field (ADIF NAME)
+- The entry screen now preserves input when closed and restores it on reopen (draft), with a Clear button
+
+FT8:
+- Tapping a decoded row reliably opens QSO start (including CQ POTA)
+- Frequency tap shows the band list; long-press opens memory (tap/long-press conflicts fixed)
+
+FT8 / FT4 logging and integration:
+- Logs the worked station's POTA/SOTA and your operating location
+- eQSL and Smart Ham Log are sent automatically for FT8 auto-QSOs
+- Smart Ham Log POTA/SOTA is written to the proper fields
+
+Other:
+- iCloud backup (iOS)
+- POTA-hunted mark in MEMSET (Android)
+- Fixed the RTTY "UR 599 BK" x2 preview
+
+Improvement:
+- App bundle locales limited to en/ja (fixes Google Play auto-translation failures)
+
+● What's New in v3.20 (compared to v3.19)
+
+RTTY receive rebuilt:
+- Reworked into a continuous quadrature matched-filter demodulator with sub-sample timing recovery
+  - More robust decoding under noise, off-nominal baud rates, and fractional sample rates
+  - The RTTY spectrum display now zooms to the mark/space band to fill the screen width
+
+Operating-location (POTA/SOTA) features:
+- Register and manage an operating location (JCC/JGC + Maidenhead grid) via GPS or map
+- Current-location map shows POTA (green) / SOTA (red) pins (inactive POTA parks are hidden)
+- Operating sessions with UTC/local start and end times
+- Operating-location selector on the FT8 / RTTY / CW transmit screens
+- Per-park/summit bulk ADIF export
+
+QSO log additions:
+- QSL method field (JARL / hQSL / No / Card / 1-Way)
+- Worked-station GL/QTH, My GL, and operating-place fields
+- UTC / local time display toggle
+- Cancel / Save buttons moved to the dialog header
+
+External integration:
+- Automatic eQSL upload per My-Call account (comment -> eQSL Remarks)
+- Smart Ham Log (Cloudlog-compatible bridge) QSO upload with a connection test
+- PSKReporter reception-report sending toggle
+- QSO LIST shows eQSL / SHL sent status with bulk send
+
+Other:
+- My Call history dropdown added to the connect screen
+- Settings and QSO-log backup/restore to a chosen folder (reinstall-resilient; secrets excluded)
+
+Bug fix:
+- Fixed the FTX-1 built-in APRS beacon not starting (BEACON TYPE was not switching to AUTO)
+
+Note:
+- PSKReporter sending requires updating the Pi (Admin -> Update Pi)
 
 ● What's New in v3.19 (compared to v3.18)
 
@@ -918,6 +997,10 @@ FastAPI update (re-run create_api.sh required):
 - Multiple profile support (switch between connection targets)
 - API Key authentication support
 - Remote access via WireGuard VPN
+- QSO log (QSL method, worked-station/My GL, operating place, ADIF export)
+- Operating-location (POTA/SOTA) management, operating sessions, per-park/summit bulk ADIF export
+- Automatic eQSL upload, Smart Ham Log (Cloudlog-compatible) QSO upload, PSKReporter reception-report sending
+- Settings and QSO-log backup/restore to a chosen folder
 
 ● Requirements
 - Android smartphone (Android 7.0 / API 24 or later)
@@ -935,19 +1018,19 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v3.19.apk
+  1. Download Wifi_RIG_CTRL_v3.21.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
-Source code is published in the same folder as Wifi_RIG_CTRL_Android_v3.19_src.zip
+Source code is published in the same folder as Wifi_RIG_CTRL_Android_v3.21_src.zip
 (unzip and open in Android Studio to build).
 The zip also bundles the core sources of ft8_lib (kgoba/ft8_lib, MIT license) used by the JNI module.
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/RaspberryPiSetup
 
 Upgrading from v2.03 or later: use the "Update" → "Update Pi" button in the app
 Hamlib 4.7.2 (added in v2.12): use the "Update" → "Update Hamlib" button in the app
@@ -957,21 +1040,70 @@ Upgrading from v2.02 or earlier: first-time manual scp required
 
 ● Remote Access from Outside Home (WireGuard VPN)
 If connecting from outside your home network (e.g., via mobile data), WireGuard setup is required.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/WireGuard
 (v3.19 adds a ufw allow rule for UDP 5001, used for device discovery. If ufw is already configured,
  re-run WireGuard setup after updating the Pi to the latest api.py.)
 
-⑦ iOS Version (WifiRigCTRL for iOS v3.19)
+⑦ iOS Version (WifiRigCTRL for iOS v3.21)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 An iPhone/iPad app that offers the same kind of remote rig control as the M5CoreS3SE,
-with source published on GitHub since v2.17 (latest: v3.19).
+with source published on GitHub since v2.17 (latest: v3.21).
 As with the Android app, no M5Core / Module Audio / Unit Encoder hardware is required.
 Raspberry Pi setup is identical to the M5Core and Android versions.
 
 ● App Store status
-As of 2026/10/11, v3.19 is being prepared for submission to App Store Connect.
+As of 2026/10/14, v3.21 is being prepared for submission to App Store Connect.
 Until it is published, build it from source with Xcode (see "Build" below). A download
 link will be added here once it is live on the App Store.
+
+● What's New in v3.21 (compared to v3.20, same as Android v3.21)
+
+QSO log:
+- New QRA (name) field (ADIF NAME); the entry screen preserves input when closed and restores it on reopen
+  (draft), with a Clear button
+
+FT8:
+- Tapping a decoded row reliably opens QSO start (including CQ POTA); frequency tap shows the band list and
+  long-press opens memory (conflicts fixed)
+
+FT8 / FT4 logging and integration:
+- Logs the worked station's POTA/SOTA and your operating location; eQSL and Smart Ham Log are sent automatically
+  for FT8 auto-QSOs; Smart Ham Log POTA/SOTA is written to the proper fields
+
+Other:
+- iCloud backup (iOS); POTA-hunted mark in MEMSET (Android); fixed the RTTY "UR 599 BK" x2 preview
+
+Improvement:
+- App bundle locales limited to en/ja (fixes Google Play auto-translation failures)
+
+● What's New in v3.20 (compared to v3.19, same as Android v3.20)
+
+RTTY receive rebuilt:
+- Reworked into a continuous quadrature matched-filter demodulator with sub-sample timing recovery (more robust
+  under noise, off-nominal baud, and fractional sample rates); the spectrum display zooms to the mark/space band
+  to fill the screen width
+
+Operating-location (POTA/SOTA) features:
+- Register and manage an operating location (JCC/JGC + Maidenhead grid) via GPS or map; current-location map shows
+  POTA (green) / SOTA (red) pins (inactive POTA parks hidden); operating sessions with UTC/local start-end times;
+  operating-location selector on the FT8/RTTY/CW transmit screens; per-park/summit bulk ADIF export
+
+QSO log additions:
+- QSL method (JARL / hQSL / No / Card / 1-Way), worked-station GL/QTH, My GL, operating-place fields; UTC/local
+  time toggle; Cancel/Save buttons moved to the dialog header
+
+External integration:
+- Automatic eQSL upload per My-Call account, Smart Ham Log (Cloudlog-compatible) QSO upload with a connection test,
+  and a PSKReporter reception-report sending toggle; QSO LIST shows eQSL/SHL sent status with bulk send
+
+Other:
+- My Call history dropdown added to the connect screen
+
+Bug fix:
+- Fixed the FTX-1 built-in APRS beacon not starting (BEACON TYPE was not switching to AUTO)
+
+Note:
+- PSKReporter sending requires updating the Pi (Admin -> Update Pi)
 
 ● What's New in v3.19 (compared to v3.18, same as Android v3.19)
 
@@ -1264,6 +1396,9 @@ Bug fixes:
 - Multiple profile support (switch between connection targets)
 - API Key authentication support
 - Remote access via WireGuard VPN
+- QSO log (QSL method, worked-station/My GL, operating place, ADIF export)
+- Operating-location (POTA/SOTA) management, operating sessions, per-park/summit bulk ADIF export
+- Automatic eQSL upload, Smart Ham Log (Cloudlog-compatible) QSO upload, PSKReporter reception-report sending
 - Direct CI-V connection (IC-705 / IC-9700, no Raspberry Pi required. Supports frequency,
   mode, S-meter, PTT, RF power, squelch, BK-IN, mic TX, and RX audio. CW TX/BLE keyer are
   partially supported; FT8, APRS, NR, and Wi-Fi PTT are not available in this mode)
@@ -1280,12 +1415,12 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Source Code / Build
 Source is published in the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/M5CoreHamCAT_iOS
 
-Source is packaged as WifiRigCTRL_iOS_v3.19_src.zip
+Source is packaged as WifiRigCTRL_iOS_v3.21_src.zip
 (README.md / LICENSES.md / PRIVACY_POLICY are also available outside the zip).
 
-  1. Download and unzip WifiRigCTRL_iOS_v3.19_src.zip
+  1. Download and unzip WifiRigCTRL_iOS_v3.21_src.zip
   2. Open WifiRigCTRL_iOS.xcodeproj in Xcode 15 or later
   3. Set your developer account under Signing & Capabilities
   4. Set the target device to iPhone / iPad and build
@@ -1294,12 +1429,12 @@ No external library dependencies (no Swift Package Manager / CocoaPods).
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core and Android versions.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/RaspberryPiSetup
 
 ● Remote Access from Outside Home (WireGuard VPN)
 As with the Android version, WireGuard setup is required to connect from outside your
 home network.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/WireGuard
 
 2026/10/7
 --

@@ -62,6 +62,24 @@ Ver3.18にて、Android版・iOS版・Pi側APIを更新しました（セキュ�
 rigctldループバック限定／デバイスパス検証、FT-991 BK-IN修正、WireGuard設定ファイル名をWG_Raspi.confに）。
 主な変更点は⑥⑦を参照ください。
 --
+2026/10/14
+Ver3.21にて、Android版・iOS版を更新しました（QSOログにQRA(相手局の名前/ADIF NAME)フィールドを追加。入力画面は
+閉じても内容を保持し、再度開くと復元(下書き)、Clearボタンで消去。FT8はデコード行のタップでQSO開始が確実に開く
+(CQ POTAを含む)、周波数タップ=バンドリスト／長押し=メモリ(競合を修正)。FT8/FT4は相手局のPOTA/SOTAと自局の運用地を
+記録、FT8自動QSOのeQSL/Smart Ham Log自動送付、Smart Ham LogのPOTA/SOTAを適切なフィールドへ。iCloudバックアップ(iOS)、
+MEMSETにPOTAハント済みマーク(Android)、RTTY「UR 599 BK」×2プレビューの修正。アプリバンドルのロケールをen/jaに限定
+(Google Play自動翻訳の失敗を修正)）。主な変更点は⑥⑦を参照ください。
+--
+2026/10/14
+Ver3.20にて、Android版・iOS版・Pi側APIを更新しました（RTTY受信を連続直交マッチドフィルタ復調器に全面刷新：
+サブサンプル・タイミング復元によりノイズ・規定外ボーレート・端数サンプルレートに強くなり、スペクトラム表示は
+Mark/Space帯域にズームして画面幅いっぱいに表示。運用地(JCC/JGC＋グリッドロケーター)管理とPOTA/SOTA対応の
+運用セッション機能を追加、FT8/RTTY/CW送信画面に運用地セレクタを配置、公園・サミット単位のADIF一括エクスポートに対応。
+QSOログにQSL方法・相手局GL/QTH・自局GL・運用地フィールドとUTC/ローカル時刻トグルを追加。My Call単位でのeQSL自動送付、
+Smart Ham Log(Cloudlog互換)へのQSO送付、PSKReporter受信レポート送信トグルに対応。設定・QSOログのフォルダ
+バックアップ/復元(Android)を追加。FTX-1内蔵APRSビーコンが開始しない不具合を修正。
+※PSKReporter送信にはPiの更新(Admin→Update Pi)が必要です）。主な変更点は⑥⑦を参照ください。
+--
 2026/10/10
 Ver3.19にて、Android版・iOS版・Pi側APIを更新しました（CWキーヤーとWifi_RIGの受信音声を同時運用した際に
 送信CWが最初や途中で途切れる「音切れ」を修正：CWキー信号をUDPで冗長送信し、Wi-Fi混雑時のパケット欠落による
@@ -115,7 +133,7 @@ APRS動作のために
 ・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
 ③セットアップ手順(Raspberry Pi Zero2W)
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.19/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.21/RaspberryPiSetup/readme.txt
 を参照してセットアップを行ってください(verに応じたフォルダを参照ください)。
 主な手順は以下の通りです。
 ・Raspberry Pi Imagerのインストール
@@ -189,12 +207,65 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v3.19）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v3.21）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v3.19）。
+アプリを v1.30 より公開しています（最新版：v3.21）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
+
+●v3.21 の変更点（v3.20 との比較）
+【QSO ログ】
+・QRA（相手局の名前）フィールドを追加（ADIF NAME）
+・入力画面は閉じても内容を保持し、再度開くと復元（下書き）。Clear ボタンで消去
+【FT8】
+・デコード行のタップで QSO 開始が確実に開くよう修正（CQ POTA を含む）
+・周波数タップ＝バンドリスト、長押し＝メモリー（競合を修正）
+【FT8 / FT4 ログ・外部連携】
+・交信した相手局の POTA/SOTA と自局の運用地を記録
+・FT8 自動 QSO の eQSL / Smart Ham Log 自動送付
+・Smart Ham Log の POTA/SOTA を適切なフィールドへ送信
+【その他】
+・iCloud バックアップ（iOS）
+・MEMSET に POTA ハント済みマーク（Android）
+・RTTY「UR 599 BK」×2 プレビューの不具合を修正
+【改善】
+・アプリバンドルのロケールを en / ja に限定（Google Play の自動翻訳失敗を修正）
+
+●v3.20 の変更点（v3.19 との比較）
+【RTTY 受信を全面刷新】
+・連続した直交マッチドフィルタ復調器に作り直し、サブサンプル精度のタイミング復元を追加
+  - ノイズ・規定外のボーレート・端数のサンプルレートに対してより頑健にデコード
+  - スペクトラム表示は Mark/Space の帯域にズームし、画面幅いっぱいに表示
+
+【運用地（POTA/SOTA）機能】
+・運用地（JCC/JGC ＋ グリッドロケーター）を GPS または地図から登録・管理
+・現在地マップに POTA（緑）・SOTA（赤）のピンを表示（アクティブでない POTA 公園は非表示）
+・運用セッション機能（開始・終了時刻を UTC / ローカルで記録）
+・FT8 / RTTY / CW 送信画面に運用地セレクタを配置
+・公園・サミット単位での ADIF 一括エクスポート
+
+【QSO ログ拡張】
+・QSL 方法フィールドを追加（JARL / hQSL / No / Card / 1-Way）
+・相手局 GL / QTH、自局 GL、運用地フィールドを追加
+・UTC / ローカル時刻の表示トグルを追加
+・ダイアログの Cancel / Save ボタンをヘッダに移動
+
+【外部連携】
+・My Call（自局コール）アカウントごとの eQSL 自動送付（コメント → eQSL Remarks に反映）
+・Smart Ham Log（Cloudlog 互換ブリッジ）への QSO 送付（接続テスト付き）
+・PSKReporter 受信レポート送信トグル
+・QSO LIST に eQSL / SHL の送付状態を表示し、一括送付に対応
+
+【その他】
+・接続画面に My Call（自局コール）履歴ドロップダウンを追加
+・設定・QSO ログの指定フォルダへのバックアップ／復元（再インストール後も復元可能・秘匿情報は除外）
+
+【バグ修正】
+・FTX-1 の内蔵 APRS ビーコンが開始しない不具合を修正（BEACON TYPE が AUTO に切り替わらなかった問題）
+
+【注記】
+・PSKReporter 送信には Pi の更新が必要です（Admin → Update Pi）
 
 ●v3.19 の変更点（v3.18 との比較）
 【CW 送信の音切れ修正（Android / iOS 共通）】
@@ -825,6 +896,10 @@ Raspberry Pi のセットアップは M5Core 版と共通です。
 ・複数プロファイル対応（接続先の切り替え）
 ・API Key 認証対応
 ・WireGuard VPN 経由での外出先接続対応
+・QSO ログ（QSL 方法・相手局/自局 GL・運用地、ADIF エクスポート）
+・運用地（POTA/SOTA）管理・運用セッション・公園/サミット単位の ADIF 一括エクスポート
+・eQSL 自動送付・Smart Ham Log（Cloudlog 互換）QSO 送付・PSKReporter 受信レポート送信
+・設定・QSO ログのフォルダへのバックアップ／復元
 
 ●必要なもの
 ・Android スマートフォン（Android 7.0 以上）
@@ -842,19 +917,19 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v3.19.apk をダウンロード
+  1. Wifi_RIG_CTRL_v3.21.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
-ソースコードは同フォルダの Wifi_RIG_CTRL_Android_v3.19_src.zip として公開しています
+ソースコードは同フォルダの Wifi_RIG_CTRL_Android_v3.21_src.zip として公開しています
 （展開して Android Studio で開けばビルド可能）。
 zip には JNI 用の ft8_lib（kgoba/ft8_lib、MIT ライセンス）のコアソースも同梱しています。
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/RaspberryPiSetup
 
 v2.03 以降からのアップグレード: アプリの「Update」→「Update Pi」ボタンで自動更新
 v2.12 から Hamlib 4.7.2 対応: アプリの「Update」→「Update Hamlib」ボタンで追加インストール
@@ -864,20 +939,55 @@ v2.02 以前からのアップグレード: 初回のみ手動 scp が必要
 
 ●外出先からの接続（WireGuard VPN）
 モバイル回線など自宅外から接続する場合は WireGuard のセットアップが必要です。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/WireGuard
 （v3.19 で ufw ファイアウォールにデバイス発見用 UDP 5001 の許可を追加。既に ufw 設定済みの場合は
 　最新 api.py 反映後に WireGuard 設定を再実行してください）
 
-⑦ iOS版について（WifiRigCTRL for iOS v3.19）
+⑦ iOS版について（WifiRigCTRL for iOS v3.21）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに iPhone / iPad でリグをリモート制御できるアプリです。
-v2.17 よりソースコードをGitHubで公開しています（最新版：v3.19）。
+v2.17 よりソースコードをGitHubで公開しています（最新版：v3.21）。
 Android版と同様、M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core版・Android版と共通です。
 
 ●App Storeでの配信について
-2026/10/11 時点で v3.19 を App Store Connect へ提出準備中です。App Store公開まではソースコードを
+2026/10/14 時点で v3.21 を App Store Connect へ提出準備中です。App Store公開まではソースコードを
 Xcodeでビルドしてご利用ください（下記「ビルド方法」参照）。公開でき次第、本readmeにリンクを追記します。
+
+●v3.21 の変更点（v3.20 との比較、Android v3.21 と共通）
+【QSO ログ】
+・QRA（相手局の名前）フィールドを追加（ADIF NAME）。入力画面は閉じても内容を保持し、再度開くと復元（下書き）、
+  Clear ボタンで消去
+【FT8】
+・デコード行のタップで QSO 開始が確実に開く（CQ POTA を含む）。周波数タップ＝バンドリスト、長押し＝メモリー（競合を修正）
+【FT8 / FT4 ログ・外部連携】
+・交信した相手局の POTA/SOTA と自局の運用地を記録。FT8 自動 QSO の eQSL / Smart Ham Log 自動送付、
+  Smart Ham Log の POTA/SOTA を適切なフィールドへ送信
+【その他】
+・iCloud バックアップ（iOS）、MEMSET に POTA ハント済みマーク（Android）、RTTY「UR 599 BK」×2 プレビューの修正
+【改善】
+・アプリバンドルのロケールを en / ja に限定（Google Play の自動翻訳失敗を修正）
+
+●v3.20 の変更点（v3.19 との比較、Android v3.20 と共通）
+【RTTY 受信を全面刷新】
+・連続した直交マッチドフィルタ復調器に作り直し、サブサンプル精度のタイミング復元を追加（ノイズ・規定外ボーレート・
+  端数サンプルレートに頑健）。スペクトラム表示は Mark/Space 帯域にズームして画面幅いっぱいに表示
+【運用地（POTA/SOTA）機能】
+・運用地（JCC/JGC ＋ グリッドロケーター）を GPS または地図から登録・管理。現在地マップに POTA（緑）/ SOTA（赤）ピン
+  を表示（非アクティブな POTA 公園は非表示）。運用セッション（UTC/ローカルの開始・終了時刻）、FT8/RTTY/CW 送信画面
+  の運用地セレクタ、公園・サミット単位の ADIF 一括エクスポートに対応
+【QSO ログ拡張】
+・QSL 方法（JARL / hQSL / No / Card / 1-Way）、相手局 GL/QTH、自局 GL、運用地フィールドを追加。UTC/ローカル時刻トグル、
+  ダイアログの Cancel/Save ボタンをヘッダに移動
+【外部連携】
+・My Call アカウントごとの eQSL 自動送付、Smart Ham Log（Cloudlog 互換）への QSO 送付（接続テスト付き）、
+  PSKReporter 受信レポート送信トグル。QSO LIST に eQSL/SHL の送付状態表示・一括送付
+【その他】
+・接続画面に My Call 履歴ドロップダウンを追加
+【バグ修正】
+・FTX-1 内蔵 APRS ビーコンが開始しない不具合を修正（BEACON TYPE が AUTO に切り替わらなかった問題）
+【注記】
+・PSKReporter 送信には Pi の更新が必要です（Admin → Update Pi）
 
 ●v3.19 の変更点（v3.18 との比較、Android v3.19 と共通）
 【CW 送信の音切れ修正】
@@ -1142,6 +1252,9 @@ Xcodeでビルドしてご利用ください（下記「ビルド方法」参照
 ・複数プロファイル対応（接続先の切り替え）
 ・API Key 認証対応
 ・WireGuard VPN 経由での外出先接続対応
+・QSO ログ（QSL 方法・相手局/自局 GL・運用地、ADIF エクスポート）
+・運用地（POTA/SOTA）管理・運用セッション・公園/サミット単位の ADIF 一括エクスポート
+・eQSL 自動送付・Smart Ham Log（Cloudlog 互換）QSO 送付・PSKReporter 受信レポート送信
 ・直接CI-V接続（IC-705 / IC-9700、Raspberry Pi 不要。周波数・モード・Sメーター・PTT・RF power・SQL・
   BK-IN・マイク音声TX・受信音声RXに対応。CW送信/BLEキーヤーは制限付き対応、FT8/APRS/NR/WiFi PTTは非対応）
 
@@ -1157,12 +1270,12 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●ソースコード・ビルド方法
 GitHub の以下フォルダにソースを公開しています。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/M5CoreHamCAT_iOS
 
-ソースは WifiRigCTRL_iOS_v3.19_src.zip にまとめています
+ソースは WifiRigCTRL_iOS_v3.21_src.zip にまとめています
 （README.md / LICENSES.md / PRIVACY_POLICY は zip の外にもあります）。
 
-  1. WifiRigCTRL_iOS_v3.19_src.zip をダウンロードして展開
+  1. WifiRigCTRL_iOS_v3.21_src.zip をダウンロードして展開
   2. Xcode 15 以上で WifiRigCTRL_iOS.xcodeproj を開く
   3. Signing & Capabilities で開発者アカウントを設定
   4. ターゲットデバイスを iPhone / iPad に設定してビルド
@@ -1171,11 +1284,11 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/M5CoreHamCAT_iOS
 
 ●Raspberry Pi セットアップ
 M5Core版・Android版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/RaspberryPiSetup
 
 ●外出先からの接続（WireGuard VPN）
 Android版と同様、自宅外から接続する場合は WireGuard のセットアップが必要です。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.19/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/WireGuard
 
 2026/10/7
 以上。

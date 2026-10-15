@@ -69,6 +69,7 @@ WireGuard setup, rigctld bound to loopback, device-path validation; FT-991 BK-IN
 config filename changed to WG_Raspi.conf). See sections ⑥ and ⑦ for details.
 --
 2026/10/14
+v3.22 released — Android and iOS updated; Pi API updated to v3.22. CI-V local FT8/FT4 decoding is unified on mfsk-core (the Pi's high-accuracy engine) and is much faster (reliably finishes within the slot; better weak-signal decoding; iOS is now native too). Also fixed the own-TX FT8 row auto-scroll, the frequency reverting on FT8-screen entry when set from MEMSET/spots, and stabilized frequency/mode/callsign/park hand-off from SP2ALART and spots (mode-set retry; requires Admin -> Update Pi). See sections ⑥ and ⑦.
 v3.21 released — Android and iOS updated. The QSO log gains a QRA (name) field (ADIF NAME); the entry screen now
 preserves input when closed and restores it on reopen (draft), with a Clear button. FT8: tapping a decoded row
 reliably opens QSO start (including CQ POTA); frequency tap shows the band list and long-press opens memory (conflicts

@@ -133,7 +133,7 @@ APRS動作のために
 ・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
 ③セットアップ手順(Raspberry Pi Zero2W)
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.21/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.22/RaspberryPiSetup/readme.txt
 を参照してセットアップを行ってください(verに応じたフォルダを参照ください)。
 主な手順は以下の通りです。
 ・Raspberry Pi Imagerのインストール
@@ -207,12 +207,21 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v3.21）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v3.22）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v3.21）。
+アプリを v1.30 より公開しています（最新版：v3.22）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
+
+●v3.22 の変更点（v3.21 との比較）
+【FT8（CI-V ローカル）】
+・ローカル FT8/FT4 デコードを mfsk-core（ラズパイと同じ高精度エンジン）に統一し大幅に高速化。1スロット（15秒）内に確実に完了し、弱信号の復号率も向上（iOS もネイティブデコードを mfsk-core 化）
+・自局の送信メッセージが一番下に入ったとき自動スクロールして見えるよう修正
+【スポット / MEMSET】
+・MEMSET／スポットでセットした周波数が FT8 画面入室後に元へ戻る不具合を修正
+・SP2ALART／スポットからの周波数・モード・コールサイン・相手の公園（POTA/SOTA）の引き継ぎを安定化（モード設定のリトライを追加）
+※モード設定の信頼性向上には Pi の更新（Admin → Update Pi）が必要です
 
 ●v3.21 の変更点（v3.20 との比較）
 【QSO ログ】
@@ -929,7 +938,7 @@ zip には JNI 用の ft8_lib（kgoba/ft8_lib、MIT ライセンス）のコア�
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.22/RaspberryPiSetup
 
 v2.03 以降からのアップグレード: アプリの「Update」→「Update Pi」ボタンで自動更新
 v2.12 から Hamlib 4.7.2 対応: アプリの「Update」→「Update Hamlib」ボタンで追加インストール
@@ -946,7 +955,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/WireGuard
 ⑦ iOS版について（WifiRigCTRL for iOS v3.21）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに iPhone / iPad でリグをリモート制御できるアプリです。
-v2.17 よりソースコードをGitHubで公開しています（最新版：v3.21）。
+v2.17 よりソースコードをGitHubで公開しています（最新版：v3.22）。
 Android版と同様、M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core版・Android版と共通です。
 
@@ -1284,7 +1293,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/M5CoreHamCAT_iOS
 
 ●Raspberry Pi セットアップ
 M5Core版・Android版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.22/RaspberryPiSetup
 
 ●外出先からの接続（WireGuard VPN）
 Android版と同様、自宅外から接続する場合は WireGuard のセットアップが必要です。

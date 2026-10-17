@@ -60,6 +60,11 @@ This README has been refreshed to cover every device shipped in v2.20
 (M5Core2 / M5Core2 Tough / M5CoreS3SE / Android / iOS). Added a short M5Burner-style
 description for each M5 firmware, plus a new section (⑦) introducing WifiRigCTRL for iOS.
 
+2026/10/17
+v3.23 released — iOS, Android, and Pi-side API updated. iOS: RTTY can now be sent/received over the Raspberry Pi
+(minimodem); RTTY QSOs are logged with mode RTTY even when the rig is in USB/LSB; faster TX->RX switchover.
+Android: fixed a brief RX-audio dropout right after CW keying. Pi API updated to v3.23. See sections 6 and 7 for details.
+--
 2026/10/08
 v3.17 released — Android and iOS updated; Pi API updated to v3.17. See sections ⑥ and ⑦ for details.
 --
@@ -69,6 +74,13 @@ WireGuard setup, rigctld bound to loopback, device-path validation; FT-991 BK-IN
 config filename changed to WG_Raspi.conf). See sections ⑥ and ⑦ for details.
 --
 2026/10/14
+v3.23 released — Android, iOS, and Pi-side API updated. iOS: new RTTY over Raspberry Pi (minimodem) — for Pi
+connections, RTTY TX/RX now runs through the Pi's minimodem (text AFSK/Baudot-modulated on the Pi with automatic
+PTT; RX audio streamed back), complementing the existing on-device software RTTY modem, with faster TX->RX
+switchover after transmit. Android: fixed a brief RX-audio dropout after CW keying (the receive-audio stream is no
+longer restarted while its connection is still alive, so audio resumes without a gap). Pi API v3.23 adds RTTY
+endpoints (/radio/rtty/tx, /radio/rtty/rx) using minimodem (GPL-3.0), auto-installed via apt on startup and after
+Update Pi (requires Admin -> Update Pi; a version-mismatch warning shows until updated). See sections 6 and 7.
 v3.22 released — Android and iOS updated; Pi API updated to v3.22. CI-V local FT8/FT4 decoding is unified on mfsk-core (the Pi's high-accuracy engine) and is much faster (reliably finishes within the slot; better weak-signal decoding; iOS is now native too). Also fixed the own-TX FT8 row auto-scroll, the frequency reverting on FT8-screen entry when set from MEMSET/spots, and stabilized frequency/mode/callsign/park hand-off from SP2ALART and spots (mode-set retry; requires Admin -> Update Pi). See sections ⑥ and ⑦.
 v3.21 released — Android and iOS updated. The QSO log gains a QRA (name) field (ADIF NAME); the entry screen now
 preserves input when closed and restores it on reopen (draft), with a Clear button. FT8: tapping a decoded row
@@ -157,7 +169,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.21/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.23/RaspberryPiSetup/readme.txt
 
 Main steps:
 
@@ -258,11 +270,27 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.21)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.23)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.21)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.23)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v3.23 (compared to v3.22)
+
+iOS — RTTY over Raspberry Pi (minimodem):
+- For Pi connections, RTTY TX/RX now runs through the Pi's minimodem (text AFSK/Baudot-modulated on the Pi with
+  automatic PTT; RX audio streamed back), complementing the existing on-device software RTTY modem
+- Faster TX->RX switchover after transmit
+
+Android:
+- Fixed a brief RX-audio dropout after CW keying — the receive-audio stream is no longer restarted while its
+  connection is still alive (restarts only if the connection actually dropped), so audio resumes without a gap
+
+Pi API update (v3.23):
+- Added RTTY endpoints (/radio/rtty/tx, /radio/rtty/rx) using minimodem (GPL-3.0), auto-installed via apt on
+  startup and after Update Pi
+- Requires Admin -> Update Pi (a version-mismatch warning shows until updated)
 
 ● What's New in v3.21 (compared to v3.20)
 
@@ -1019,19 +1047,19 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.23/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v3.21.apk
+  1. Download Wifi_RIG_CTRL_v3.23.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
-Source code is published in the same folder as Wifi_RIG_CTRL_Android_v3.21_src.zip
+Source code is published in the same folder as Wifi_RIG_CTRL_Android_v3.23_src.zip
 (unzip and open in Android Studio to build).
 The zip also bundles the core sources of ft8_lib (kgoba/ft8_lib, MIT license) used by the JNI module.
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.23/RaspberryPiSetup
 
 Upgrading from v2.03 or later: use the "Update" → "Update Pi" button in the app
 Hamlib 4.7.2 (added in v2.12): use the "Update" → "Update Hamlib" button in the app
@@ -1041,21 +1069,50 @@ Upgrading from v2.02 or earlier: first-time manual scp required
 
 ● Remote Access from Outside Home (WireGuard VPN)
 If connecting from outside your home network (e.g., via mobile data), WireGuard setup is required.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.23/WireGuard
 (v3.19 adds a ufw allow rule for UDP 5001, used for device discovery. If ufw is already configured,
  re-run WireGuard setup after updating the Pi to the latest api.py.)
 
-⑦ iOS Version (WifiRigCTRL for iOS v3.21)
+⑦ iOS Version (WifiRigCTRL for iOS v3.23)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 An iPhone/iPad app that offers the same kind of remote rig control as the M5CoreS3SE,
-with source published on GitHub since v2.17 (latest: v3.21).
+with source published on GitHub since v2.17 (latest: v3.23).
 As with the Android app, no M5Core / Module Audio / Unit Encoder hardware is required.
 Raspberry Pi setup is identical to the M5Core and Android versions.
 
 ● App Store status
-As of 2026/10/14, v3.21 is being prepared for submission to App Store Connect.
+As of 2026/10/17, v3.23 is being prepared for submission to App Store Connect.
 Until it is published, build it from source with Xcode (see "Build" below). A download
 link will be added here once it is live on the App Store.
+
+● What's New in v3.23 (compared to v3.22, iOS)
+
+RTTY over Raspberry Pi (minimodem):
+- For Pi connections, RTTY TX/RX now runs through the Pi's minimodem (text AFSK/Baudot-modulated on the Pi with
+  automatic PTT; RX audio streamed back), complementing the existing on-device software RTTY modem
+
+QSO log:
+- RTTY QSOs are logged with mode RTTY even when the rig is in USB/LSB
+
+Improvement:
+- Faster TX->RX switchover after transmit
+
+Pi API update (v3.23):
+- Added RTTY endpoints (minimodem). Requires Admin -> Update Pi (a version-mismatch warning shows until updated)
+
+● What's New in v3.22 (compared to v3.21, same as Android)
+
+FT8 (CI-V local):
+- Local FT8/FT4 decoding is unified on mfsk-core (the Pi's high-accuracy engine) and is much faster: it reliably
+  finishes within the slot (15 s) with better weak-signal decoding (iOS native decode is now mfsk-core too)
+- Fixed the own-TX FT8 message auto-scrolling into view when it lands at the bottom of the list
+
+Spots / MEMSET:
+- Fixed the frequency reverting on FT8-screen entry when set from MEMSET/spots
+- Stabilized frequency/mode/callsign/worked-park (POTA/SOTA) hand-off from SP2ALART and spots (mode-set retry)
+
+Pi API update (v3.22):
+- Pi API updated to v3.22 (mode-set reliability requires Admin -> Update Pi)
 
 ● What's New in v3.21 (compared to v3.20, same as Android v3.21)
 
@@ -1416,12 +1473,12 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Source Code / Build
 Source is published in the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.23/M5CoreHamCAT_iOS
 
-Source is packaged as WifiRigCTRL_iOS_v3.21_src.zip
+Source is packaged as WifiRigCTRL_iOS_v3.23_src.zip
 (README.md / LICENSES.md / PRIVACY_POLICY are also available outside the zip).
 
-  1. Download and unzip WifiRigCTRL_iOS_v3.21_src.zip
+  1. Download and unzip WifiRigCTRL_iOS_v3.23_src.zip
   2. Open WifiRigCTRL_iOS.xcodeproj in Xcode 15 or later
   3. Set your developer account under Signing & Capabilities
   4. Set the target device to iPhone / iPad and build
@@ -1430,12 +1487,12 @@ No external library dependencies (no Swift Package Manager / CocoaPods).
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core and Android versions.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.23/RaspberryPiSetup
 
 ● Remote Access from Outside Home (WireGuard VPN)
 As with the Android version, WireGuard setup is required to connect from outside your
 home network.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.21/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.23/WireGuard
 
 2026/10/7
 --

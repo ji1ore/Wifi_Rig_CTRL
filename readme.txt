@@ -54,6 +54,9 @@ readmeを最新化し、Ver2.20対応の全デバイス（M5Core2 / M5Core2 Toug
 網羅する内容に更新しました。M5の各機種紹介文（M5Burner掲載用）、およびiOS版（WifiRigCTRL for iOS）の
 案内（⑦）を追加しています。
 --
+2026/10/18
+Ver3.24にて、iOS版・Android版・Pi側APIを更新しました（FTX-1 内蔵 APRS モデムの不具合修正：APRS 開始後に AP96→AP12 へ切り替えると BEACON TYPE が OFF になり APRS が送信されない問題を解消。Yaesu 系の CAT 設定コマンド（Main/Sub 切替・ATU・BK-IN 等）を応答待ちしない方式に統一し、rigctld が約2秒塞がる・実行順入れ替わりを改善。FT8: CQ 自動 QSO は最も早い局へ返信、送信音声周波数をバンド別に記憶。RTTY: 手動同調範囲の拡大・AUTO 追従オフセットの設定・2125Hz への調整ヒント追加。接続直後に ⚠（リグ通信断）が一時表示される問題を修正。Pi API を v3.24 に更新）。主な変更点は⑥⑦を参照ください。
+--
 2026/10/17
 Ver3.23にて、iOS版・Android版・Pi側APIを更新しました（iOS: RTTYをRaspberry Pi経由(minimodem)でも送受信、RTTYのQSOはリグがUSB/LSBでもログはRTTYで記録、送信→受信を高速化。Android: CWキーイング直後の受信音声の音切れを修正。Pi APIをv3.23に更新）。主な変更点は⑥⑦を参照ください。
 --
@@ -136,7 +139,7 @@ APRS動作のために
 ・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
 ③セットアップ手順(Raspberry Pi Zero2W)
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.23/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.24/RaspberryPiSetup/readme.txt
 を参照してセットアップを行ってください(verに応じたフォルダを参照ください)。
 主な手順は以下の通りです。
 ・Raspberry Pi Imagerのインストール
@@ -210,12 +213,37 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v3.23）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v3.24）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v3.23）。
+アプリを v1.30 より公開しています（最新版：v3.24）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
+
+●v3.24 の変更点（v3.23 との比較）
+【MEM SET の SOTA タブを一時無効化（Android / iOS）】
+・MEM SET（メモリ/スポット画面）の SOTA タブのみを一時的に非表示。LOG QSO などのログ機能の SOTA 欄・SOTA送付・ADIF、FT8 の SOTA、運用地の SOTA 種別、SP2ALART の SOTA 取り込みは従来どおり有効。POTA も従来どおり。将来のバージョンで再表示予定
+【バグ修正 — 接続直後の ⚠ 表示】
+・接続直後に周波数表示の上へ ⚠（リグ通信断）が一時的に表示され、しばらくすると消える問題を修正（Pi 側 api.py）
+  ・接続操作のたびに Pi が rigctld を再起動しており、その数秒間 rig_ok が false になっていた。接続直後はリグから最初の正常応答が得られるまで（最長20秒）正常扱いにする（本当に通信できない場合は従来どおり警告を表示）
+【バグ修正 — FTX-1 内蔵 APRS モデム】
+・APRS 開始後に AP96→AP12 へ切り替えると、無線機の BEACON TYPE が AUTO から OFF になり APRS が送信されない不具合を修正（Pi 側 api.py）
+  ・EX/FA 設定コマンドを rigctld の常駐接続で順序どおり送信し、応答を待たない形式（W <cmd> 0）に変更。rigctld が約2秒ずつ応答待ちで塞がり自動再起動して設定が失われる問題を解消
+  ・開始時・AP12 切替時とも BEACON TYPE を読み返し、AUTO でなければ再設定
+・FTX-1 の Main/Sub 切替（FR/VS）・ATU（AC）、FT-991 の BK-IN（BI）・ATU（AC）も同じ方式（W <cmd> 0）に統一し、CAT コマンドの実行順入れ替わり・約2秒の詰まりを解消
+【FT8】
+・CQ 自動 QSO：複数局が同時に応答したとき、送信開始が最も早い局（dt 最小）に返信するよう変更（端末内蔵デコード・Pi 側デコードの両方）
+・FT8/FT4 の送信音声周波数を無線機ごと・バンドごとに記憶（バンドを変えると前回そのバンドで使った送信周波数へ自動復帰）
+【RTTY】
+・手動チューニングの可動範囲を拡大（±950Hz）。AUTO 追従の最大オフセットを RIG CONNECT 画面でユーザー設定可能に（50–950Hz・既定 500Hz）
+・ピーク表示に 2125Hz までの調整ヒント（✓整合／範囲外／調整 ±NHz）を追加
+・AUTO 追従時、マーク／スペース未検出でピークをリセットし暴走を防止
+【ログの改善】
+・RTTY の QSO がログでモード LSB として記録される不具合を修正。リグが USB/LSB（AFSK）運用でもログは RTTY で記録します（iOS は従来より対応済み）
+・QSO ログ一覧の編集画面でモードを変更できるように。既存ログのモードも後から修正でき、ADIF エクスポートの MODE にも反映されます
+【Pi API 更新（v3.24）】
+・api.py を Android 埋め込み版・iOS 埋め込み版・FastAPI 配布版で v3.24 に統一。create_api.sh の埋め込み api.py も同期
+・利用には Pi の更新（Admin → Update Pi）が必要です（更新するまでバージョン不一致の警告が表示されます）
 
 ●v3.23 の変更点（v3.22 との比較）
 【iOS】
@@ -943,19 +971,19 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.23/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v3.23.apk をダウンロード
+  1. Wifi_RIG_CTRL_v3.24.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
-ソースコードは同フォルダの Wifi_RIG_CTRL_Android_v3.23_src.zip として公開しています
+ソースコードは同フォルダの Wifi_RIG_CTRL_Android_v3.24_src.zip として公開しています
 （展開して Android Studio で開けばビルド可能）。
 zip には JNI 用の ft8_lib（kgoba/ft8_lib、MIT ライセンス）のコアソースも同梱しています。
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.23/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/RaspberryPiSetup
 
 v2.03 以降からのアップグレード: アプリの「Update」→「Update Pi」ボタンで自動更新
 v2.12 から Hamlib 4.7.2 対応: アプリの「Update」→「Update Hamlib」ボタンで追加インストール
@@ -965,20 +993,34 @@ v2.02 以前からのアップグレード: 初回のみ手動 scp が必要
 
 ●外出先からの接続（WireGuard VPN）
 モバイル回線など自宅外から接続する場合は WireGuard のセットアップが必要です。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.23/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/WireGuard
 （v3.19 で ufw ファイアウォールにデバイス発見用 UDP 5001 の許可を追加。既に ufw 設定済みの場合は
 　最新 api.py 反映後に WireGuard 設定を再実行してください）
 
-⑦ iOS版について（WifiRigCTRL for iOS v3.23）
+⑦ iOS版について（WifiRigCTRL for iOS v3.24）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに iPhone / iPad でリグをリモート制御できるアプリです。
-v2.17 よりソースコードをGitHubで公開しています（最新版：v3.23）。
+v2.17 よりソースコードをGitHubで公開しています（最新版：v3.24）。
 Android版と同様、M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core版・Android版と共通です。
 
 ●App Storeでの配信について
-2026/10/17 時点で v3.23 を App Store Connect へ提出準備中です。App Store公開まではソースコードを
+2026/10/18 時点で v3.24 を App Store Connect へ提出準備中です。App Store公開まではソースコードを
 Xcodeでビルドしてご利用ください（下記「ビルド方法」参照）。公開でき次第、本readmeにリンクを追記します。
+
+●v3.24 の変更点（v3.23 との比較、iOS）
+【バグ修正 — 接続直後の ⚠ 表示】
+・接続直後に周波数表示の上へ ⚠（リグ通信断）が一時的に表示され、しばらくすると消える問題を修正（Pi 側 api.py）
+  ・接続操作のたびに Pi が rigctld を再起動しており、その数秒間 rig_ok が false になっていた。接続直後はリグから最初の正常応答が得られるまで（最長20秒）正常扱いにする（本当に通信できない場合は従来どおり警告を表示）
+【バグ修正 — FTX-1 内蔵 APRS モデム（Pi 連携）】
+・APRS 開始後に AP96→AP12 へ切り替えると BEACON TYPE が OFF になり APRS が送信されない不具合を修正（Pi 側 api.py）。設定コマンドを応答待ちしない形式（W <cmd> 0）で順序どおり送信し、rigctld の約2秒の詰まり・自動再起動による設定消失を解消
+・FTX-1 の Main/Sub 切替・ATU、FT-991 の BK-IN・ATU も同方式に統一
+【FT8】
+・CQ 自動 QSO：複数局が同時に応答したとき送信開始が最も早い局に返信。送信音声周波数を無線機ごと・バンドごとに記憶
+【RTTY】
+・手動チューニング範囲を拡大、AUTO 追従オフセットを RIG CONNECT 画面で設定可能に、2125Hz への調整ヒント表示を追加
+【Pi API 更新（v3.24）】
+・Pi API を v3.24 に更新。利用には Pi の更新（Admin → Update Pi）が必要です
 
 ●v3.23 の変更点（v3.22 との比較、iOS）
 【RTTY over Raspberry Pi（minimodem）】
@@ -1318,12 +1360,12 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●ソースコード・ビルド方法
 GitHub の以下フォルダにソースを公開しています。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.23/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/M5CoreHamCAT_iOS
 
-ソースは WifiRigCTRL_iOS_v3.23_src.zip にまとめています
+ソースは WifiRigCTRL_iOS_v3.24_src.zip にまとめています
 （README.md / LICENSES.md / PRIVACY_POLICY は zip の外にもあります）。
 
-  1. WifiRigCTRL_iOS_v3.23_src.zip をダウンロードして展開
+  1. WifiRigCTRL_iOS_v3.24_src.zip をダウンロードして展開
   2. Xcode 15 以上で WifiRigCTRL_iOS.xcodeproj を開く
   3. Signing & Capabilities で開発者アカウントを設定
   4. ターゲットデバイスを iPhone / iPad に設定してビルド
@@ -1332,11 +1374,11 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.23/M5CoreHamCAT_iOS
 
 ●Raspberry Pi セットアップ
 M5Core版・Android版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.23/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/RaspberryPiSetup
 
 ●外出先からの接続（WireGuard VPN）
 Android版と同様、自宅外から接続する場合は WireGuard のセットアップが必要です。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.23/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/WireGuard
 
 2026/10/7
 以上。

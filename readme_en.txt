@@ -60,6 +60,9 @@ This README has been refreshed to cover every device shipped in v2.20
 (M5Core2 / M5Core2 Tough / M5CoreS3SE / Android / iOS). Added a short M5Burner-style
 description for each M5 firmware, plus a new section (⑦) introducing WifiRigCTRL for iOS.
 
+2026/10/25
+v3.25 released — iOS, Android, and Pi-side API updated. New "Band Scope" screen: a one-shot CAT sweep (any rig, via the Pi) plus a native ICOM CI-V scope (27 00), with POTA/SOTA spots overlaid and a per-band span that is remembered (the Pi adds /radio/scope/sweep). The SOTA tab is restored in MEM SET, and the SOTA spot valid-time (hours) is now adjustable on the RIG CONNECT screen. CW TX: a GL (grid) toggle appends "/grid" to the RST report (long-press to edit your own grid), an S-meter with ticks and a SPK button were added, selecting a CW memory in MEM SET fills the DX callsign, and button text is larger (Android). Receive audio (SPK) is about twice as loud with lower latency and recovers more reliably after keying, MEM SET, and brief Wi-Fi stalls (the watchdog no longer tears down a healthy live stream on a brief gap). Fixed a mode-change frequency shift on FT-991A-class rigs, and the displayed frequency is now preserved across RTTY enter/exit and memory recall (the Pi re-asserts the VFO after mode and verifies by read-back). Logging/SOTA: the operating-location 6-digit grid auto-fills the FT8 grid and the log's My GL (ADIF MY_GRIDSQUARE, 6-digit for SOTA), the log "Location" auto-fills from the active operating session, the SOTA chaser CSV supports S2S, and POTA/SOTA/callsign now auto-fill the LOG from MEM SET spots on all screens (Android). Pi API unified at v3.25 (requires Admin -> Update Pi). See sections 6 and 7 for details.
+--
 2026/10/18
 v3.24 released — iOS, Android, and Pi-side API updated. Fixed the FTX-1 built-in APRS modem bug (switching AP96->AP12 after starting APRS turned BEACON TYPE OFF and stopped transmission); Yaesu CAT set-commands (Main/Sub, ATU, BK-IN) now use a no-reply form that avoids ~2 s rigctld stalls and command reordering. FT8: CQ auto-QSO replies to the earliest caller and TX audio frequency is remembered per rig and per band. RTTY: wider manual tuning range, user-adjustable AUTO follow offset, and a tuning hint toward 2125 Hz. Fixed the ⚠ (rig link lost) indicator briefly appearing right after connecting. Pi API updated to v3.24. See sections 6 and 7 for details.
 --
@@ -172,7 +175,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.24/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.25/RaspberryPiSetup/readme.txt
 
 Main steps:
 
@@ -273,11 +276,50 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.24)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.25)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.24)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.25)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v3.25 (compared to v3.24)
+
+New feature — Band Scope:
+- New "Band Scope" screen: a one-shot CAT sweep (any rig, via the Pi) plus a native ICOM CI-V scope (27 00)
+- POTA/SOTA spots are overlaid on the scope; the per-band span is remembered
+- The Pi adds a /radio/scope/sweep endpoint
+
+SOTA / MEM SET:
+- The SOTA tab is restored in MEM SET
+- The SOTA spot valid-time (hours) is now adjustable on the RIG CONNECT screen
+
+CW TX:
+- A GL (grid) toggle appends "/grid" to the RST report (long-press to edit your own grid)
+- Added an S-meter with ticks and a SPK button
+- Selecting a CW memory in MEM SET fills the DX callsign
+- Larger button text (Android)
+
+Receive audio (SPK):
+- About twice as loud with lower latency
+- Recovers more reliably after keying, MEM SET, and brief Wi-Fi stalls (the watchdog no longer tears down a
+  healthy live stream on a brief gap)
+
+Bug fixes:
+- Fixed a mode-change frequency shift on FT-991A-class rigs
+- The displayed frequency is now preserved across RTTY enter/exit and memory recall (the Pi re-asserts the VFO
+  after mode and verifies by read-back)
+
+Logging / SOTA:
+- The operating-location 6-digit grid auto-fills the FT8 grid and the log's My GL (ADIF MY_GRIDSQUARE, 6-digit for SOTA)
+- The log "Location" auto-fills from the active operating session
+- The SOTA chaser CSV supports S2S
+- POTA/SOTA/callsign now auto-fill the LOG from MEM SET spots on all screens (Android)
+
+Pi API update (v3.25):
+- api.py is unified at v3.25 across the Android-embedded, iOS-embedded, and FastAPI distributions; the embedded
+  api.py inside create_api.sh is synced too
+- Updated the app-side Pi API version-mismatch check to v3.25
+- Requires Admin -> Update Pi (a version-mismatch warning shows until the Pi is updated)
 
 ● What's New in v3.24 (compared to v3.23)
 
@@ -1090,19 +1132,19 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v3.24.apk
+  1. Download Wifi_RIG_CTRL_v3.25.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
-Source code is published in the same folder as Wifi_RIG_CTRL_Android_v3.24_src.zip
+Source code is published in the same folder as Wifi_RIG_CTRL_Android_v3.25_src.zip
 (unzip and open in Android Studio to build).
 The zip also bundles the core sources of ft8_lib (kgoba/ft8_lib, MIT license) used by the JNI module.
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/RaspberryPiSetup
 
 Upgrading from v2.03 or later: use the "Update" → "Update Pi" button in the app
 Hamlib 4.7.2 (added in v2.12): use the "Update" → "Update Hamlib" button in the app
@@ -1112,21 +1154,50 @@ Upgrading from v2.02 or earlier: first-time manual scp required
 
 ● Remote Access from Outside Home (WireGuard VPN)
 If connecting from outside your home network (e.g., via mobile data), WireGuard setup is required.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/WireGuard
 (v3.19 adds a ufw allow rule for UDP 5001, used for device discovery. If ufw is already configured,
  re-run WireGuard setup after updating the Pi to the latest api.py.)
 
-⑦ iOS Version (WifiRigCTRL for iOS v3.24)
+⑦ iOS Version (WifiRigCTRL for iOS v3.25)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 An iPhone/iPad app that offers the same kind of remote rig control as the M5CoreS3SE,
-with source published on GitHub since v2.17 (latest: v3.24).
+with source published on GitHub since v2.17 (latest: v3.25).
 As with the Android app, no M5Core / Module Audio / Unit Encoder hardware is required.
 Raspberry Pi setup is identical to the M5Core and Android versions.
 
 ● App Store status
-As of 2026/10/18, v3.24 is being prepared for submission to App Store Connect.
+As of 2026/10/25, v3.25 is being prepared for submission to App Store Connect.
 Until it is published, build it from source with Xcode (see "Build" below). A download
 link will be added here once it is live on the App Store.
+
+● What's New in v3.25 (compared to v3.24, iOS)
+
+New feature — Band Scope:
+- New "Band Scope" screen: a one-shot CAT sweep (any rig, via the Pi) plus a native ICOM CI-V scope (27 00)
+- POTA/SOTA spots are overlaid on the scope; the per-band span is remembered (the Pi adds /radio/scope/sweep)
+
+SOTA / MEM SET:
+- The SOTA tab is restored in MEM SET; the SOTA spot valid-time (hours) is now adjustable on the RIG CONNECT screen
+
+CW TX:
+- A GL (grid) toggle appends "/grid" to the RST report (long-press to edit your own grid); added an S-meter with
+  ticks and a SPK button; selecting a CW memory in MEM SET fills the DX callsign
+
+Receive audio (SPK):
+- About twice as loud with lower latency, and recovers more reliably after keying, MEM SET, and brief Wi-Fi
+  stalls (the watchdog no longer tears down a healthy live stream on a brief gap)
+
+Bug fixes:
+- Fixed a mode-change frequency shift on FT-991A-class rigs; the displayed frequency is now preserved across RTTY
+  enter/exit and memory recall (the Pi re-asserts the VFO after mode and verifies by read-back)
+
+Logging / SOTA:
+- The operating-location 6-digit grid auto-fills the FT8 grid and the log's My GL (ADIF MY_GRIDSQUARE, 6-digit for
+  SOTA); the log "Location" auto-fills from the active operating session; the SOTA chaser CSV supports S2S
+
+Pi API update (v3.25):
+- Pi API unified at v3.25 across the Android-embedded, iOS-embedded, and FastAPI distributions. Requires
+  Admin -> Update Pi (a version-mismatch warning shows until updated)
 
 ● What's New in v3.24 (compared to v3.23, iOS)
 
@@ -1540,12 +1611,12 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Source Code / Build
 Source is published in the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/M5CoreHamCAT_iOS
 
-Source is packaged as WifiRigCTRL_iOS_v3.24_src.zip
+Source is packaged as WifiRigCTRL_iOS_v3.25_src.zip
 (README.md / LICENSES.md / PRIVACY_POLICY are also available outside the zip).
 
-  1. Download and unzip WifiRigCTRL_iOS_v3.24_src.zip
+  1. Download and unzip WifiRigCTRL_iOS_v3.25_src.zip
   2. Open WifiRigCTRL_iOS.xcodeproj in Xcode 15 or later
   3. Set your developer account under Signing & Capabilities
   4. Set the target device to iPhone / iPad and build
@@ -1554,12 +1625,12 @@ No external library dependencies (no Swift Package Manager / CocoaPods).
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core and Android versions.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/RaspberryPiSetup
 
 ● Remote Access from Outside Home (WireGuard VPN)
 As with the Android version, WireGuard setup is required to connect from outside your
 home network.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/WireGuard
 
 2026/10/7
 --

@@ -54,6 +54,9 @@ readmeを最新化し、Ver2.20対応の全デバイス（M5Core2 / M5Core2 Toug
 網羅する内容に更新しました。M5の各機種紹介文（M5Burner掲載用）、およびiOS版（WifiRigCTRL for iOS）の
 案内（⑦）を追加しています。
 --
+2026/10/25
+Ver3.25にて、iOS版・Android版・Pi側APIを更新しました（新機能「バンドスコープ」画面を追加：任意のリグで使えるワンショット CAT スイープ（Pi 経由）と ICOM CI-V ネイティブスコープ（27 00）に対応し、POTA/SOTA スポットを重ね表示、バンドごとにスパンを記憶（Pi に /radio/scope/sweep を追加）。MEM SET の SOTA タブを復活、SOTA スポットの有効時間を RIG CONNECT 画面で調整可能に。CW 送信：GL（グリッド）トグルで RST に "/grid" を付加（長押しで自局グリッド編集）、目盛り付き S メーター・SPK ボタン追加、MEM SET の CW メモリー選択で DX コールサインを自動入力、ボタン文字を拡大（Android）。受信音声（SPK）を約2倍に増強・低レイテンシ化し、キーイング／MEM SET／Wi-Fi 瞬断後の復帰を安定化。FT-991A 系でのモード変更時の周波数ずれを修正、RTTY 入退室・メモリー呼び出しをまたいで表示周波数を保持。ログ／SOTA：運用地の 6 桁グリッドを FT8 グリッドとログの My GL（ADIF MY_GRIDSQUARE）へ自動反映、ログの Location を運用セッションから自動入力、SOTA チェイサー CSV が S2S 対応、全画面で MEM SET スポットの POTA/SOTA・コールサインをログへ自動入力（Android）。Pi API を v3.25 に統一（Admin → Update Pi が必要））。主な変更点は⑥⑦を参照ください。
+--
 2026/10/18
 Ver3.24にて、iOS版・Android版・Pi側APIを更新しました（FTX-1 内蔵 APRS モデムの不具合修正：APRS 開始後に AP96→AP12 へ切り替えると BEACON TYPE が OFF になり APRS が送信されない問題を解消。Yaesu 系の CAT 設定コマンド（Main/Sub 切替・ATU・BK-IN 等）を応答待ちしない方式に統一し、rigctld が約2秒塞がる・実行順入れ替わりを改善。FT8: CQ 自動 QSO は最も早い局へ返信、送信音声周波数をバンド別に記憶。RTTY: 手動同調範囲の拡大・AUTO 追従オフセットの設定・2125Hz への調整ヒント追加。接続直後に ⚠（リグ通信断）が一時表示される問題を修正。Pi API を v3.24 に更新）。主な変更点は⑥⑦を参照ください。
 --
@@ -139,7 +142,7 @@ APRS動作のために
 ・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
 ③セットアップ手順(Raspberry Pi Zero2W)
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.24/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.25/RaspberryPiSetup/readme.txt
 を参照してセットアップを行ってください(verに応じたフォルダを参照ください)。
 主な手順は以下の通りです。
 ・Raspberry Pi Imagerのインストール
@@ -213,12 +216,41 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v3.24）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v3.25）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v3.24）。
+アプリを v1.30 より公開しています（最新版：v3.25）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
+
+●v3.25 の変更点（v3.24 との比較）
+【新機能：バンドスコープ】
+・「Band Scope」画面を新設。任意のリグで使えるワンショット CAT スイープ（Pi 経由）と、ICOM CI-V ネイティブスコープ（27 00）に対応
+・POTA/SOTA スポットをスコープ上に重ね表示。バンドごとにスパン（表示幅）を記憶
+・Pi に /radio/scope/sweep エンドポイントを追加
+【SOTA / MEM SET】
+・MEM SET の SOTA タブを復活（再表示）
+・SOTA スポットの有効時間（時間）を RIG CONNECT 画面で調整できるように変更
+【CW 送信】
+・GL（グリッド）トグルで RST レポートに "/grid" を付加（長押しで自局グリッドを編集）
+・目盛り付き S メーター表示・SPK ボタンを追加
+・MEM SET で CW メモリーを選択すると DX コールサインを自動入力
+・ボタン文字を大きく（Android）
+【受信音声（SPK）】
+・音量を約2倍に増強、レイテンシを低減
+・キーイング後・MEM SET 後・Wi-Fi の瞬断後の復帰をより確実に（ウォッチドッグが短時間の途切れで正常なライブストリームを壊さないよう修正）
+【バグ修正】
+・FT-991A 系リグでモード変更時に周波数がずれる不具合を修正
+・RTTY 入退室・メモリー呼び出しをまたいでも表示周波数を保持（Pi がモード設定後に VFO を再設定し、読み返しで検証）
+【ログ / SOTA】
+・運用地の 6 桁グリッドを FT8 グリッドとログの My GL（ADIF MY_GRIDSQUARE、SOTA は 6 桁）へ自動反映
+・ログの「Location」を現在の運用セッションから自動入力
+・SOTA チェイサー CSV が S2S に対応
+・すべての画面で MEM SET スポットの POTA/SOTA・コールサインをログに自動入力（Android）
+【Pi API 更新（v3.25）】
+・api.py を Android 埋め込み版・iOS 埋め込み版・FastAPI 配布版で v3.25 に統一。create_api.sh の埋め込み api.py も同期
+・アプリ側の Pi API バージョン不一致チェックを v3.25 に更新
+・利用には Pi の更新（Admin → Update Pi）が必要です
 
 ●v3.24 の変更点（v3.23 との比較）
 【MEM SET の SOTA タブを一時無効化（Android / iOS）】
@@ -971,19 +1003,19 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v3.24.apk をダウンロード
+  1. Wifi_RIG_CTRL_v3.25.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
-ソースコードは同フォルダの Wifi_RIG_CTRL_Android_v3.24_src.zip として公開しています
+ソースコードは同フォルダの Wifi_RIG_CTRL_Android_v3.25_src.zip として公開しています
 （展開して Android Studio で開けばビルド可能）。
 zip には JNI 用の ft8_lib（kgoba/ft8_lib、MIT ライセンス）のコアソースも同梱しています。
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/RaspberryPiSetup
 
 v2.03 以降からのアップグレード: アプリの「Update」→「Update Pi」ボタンで自動更新
 v2.12 から Hamlib 4.7.2 対応: アプリの「Update」→「Update Hamlib」ボタンで追加インストール
@@ -993,20 +1025,37 @@ v2.02 以前からのアップグレード: 初回のみ手動 scp が必要
 
 ●外出先からの接続（WireGuard VPN）
 モバイル回線など自宅外から接続する場合は WireGuard のセットアップが必要です。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/WireGuard
 （v3.19 で ufw ファイアウォールにデバイス発見用 UDP 5001 の許可を追加。既に ufw 設定済みの場合は
 　最新 api.py 反映後に WireGuard 設定を再実行してください）
 
-⑦ iOS版について（WifiRigCTRL for iOS v3.24）
+⑦ iOS版について（WifiRigCTRL for iOS v3.25）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに iPhone / iPad でリグをリモート制御できるアプリです。
-v2.17 よりソースコードをGitHubで公開しています（最新版：v3.24）。
+v2.17 よりソースコードをGitHubで公開しています（最新版：v3.25）。
 Android版と同様、M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core版・Android版と共通です。
 
 ●App Storeでの配信について
-2026/10/18 時点で v3.24 を App Store Connect へ提出準備中です。App Store公開まではソースコードを
+2026/10/25 時点で v3.25 を App Store Connect へ提出準備中です。App Store公開まではソースコードを
 Xcodeでビルドしてご利用ください（下記「ビルド方法」参照）。公開でき次第、本readmeにリンクを追記します。
+
+●v3.25 の変更点（v3.24 との比較、iOS）
+【新機能：バンドスコープ】
+・「Band Scope」画面を新設。任意のリグで使えるワンショット CAT スイープ（Pi 経由）と、ICOM CI-V ネイティブスコープ（27 00）に対応
+・POTA/SOTA スポットをスコープ上に重ね表示。バンドごとにスパン（表示幅）を記憶（Pi に /radio/scope/sweep を追加）
+【SOTA / MEM SET】
+・MEM SET の SOTA タブを復活（再表示）。SOTA スポットの有効時間を RIG CONNECT 画面で調整可能に
+【CW 送信】
+・GL（グリッド）トグルで RST レポートに "/grid" を付加（長押しで自局グリッドを編集）。目盛り付き S メーター・SPK ボタンを追加。MEM SET で CW メモリーを選択すると DX コールサインを自動入力
+【受信音声（SPK）】
+・音量を約2倍に増強・低レイテンシ化し、キーイング後・MEM SET 後・Wi-Fi 瞬断後の復帰を安定化（ウォッチドッグが短時間の途切れで正常なライブストリームを壊さないよう修正）
+【バグ修正】
+・FT-991A 系リグでモード変更時に周波数がずれる不具合を修正。RTTY 入退室・メモリー呼び出しをまたいでも表示周波数を保持（Pi がモード設定後に VFO を再設定し読み返しで検証）
+【ログ / SOTA】
+・運用地の 6 桁グリッドを FT8 グリッドとログの My GL（ADIF MY_GRIDSQUARE、SOTA は 6 桁）へ自動反映。ログの「Location」を運用セッションから自動入力。SOTA チェイサー CSV が S2S に対応
+【Pi API 更新（v3.25）】
+・Pi API を v3.25 に統一（Android 埋め込み版・iOS 埋め込み版・FastAPI 配布版）。利用には Pi の更新（Admin → Update Pi）が必要です
 
 ●v3.24 の変更点（v3.23 との比較、iOS）
 【バグ修正 — 接続直後の ⚠ 表示】
@@ -1360,12 +1409,12 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●ソースコード・ビルド方法
 GitHub の以下フォルダにソースを公開しています。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/M5CoreHamCAT_iOS
 
-ソースは WifiRigCTRL_iOS_v3.24_src.zip にまとめています
+ソースは WifiRigCTRL_iOS_v3.25_src.zip にまとめています
 （README.md / LICENSES.md / PRIVACY_POLICY は zip の外にもあります）。
 
-  1. WifiRigCTRL_iOS_v3.24_src.zip をダウンロードして展開
+  1. WifiRigCTRL_iOS_v3.25_src.zip をダウンロードして展開
   2. Xcode 15 以上で WifiRigCTRL_iOS.xcodeproj を開く
   3. Signing & Capabilities で開発者アカウントを設定
   4. ターゲットデバイスを iPhone / iPad に設定してビルド
@@ -1374,11 +1423,11 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/M5CoreHamCAT_iOS
 
 ●Raspberry Pi セットアップ
 M5Core版・Android版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/RaspberryPiSetup
 
 ●外出先からの接続（WireGuard VPN）
 Android版と同様、自宅外から接続する場合は WireGuard のセットアップが必要です。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.24/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/WireGuard
 
 2026/10/7
 以上。

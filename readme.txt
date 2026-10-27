@@ -54,6 +54,9 @@ readmeを最新化し、Ver2.20対応の全デバイス（M5Core2 / M5Core2 Toug
 網羅する内容に更新しました。M5の各機種紹介文（M5Burner掲載用）、およびiOS版（WifiRigCTRL for iOS）の
 案内（⑦）を追加しています。
 --
+2026/10/27
+Ver3.26にて、iOS版・Android版・Pi側APIを更新しました（バンドスコープ画面に MEM SET ボタンを追加し、メモリー（プリセット／ユーザー／POTA／SOTA）を直接開けるようにしました（Android は長押しでユーザータブを直接表示）。バンドスコープ表示中に画面オフ（DispOff）設定が無視されて画面が消灯してしまう不具合を修正（Android）。FT8：非標準・コンパウンドコール（例 JF1AWC/1）との QSO に対応、相手または自局のコールがハッシュ表記（<JI1ORE> のような山括弧付き）で届く Type 4 メッセージを正しく照合し、SNR を運べない Type 4 では RRR 受信時に RR73 を返して QSO を確実に完了（iOS）。RTTY 送信が一瞬で終わってしまう不具合を修正：RTTY 送信中は SPK（受信音）再生が再生デバイスを握ったままにならないよう明け渡し、aplay 失敗を検出、セッション終了時に残留しがちな minimodem／sox プロセスを確実に終了。Pi API を v3.26 に統一（Admin → Update Pi が必要））。主な変更点は⑥⑦を参照ください。
+--
 2026/10/25
 Ver3.25にて、iOS版・Android版・Pi側APIを更新しました（新機能「バンドスコープ」画面を追加：任意のリグで使えるワンショット CAT スイープ（Pi 経由）と ICOM CI-V ネイティブスコープ（27 00）に対応し、POTA/SOTA スポットを重ね表示、バンドごとにスパンを記憶（Pi に /radio/scope/sweep を追加）。MEM SET の SOTA タブを復活、SOTA スポットの有効時間を RIG CONNECT 画面で調整可能に。CW 送信：GL（グリッド）トグルで RST に "/grid" を付加（長押しで自局グリッド編集）、目盛り付き S メーター・SPK ボタン追加、MEM SET の CW メモリー選択で DX コールサインを自動入力、ボタン文字を拡大（Android）。受信音声（SPK）を約2倍に増強・低レイテンシ化し、キーイング／MEM SET／Wi-Fi 瞬断後の復帰を安定化。FT-991A 系でのモード変更時の周波数ずれを修正、RTTY 入退室・メモリー呼び出しをまたいで表示周波数を保持。ログ／SOTA：運用地の 6 桁グリッドを FT8 グリッドとログの My GL（ADIF MY_GRIDSQUARE）へ自動反映、ログの Location を運用セッションから自動入力、SOTA チェイサー CSV が S2S 対応、全画面で MEM SET スポットの POTA/SOTA・コールサインをログへ自動入力（Android）。Pi API を v3.25 に統一（Admin → Update Pi が必要））。主な変更点は⑥⑦を参照ください。
 --
@@ -142,7 +145,7 @@ APRS動作のために
 ・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
 ③セットアップ手順(Raspberry Pi Zero2W)
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.25/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.26/RaspberryPiSetup/readme.txt
 を参照してセットアップを行ってください(verに応じたフォルダを参照ください)。
 主な手順は以下の通りです。
 ・Raspberry Pi Imagerのインストール
@@ -216,12 +219,21 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v3.25）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v3.26）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v3.25）。
+アプリを v1.30 より公開しています（最新版：v3.26）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
+
+●v3.26 の変更点（v3.25 との比較）
+【バンドスコープ / MEM SET】
+・バンドスコープ画面に「MEM SET」ボタンを追加。タップでメモリーパネル（プリセット／ユーザー／POTA／SOTA）を直接開けるように（長押しでユーザータブを直接表示）
+【バグ修正】
+・バンドスコープ表示中に画面オフ（DispOff）設定が無視されて画面が消灯してしまう不具合を修正
+・RTTY 送信が一瞬で終わってしまう不具合を修正（Pi 側）：RTTY 送信中は SPK（受信音）再生が再生デバイスを握ったままにならないよう明け渡し、aplay 失敗を検出、セッション終了時に残留しがちな minimodem／sox プロセスを確実に終了
+【Pi API 更新（v3.26）】
+・Pi API を v3.26 に統一（Android 埋め込み版・iOS 埋め込み版・FastAPI 配布版）。利用には Pi の更新（Admin → Update Pi）が必要です
 
 ●v3.25 の変更点（v3.24 との比較）
 【新機能：バンドスコープ】
@@ -1003,19 +1015,19 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●インストール手順
 GitHub の以下フォルダから APK をダウンロードしてインストールしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.26/M5CoreHamCAT_Android
 
-  1. Wifi_RIG_CTRL_v3.25.apk をダウンロード
+  1. Wifi_RIG_CTRL_v3.26.apk をダウンロード
   2. Android の設定から「提供元不明のアプリ」を許可
   3. APK をタップしてインストール
 
-ソースコードは同フォルダの Wifi_RIG_CTRL_Android_v3.25_src.zip として公開しています
+ソースコードは同フォルダの Wifi_RIG_CTRL_Android_v3.26_src.zip として公開しています
 （展開して Android Studio で開けばビルド可能）。
 zip には JNI 用の ft8_lib（kgoba/ft8_lib、MIT ライセンス）のコアソースも同梱しています。
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.26/RaspberryPiSetup
 
 v2.03 以降からのアップグレード: アプリの「Update」→「Update Pi」ボタンで自動更新
 v2.12 から Hamlib 4.7.2 対応: アプリの「Update」→「Update Hamlib」ボタンで追加インストール
@@ -1025,20 +1037,30 @@ v2.02 以前からのアップグレード: 初回のみ手動 scp が必要
 
 ●外出先からの接続（WireGuard VPN）
 モバイル回線など自宅外から接続する場合は WireGuard のセットアップが必要です。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.26/WireGuard
 （v3.19 で ufw ファイアウォールにデバイス発見用 UDP 5001 の許可を追加。既に ufw 設定済みの場合は
 　最新 api.py 反映後に WireGuard 設定を再実行してください）
 
-⑦ iOS版について（WifiRigCTRL for iOS v3.25）
+⑦ iOS版について（WifiRigCTRL for iOS v3.26）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに iPhone / iPad でリグをリモート制御できるアプリです。
-v2.17 よりソースコードをGitHubで公開しています（最新版：v3.25）。
+v2.17 よりソースコードをGitHubで公開しています（最新版：v3.26）。
 Android版と同様、M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core版・Android版と共通です。
 
 ●App Storeでの配信について
-2026/10/25 時点で v3.25 を App Store Connect へ提出準備中です。App Store公開まではソースコードを
+2026/10/27 時点で v3.26 を App Store Connect へ提出準備中です。App Store公開まではソースコードを
 Xcodeでビルドしてご利用ください（下記「ビルド方法」参照）。公開でき次第、本readmeにリンクを追記します。
+
+●v3.26 の変更点（v3.25 との比較、iOS）
+【バンドスコープ / MEM SET】
+・バンドスコープ画面に「MEM SET」ボタンを追加。タップでメモリーパネル（プリセット／ユーザー／POTA／SOTA）を直接開けるように
+【FT8】
+・非標準・コンパウンドコール（例 JF1AWC/1）との QSO に対応。相手または自局のコールがハッシュ表記（<JI1ORE> のような山括弧付き）で届く Type 4 メッセージを正しく照合し、SNR を運べない Type 4 では RRR 受信時に RR73 を返して QSO を確実に完了
+【バグ修正】
+・RTTY 送信が一瞬で終わってしまう不具合を修正（Pi 側）：RTTY 送信中は SPK（受信音）再生が再生デバイスを握ったままにならないよう明け渡し、aplay 失敗を検出、セッション終了時に残留しがちな minimodem／sox プロセスを確実に終了
+【Pi API 更新（v3.26）】
+・Pi API を v3.26 に統一（Android 埋め込み版・iOS 埋め込み版・FastAPI 配布版）。利用には Pi の更新（Admin → Update Pi）が必要です
 
 ●v3.25 の変更点（v3.24 との比較、iOS）
 【新機能：バンドスコープ】
@@ -1409,12 +1431,12 @@ BLE CW中継を使う場合（DualKey-BLE / RemoteKeyer-BLE）:
 
 ●ソースコード・ビルド方法
 GitHub の以下フォルダにソースを公開しています。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.26/M5CoreHamCAT_iOS
 
-ソースは WifiRigCTRL_iOS_v3.25_src.zip にまとめています
+ソースは WifiRigCTRL_iOS_v3.26_src.zip にまとめています
 （README.md / LICENSES.md / PRIVACY_POLICY は zip の外にもあります）。
 
-  1. WifiRigCTRL_iOS_v3.25_src.zip をダウンロードして展開
+  1. WifiRigCTRL_iOS_v3.26_src.zip をダウンロードして展開
   2. Xcode 15 以上で WifiRigCTRL_iOS.xcodeproj を開く
   3. Signing & Capabilities で開発者アカウントを設定
   4. ターゲットデバイスを iPhone / iPad に設定してビルド
@@ -1423,11 +1445,11 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/M5CoreHamCAT_iOS
 
 ●Raspberry Pi セットアップ
 M5Core版・Android版と同じ手順でセットアップしてください。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.26/RaspberryPiSetup
 
 ●外出先からの接続（WireGuard VPN）
 Android版と同様、自宅外から接続する場合は WireGuard のセットアップが必要です。
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.25/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.26/WireGuard
 
 2026/10/7
 以上。

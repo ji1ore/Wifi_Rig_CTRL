@@ -1,7 +1,7 @@
 【M5 本体ファームウェア（Core2）について】
 
 M5 本体ファームウェアは v3.19 以降 変更ありません。
-この v3.24 フォルダのファームは v3.19 と完全に同一です（バイト一致）。
+この v3.26 フォルダのファームは v3.19 と完全に同一です（バイト一致）。
 
 実機書き込み用の .bin / ソース(src.zip) / README は、
 下記 v3.19 フォルダのものをご利用ください:
@@ -12,7 +12,7 @@ M5 本体ファームウェアは v3.19 以降 変更ありません。
 [About the M5 device firmware (Core2)]
 
 The M5 device firmware has not changed since v3.19.
-The firmware in this v3.24 folder is byte-for-byte identical to v3.19.
+The firmware in this v3.26 folder is byte-for-byte identical to v3.19.
 
 For the flashable .bin, source (src.zip) and README, please use
 the v3.19 folder:

@@ -5426,9 +5426,16 @@ def _rig_ex_drain(s) -> bool:
         s.setblocking(True)
 
 
-def _rig_ex_send_locked(cmd: str):
-    """_rig_ex_sock_lockを保持した状態で呼ぶこと。"""
+def _rig_ex_send_locked(cmd: str, expect_reply: bool = False):
+    """_rig_ex_sock_lockを保持した状態で呼ぶこと。
+    ★ 設定(SET)コマンドは "W <cmd> 0"(受信0バイト)で送る。"w <cmd>" だと rigctld が
+      無線機の応答を";"までタイムアウト(約2秒)待ち続け、その間 rigctld が塞がって
+      poll_rig の "t" がタイムアウト連発→rigctld自動再起動→送信待ちの BEACON TYPE=AUTO
+      が失われて無線機が APRS OFF のまま残ることがあった。
+      Hamlib 4.7.2 の send_cmd は受信バイト数0なら読み取りをせず即座に戻る。
+      問い合わせ(expect_reply=True)は応答を読むため従来どおり "w" を使う。"""
     global _rig_ex_sock
+    line = f"w {cmd}" if expect_reply else f"W {cmd} 0"
     for _ in range(2):
         try:
             if _rig_ex_sock is None or not _rig_ex_drain(_rig_ex_sock):
@@ -5438,8 +5445,8 @@ def _rig_ex_send_locked(cmd: str):
                     except Exception:
                         pass
                 _rig_ex_sock = socket.create_connection(("localhost", 4532), timeout=1.0)
-            _rig_ex_sock.sendall(f"w {cmd}\n".encode())
-            _rigctl_log("rig_ex", f"w {cmd}", "")
+            _rig_ex_sock.sendall(f"{line}\n".encode())
+            _rigctl_log("rig_ex", line, "")
             return
         except Exception as e:
             print(f"[{_ts()}] [rig_ex] error '{cmd}': {e}", flush=True)
@@ -5466,7 +5473,7 @@ def _rig_ex_get(p1: int, p2: int, p3: int, timeout: float = 15.0):
     # ★ 送信と応答読み取りを同じロック内で行う(間に他スレッドの送信が入ると、
     #   その送信前のdrainで応答が読み捨てられてしまうため)
     with _rig_ex_sock_lock:
-        _rig_ex_send_locked(f"{key};")
+        _rig_ex_send_locked(f"{key};", expect_reply=True)
         s = _rig_ex_sock
         if s is None:
             return None
@@ -5566,6 +5573,7 @@ def _rig_aprs_configure_locked(cfg: "AprsConfig"):
         time.sleep(0.5)
         if aprs_running and aprs_seq == my_seq:
             _rig_ex_set(7, 1, 1, 1)
+            _rig_beacon_auto_verified(my_seq)
 
 
 def _rig_aprs_watch_loop():

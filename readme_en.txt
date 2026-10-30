@@ -60,6 +60,13 @@ This README has been refreshed to cover every device shipped in v2.20
 (M5Core2 / M5Core2 Tough / M5CoreS3SE / Android / iOS). Added a short M5Burner-style
 description for each M5 firmware, plus a new section (⑦) introducing WifiRigCTRL for iOS.
 
+2026/10/30
+v3.28 released — API alignment pass across Android and iOS. iOS: fixed the FT8 PSKReporter ON/OFF toggle, which was not reaching the Pi; it now posts to the correct endpoint /ft8/pskreporter with your own call/grid (matching Android and the server). Removed an unused API call /radio/set_cw_base_freq that was sent on CW TX shift (Android/iOS); the server derives the base from the current VFO frequency at key-on, so behavior is unchanged. Reconciled the api.py endpoints across the Android-embedded, iOS-embedded, and FastAPI-distributed copies so every path the clients call matches a server route. The Pi API stays at v3.27 — no Pi update is required for this version. See sections 6 and 7 for details.
+--
+
+2026/10/28
+v3.27 released — iOS, Android, and Pi-side API updated. Added a Day/Night display theme — long-press the theme-color button to switch between a light (day) and dark (night) appearance (Android/iOS). The four palettes (OCEAN / AMBER / MONO / AQUA) are now generated from a single shared palette with day and night variants, so colors are consistent across every screen (shared with the M5Stack v2.20 and iOS palettes). CI-V direct: you can now read a memory channel from the rig and write a memory back to it, and the VFO A/B toggle works over CI-V direct too (Android). Fixed the FREQ button so it no longer switches to "STEP". Added SOTA spot caching (checks the epoch per the SOTA API guidelines to avoid unnecessary re-fetches). RX audio: the Pi-side api.py lowpass was tuned to 3400 Hz to prevent full-duplex howling at 8 kHz (RTTY/CW/SSB/FT8 are all below 3400 Hz). Pi API unified at v3.27 (requires Admin -> Update Pi). See sections 6 and 7 for details.
+--
 2026/10/27
 v3.26 released — iOS, Android, and Pi-side API updated. A "MEM SET" button was added to the Band Scope screen (Android/iOS): tap it to open the memory panel (Preset / User / POTA / SOTA), and on Android a long-press opens the User tab directly. Fixed a bug where the Display-Off (DispOff) setting was ignored and the screen turned off while the Band Scope was shown (Android only; iOS was never affected). FT8: added support for QSOs with non-standard and compound callsigns (e.g. JF1AWC/1), correctly matching Type 4 messages whose remote or own call arrives in hashed form (angle brackets, e.g. <JI1ORE>), and since Type 4 cannot carry SNR, replying with RR73 on receiving RRR to complete the QSO reliably (iOS). Fixed a bug where RTTY transmit ended almost immediately: during RTTY TX the SPK (receive audio) playback no longer keeps holding the playback device, aplay failures are detected, and leftover minimodem/sox processes are reliably terminated at session end (Pi-side api.py). Pi API unified at v3.26 (requires Admin -> Update Pi). See sections 6 and 7 for details.
 --
@@ -179,7 +186,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.26/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.28/RaspberryPiSetup/readme.txt
 
 Main steps:
 
@@ -280,11 +287,45 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.26)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.28)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.26)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.28)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v3.28 (compared to v3.27)
+
+API alignment & fixes:
+- iOS: fixed the FT8 PSKReporter ON/OFF toggle, which was not reaching the Pi. It now posts to the correct endpoint /ft8/pskreporter with your own call/grid (matching Android and the server).
+- Removed an unused API call /radio/set_cw_base_freq sent on CW TX shift (Android/iOS). The server derives the base from the current VFO frequency at key-on, so behavior is unchanged.
+- Reconciled the api.py endpoints across the Android-embedded, iOS-embedded, and FastAPI-distributed copies so every client path matches a server route.
+
+Other:
+- Updated the in-app manual and version strings to v3.28.
+- The Pi API stays at v3.27 — no Pi update is required for this version.
+
+● What's New in v3.27 (compared to v3.26)
+
+Display theme:
+- Added a Day/Night mode; long-press the theme-color button to switch between a light (day) and dark (night) appearance
+- Unified the four palettes (OCEAN / AMBER / MONO / AQUA) from a single shared palette with day/night variants, so colors
+  are consistent on every screen (shared with the M5Stack v2.20 and iOS palette definitions)
+
+Memory (CI-V direct):
+- Read a memory channel from the rig ("Read Rig Channel"): enter a channel number to import the rig's frequency and mode
+  into a user memory
+- Write a memory to the rig: write the selected memory's frequency and mode to the rig's current memory channel
+- The VFO A/B toggle now works over CI-V direct
+
+Improvements / fixes:
+- The FREQ button now always shows "FREQ" (it no longer switches to "STEP" when the Step menu is selected)
+- Added SOTA spot caching (checks the epoch per the SOTA API guidelines to avoid unnecessary re-fetches)
+- Revised the default RX/TX sampling rate (higher quality)
+
+Pi API update (v3.27):
+- Tuned the Pi-side api.py RX-audio lowpass to 3400 Hz to prevent full-duplex howling at 8 kHz sampling
+- Pi API unified at v3.27 across the Android-embedded, iOS-embedded, and FastAPI distributions (the create_api.sh embedded
+  api.py is synced too). Requires Admin -> Update Pi
 
 ● What's New in v3.26 (compared to v3.25)
 
@@ -1151,19 +1192,19 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Installation
 Download and install the APK from the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.26/M5CoreHamCAT_Android
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.27/M5CoreHamCAT_Android
 
-  1. Download Wifi_RIG_CTRL_v3.26.apk
+  1. Download Wifi_RIG_CTRL_v3.27.apk
   2. Enable "Install unknown apps" in Android settings
   3. Tap the APK to install
 
-Source code is published in the same folder as Wifi_RIG_CTRL_Android_v3.26_src.zip
+Source code is published in the same folder as Wifi_RIG_CTRL_Android_v3.27_src.zip
 (unzip and open in Android Studio to build).
 The zip also bundles the core sources of ft8_lib (kgoba/ft8_lib, MIT license) used by the JNI module.
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.26/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.27/RaspberryPiSetup
 
 Upgrading from v2.03 or later: use the "Update" → "Update Pi" button in the app
 Hamlib 4.7.2 (added in v2.12): use the "Update" → "Update Hamlib" button in the app
@@ -1173,21 +1214,35 @@ Upgrading from v2.02 or earlier: first-time manual scp required
 
 ● Remote Access from Outside Home (WireGuard VPN)
 If connecting from outside your home network (e.g., via mobile data), WireGuard setup is required.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.26/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.27/WireGuard
 (v3.19 adds a ufw allow rule for UDP 5001, used for device discovery. If ufw is already configured,
  re-run WireGuard setup after updating the Pi to the latest api.py.)
 
-⑦ iOS Version (WifiRigCTRL for iOS v3.26)
+⑦ iOS Version (WifiRigCTRL for iOS v3.27)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 An iPhone/iPad app that offers the same kind of remote rig control as the M5CoreS3SE,
-with source published on GitHub since v2.17 (latest: v3.26).
+with source published on GitHub since v2.17 (latest: v3.27).
 As with the Android app, no M5Core / Module Audio / Unit Encoder hardware is required.
 Raspberry Pi setup is identical to the M5Core and Android versions.
 
 ● App Store status
-As of 2026/10/27, v3.26 is being prepared for submission to App Store Connect.
+As of 2026/10/28, v3.27 is being prepared for submission to App Store Connect.
 Until it is published, build it from source with Xcode (see "Build" below). A download
 link will be added here once it is live on the App Store.
+
+● What's New in v3.27 (compared to v3.26, iOS)
+
+Display theme:
+- Added a Day/Night mode; long-press the theme-color button to switch
+- Unified the theme palette (OCEAN / AMBER / MONO / AQUA) from the shared palette definition (common with Android and
+  M5Stack), consistent across every screen and tuned for day and night
+
+Improvements:
+- Improved CI-V direct operation
+
+Pi API update (v3.27):
+- Tuned the Pi-side api.py RX-audio lowpass to 3400 Hz to prevent full-duplex howling
+- Pi API unified at v3.27 across the Android-embedded, iOS-embedded, and FastAPI distributions. Requires Admin -> Update Pi
 
 ● What's New in v3.26 (compared to v3.25, iOS)
 
@@ -1648,12 +1703,12 @@ For BLE CW relay (DualKey-BLE / RemoteKeyer-BLE):
 
 ● Source Code / Build
 Source is published in the following GitHub folder:
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.26/M5CoreHamCAT_iOS
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.27/M5CoreHamCAT_iOS
 
-Source is packaged as WifiRigCTRL_iOS_v3.26_src.zip
+Source is packaged as WifiRigCTRL_iOS_v3.27_src.zip
 (README.md / LICENSES.md / PRIVACY_POLICY are also available outside the zip).
 
-  1. Download and unzip WifiRigCTRL_iOS_v3.26_src.zip
+  1. Download and unzip WifiRigCTRL_iOS_v3.27_src.zip
   2. Open WifiRigCTRL_iOS.xcodeproj in Xcode 15 or later
   3. Set your developer account under Signing & Capabilities
   4. Set the target device to iPhone / iPad and build
@@ -1662,12 +1717,12 @@ No external library dependencies (no Swift Package Manager / CocoaPods).
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core and Android versions.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.26/RaspberryPiSetup
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.27/RaspberryPiSetup
 
 ● Remote Access from Outside Home (WireGuard VPN)
 As with the Android version, WireGuard setup is required to connect from outside your
 home network.
-https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.26/WireGuard
+https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.27/WireGuard
 
 2026/10/7
 --

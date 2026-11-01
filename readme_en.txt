@@ -60,6 +60,9 @@ This README has been refreshed to cover every device shipped in v2.20
 (M5Core2 / M5Core2 Tough / M5CoreS3SE / Android / iOS). Added a short M5Burner-style
 description for each M5 firmware, plus a new section (⑦) introducing WifiRigCTRL for iOS.
 
+2026/11/01
+v3.30 released — major overhaul of CW (Morse) receive decoding. Rebuilt the receive decoder (Otsu adaptive thresholding, QSB fade-following, sub-frame edge timing and a larger FFT) for much better weak-signal copy. Garbled received words are auto-corrected to common Q-codes/abbreviations/RST using Morse-element similarity and a CW-specific language model (N-gram) plus QSO-template context (callsigns are never altered); the N-gram was tuned slightly stronger. A dit/dah (· −) code line is shown beneath the decoded text, color-coded by confidence, and the run-together prosigns BK/SK now decode. Removed the TX (sent) row from the main-screen CW decode panel (iOS/Android) for a cleaner receive display, and enlarged CW/RTTY text. Received-audio latency is now capped (~330 ms); on Android, CW decoding runs on its own thread (no dropouts). The Pi API stays at v3.27 — no Pi update is required for this version. See sections 6 and 7 for details.
+--
 2026/10/30
 v3.28 released — API alignment pass across Android and iOS. iOS: fixed the FT8 PSKReporter ON/OFF toggle, which was not reaching the Pi; it now posts to the correct endpoint /ft8/pskreporter with your own call/grid (matching Android and the server). Removed an unused API call /radio/set_cw_base_freq that was sent on CW TX shift (Android/iOS); the server derives the base from the current VFO frequency at key-on, so behavior is unchanged. Reconciled the api.py endpoints across the Android-embedded, iOS-embedded, and FastAPI-distributed copies so every path the clients call matches a server route. The Pi API stays at v3.27 — no Pi update is required for this version. See sections 6 and 7 for details.
 --
@@ -186,7 +189,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.28/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.30/RaspberryPiSetup/readme.txt
 
 Main steps:
 
@@ -287,11 +290,28 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.28)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.30)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.28)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.30)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v3.30 (compared to v3.28)
+
+CW receive decoding overhaul:
+- Rebuilt the receive decoder (Otsu adaptive thresholding, QSB fade-following, sub-frame edge timing, larger FFT) for much better weak-signal copy.
+- Added automatic correction of garbled words to common Q-codes/abbreviations/RST using Morse-element similarity and a CW-specific language model (N-gram) plus QSO-template context (callsigns are never altered).
+- Tuned the N-gram language model slightly stronger (codes matching the Morse table exactly are still trusted as-is; only garbled codes get context assistance).
+- Added a dit/dah (· −) code line beneath the decoded text, color-coded by confidence; the run-together prosigns BK and SK now decode.
+
+Display / UX:
+- Removed the TX (sent) row from the main-screen CW decode panel (iOS/Android); the CW TX panel still echoes the sent text.
+- Enlarged text on the CW / RTTY screens for readability.
+
+Audio / stability:
+- Capped received-audio latency at ~330 ms so it no longer accumulates during long sessions.
+- Android: moved CW decoding onto a dedicated thread, eliminating audio dropouts during RX and fixing a bug where decoding stopped after returning from other screens.
+- The Pi API stays at v3.27 — no Pi update is required for this version.
 
 ● What's New in v3.28 (compared to v3.27)
 

@@ -60,6 +60,9 @@ This README has been refreshed to cover every device shipped in v2.20
 (M5Core2 / M5Core2 Tough / M5CoreS3SE / Android / iOS). Added a short M5Burner-style
 description for each M5 firmware, plus a new section (⑦) introducing WifiRigCTRL for iOS.
 
+2026/11/02
+v3.31 released — stronger weak-signal CW (Morse) receive decoding. Fixed words running together when noise fills the inter-word silence on weak signals (opening filter), and stabilised the speed (dit) estimate so a lone dah or noise burst no longer swings it and flips dahs to dits (robust seed); both are timing/estimate-level fixes with no dictionary over-correction. Reduced false "rig disconnected" (⚠) warnings when receive audio is actually fine (Pi-side no-response tolerance relaxed 6->9 s plus a client-side debounce). The DX callsign now shows a live dit/dah (· −) preview below the field with font auto-scaling to the callsign length, and you can double-tap a callsign in the live RX decode to load it into the DX field. The Pi API is now v3.31 — a Pi update (Admin -> Update Pi) is required for this version. See sections 6 and 7 for details.
+--
 2026/11/01
 v3.30 released — major overhaul of CW (Morse) receive decoding. Rebuilt the receive decoder (Otsu adaptive thresholding, QSB fade-following, sub-frame edge timing and a larger FFT) for much better weak-signal copy. Garbled received words are auto-corrected to common Q-codes/abbreviations/RST using Morse-element similarity and a CW-specific language model (N-gram) plus QSO-template context (callsigns are never altered); the N-gram was tuned slightly stronger. A dit/dah (· −) code line is shown beneath the decoded text, color-coded by confidence, and the run-together prosigns BK/SK now decode. Removed the TX (sent) row from the main-screen CW decode panel (iOS/Android) for a cleaner receive display, and enlarged CW/RTTY text. Received-audio latency is now capped (~330 ms); on Android, CW decoding runs on its own thread (no dropouts). The Pi API stays at v3.27 — no Pi update is required for this version. See sections 6 and 7 for details.
 --
@@ -189,7 +192,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.30/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.31/RaspberryPiSetup/readme.txt
 
 Main steps:
 
@@ -290,11 +293,28 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.30)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.31)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.30)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.31)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
+
+● What's New in v3.31 (compared to v3.30)
+
+Weak-signal CW receive decoding:
+- Fixed words running together when noise fills the inter-word silence on weak signals (opening filter), restoring correct word spacing.
+- Stabilised the speed (dit) estimate so a lone dah or a noise burst no longer swings it and flips dahs to dits (robust seed).
+- Both are timing/estimate-level fixes with no dictionary over-correction; clean copy is left as-is and the changes only take effect on weak signals.
+
+Fewer false rig-disconnect warnings:
+- Reduced the false "rig disconnected" (⚠) indicator that appeared briefly even when receive audio was fine (Pi-side no-response tolerance relaxed 6->9 s plus a client-side debounce). This fix requires a Pi update.
+
+DX callsign dit/dah preview:
+- The DX field now shows a live dit/dah (· −) preview below it, with font auto-scaling and a wider display to fit the callsign length.
+- Double-tap a callsign in the live RX decode to load it into the DX field.
+
+Pi API update (v3.31):
+- api.py is unified at v3.31 across the Android-embedded, iOS-embedded, and FastAPI distributions, and the app-side Pi API version-mismatch check is updated to v3.31. Requires Admin -> Update Pi.
 
 ● What's New in v3.30 (compared to v3.28)
 

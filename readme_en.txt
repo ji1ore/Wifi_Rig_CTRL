@@ -60,6 +60,9 @@ This README has been refreshed to cover every device shipped in v2.20
 (M5Core2 / M5Core2 Tough / M5CoreS3SE / Android / iOS). Added a short M5Burner-style
 description for each M5 firmware, plus a new section (⑦) introducing WifiRigCTRL for iOS.
 
+2026/11/03
+v3.32 released — the on-device FT8/FT4 decoder/encoder now uses ft8_lib (MIT) + kissfft (BSD-3-Clause), and the GPL-3.0 mfsk-core has been removed from the app itself (Android/iOS). The shipped APK/IPA contains no GPL/copyleft code, so it is compliant with Google Play / App Store (and no executable code is downloaded at runtime). On-device CI-V FT8 still transmits and receives. mfsk-core keeps running server-side on the Raspberry Pi (a separate process, not bundled in the app). Also fixed an issue where CQ could keep transmitting by itself when opening the FT8 screen (the Pi's /ft8/start now clears any leftover TX/CQ/QSO state). Added open-source license notices (ft8_lib = MIT, kissfft = BSD-3-Clause, plus the dependency list) to the About screen. The Pi API is now v3.32 — a Pi update (Admin -> Update Pi) is required for this version (the CQ fix is server-side and takes effect after the Pi is updated). See sections 6 and 7 for details.
+--
 2026/11/02
 v3.31 released — stronger weak-signal CW (Morse) receive decoding. Fixed words running together when noise fills the inter-word silence on weak signals (opening filter), and stabilised the speed (dit) estimate so a lone dah or noise burst no longer swings it and flips dahs to dits (robust seed); both are timing/estimate-level fixes with no dictionary over-correction. Reduced false "rig disconnected" (⚠) warnings when receive audio is actually fine (Pi-side no-response tolerance relaxed 6->9 s plus a client-side debounce). The DX callsign now shows a live dit/dah (· −) preview below the field with font auto-scaling to the callsign length, and you can double-tap a callsign in the live RX decode to load it into the DX field. The Pi API is now v3.31 — a Pi update (Admin -> Update Pi) is required for this version. See sections 6 and 7 for details.
 --
@@ -192,7 +195,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.31/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.32/RaspberryPiSetup/readme.txt
 
 Main steps:
 
@@ -293,9 +296,9 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.31)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.32)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.31)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.32)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
 
@@ -1240,7 +1243,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.27/M5CoreHamCAT_Android
 
 Source code is published in the same folder as Wifi_RIG_CTRL_Android_v3.27_src.zip
 (unzip and open in Android Studio to build).
-The zip also bundles the core sources of ft8_lib (kgoba/ft8_lib, MIT license) used by the JNI module.
+The zip also bundles the core sources of ft8_lib (kgoba/ft8_lib, MIT license) and kissfft (BSD-3-Clause) used by the JNI module. As of v3.32, the GPL-3.0 mfsk-core has been removed from the app itself and on-device FT8/FT4 is unified on ft8_lib (mfsk-core is used only server-side on the Raspberry Pi).
 
 ● Raspberry Pi Setup
 Follow the same setup procedure as for the M5Core version.
@@ -1258,7 +1261,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.27/WireGuard
 (v3.19 adds a ufw allow rule for UDP 5001, used for device discovery. If ufw is already configured,
  re-run WireGuard setup after updating the Pi to the latest api.py.)
 
-⑦ iOS Version (WifiRigCTRL for iOS v3.27)
+⑦ iOS Version (WifiRigCTRL for iOS v3.32)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 An iPhone/iPad app that offers the same kind of remote rig control as the M5CoreS3SE,
 with source published on GitHub since v2.17 (latest: v3.27).

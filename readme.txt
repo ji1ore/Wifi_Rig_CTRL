@@ -54,6 +54,9 @@ readmeを最新化し、Ver2.20対応の全デバイス（M5Core2 / M5Core2 Toug
 網羅する内容に更新しました。M5の各機種紹介文（M5Burner掲載用）、およびiOS版（WifiRigCTRL for iOS）の
 案内（⑦）を追加しています。
 --
+2026/11/03
+Ver3.32にて、端末内蔵の FT8/FT4 デコーダを ft8_lib（MIT）＋ kissfft（BSD-3-Clause）に統一し、GPL-3.0 の mfsk-core をアプリ本体（Android/iOS）から除去しました（配布 APK/IPA に GPL/コピーレフトのコードを含まず、Google Play / App Store 配布に適合。実行コードの実行時ダウンロードも行いません。CI-V ローカル FT8 は引き続き送受信できます。mfsk-core は Raspberry Pi サーバー側で引き続き使用します＝別プロセス・アプリ非同梱）。あわせて、FT8 画面を開いたときに CQ が勝手に送信され続ける不具合を修正しました（Pi 側 /ft8/start で前回の送信/CQ/QSO 状態をクリア）。About 画面にオープンソースライセンス表記（ft8_lib=MIT、kissfft=BSD-3-Clause、依存ライブラリ一覧）を追加。Pi API を v3.32 に更新しました。本バージョンでは Pi の更新（Admin → Update Pi）が必要です（上記 CQ 修正はサーバー側のため Pi 更新で反映されます）。主な変更点は⑥⑦を参照ください。
+--
 2026/11/02
 Ver3.31にて、CW（モールス）受信デコードの弱信号対応を強化しました（弱信号で無音区間のノイズを信号と誤検出して単語が繋がる問題を解消し語間を正しく分離（opening フィルタ）。速度（dit）推定を安定化し、単発の長点やノイズで速度が乱れて長点が短点に化ける崩れを改善（robust-seed）。いずれもタイミング／推定レベルの改善で、辞書による文字の過補正は行いません。受信音は来ているのに「リグ通信断（⚠）」が一時表示される誤検出を緩和（Pi 側の無応答許容を 6→9 秒に延長＋クライアント debounce）。DX コールサイン欄の下に送信符号（・－）を常時プレビューし、長さに応じてフォント自動調整・表示幅拡大、受信デコード中のコールサインをダブルタップで DX 欄へ）。Pi API を v3.31 に更新しました。本バージョンでは Pi の更新（Admin → Update Pi）が必要です。主な変更点は⑥⑦を参照ください。
 --
@@ -157,7 +160,7 @@ APRS動作のために
 ・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
 ③セットアップ手順(Raspberry Pi Zero2W)
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.31/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.32/RaspberryPiSetup/readme.txt
 を参照してセットアップを行ってください(verに応じたフォルダを参照ください)。
 主な手順は以下の通りです。
 ・Raspberry Pi Imagerのインストール
@@ -231,10 +234,10 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v3.31）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v3.32）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v3.31）。
+アプリを v1.30 より公開しています（最新版：v3.32）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
 
@@ -1086,7 +1089,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.27/M5CoreHamCAT_Android
 
 ソースコードは同フォルダの Wifi_RIG_CTRL_Android_v3.27_src.zip として公開しています
 （展開して Android Studio で開けばビルド可能）。
-zip には JNI 用の ft8_lib（kgoba/ft8_lib、MIT ライセンス）のコアソースも同梱しています。
+zip には JNI 用の ft8_lib（kgoba/ft8_lib、MIT ライセンス）と kissfft（BSD-3-Clause）のコアソースも同梱しています。v3.32 より、GPL-3.0 の mfsk-core はアプリ本体から除去し、端末内蔵 FT8/FT4 は ft8_lib に統一しました（mfsk-core は Raspberry Pi サーバー側でのみ使用）。
 
 ●Raspberry Pi セットアップ
 M5Core 版と同じ手順でセットアップしてください。
@@ -1104,7 +1107,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.27/WireGuard
 （v3.19 で ufw ファイアウォールにデバイス発見用 UDP 5001 の許可を追加。既に ufw 設定済みの場合は
 　最新 api.py 反映後に WireGuard 設定を再実行してください）
 
-⑦ iOS版について（WifiRigCTRL for iOS v3.27）
+⑦ iOS版について（WifiRigCTRL for iOS v3.32）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに iPhone / iPad でリグをリモート制御できるアプリです。
 v2.17 よりソースコードをGitHubで公開しています（最新版：v3.27）。

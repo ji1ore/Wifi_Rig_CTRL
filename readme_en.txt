@@ -61,6 +61,9 @@ This README has been refreshed to cover every device shipped in v2.20
 description for each M5 firmware, plus a new section (⑦) introducing WifiRigCTRL for iOS.
 
 2026/11/03
+v3.33 released — greatly improved RX CW (Morse) decoding accuracy. The RX CW decoder's FFT analysis window was changed from 128 ms to 64 ms (FFT 1024 -> 512 points). Previously the window was about twice the length of a single element at 20 WPM (~60 ms), so elements and the gaps between them were smeared in time: a single key-down could split into several elements and the speed estimate could latch at about half the true value, producing scattered, garbled copy. Matching the window to the element length lets the decoder copy practical 20-25 WPM signals reliably. Frequency-tracking tolerances are unchanged in Hz. Trade-off: for extremely weak (barely audible) signals the coarser frequency resolution can pick up more noise, but signals of practical strength are unaffected. This release also stops a misdecode where long dahs (T) printed endlessly after a station finished (e.g. right after "K") — a "collapse guard" keeps an established speed lock from over-dropping on an irregular burst of noise. The run-together "UR" (..-.-.) now decodes. Fixed a case where the RTTY screen's waterfall could fail to appear when SPK was on (the receive spectrum now auto-recovers). The band-scope screen gains a filter-width readout (long-press to change width) and a real-time audio spectrum histogram (the WF button; filled histogram with peak-hold, tap a signal to QSY it onto the reference pitch, and it auto-zooms to the RX filter width). This is an app-only change; the Pi API is unchanged (api_version stays 3.32) and no Pi update is required. See sections 6 and 7 for details.
+--
+2026/11/03
 v3.32 released — the on-device FT8/FT4 decoder/encoder now uses ft8_lib (MIT) + kissfft (BSD-3-Clause), and the GPL-3.0 mfsk-core has been removed from the app itself (Android/iOS). The shipped APK/IPA contains no GPL/copyleft code, so it is compliant with Google Play / App Store (and no executable code is downloaded at runtime). On-device CI-V FT8 still transmits and receives. mfsk-core keeps running server-side on the Raspberry Pi (a separate process, not bundled in the app). Also fixed an issue where CQ could keep transmitting by itself when opening the FT8 screen (the Pi's /ft8/start now clears any leftover TX/CQ/QSO state). Added open-source license notices (ft8_lib = MIT, kissfft = BSD-3-Clause, plus the dependency list) to the About screen. The Pi API is now v3.32 — a Pi update (Admin -> Update Pi) is required for this version (the CQ fix is server-side and takes effect after the Pi is updated). See sections 6 and 7 for details.
 --
 2026/11/02
@@ -296,9 +299,9 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.32)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.33)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.32)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.33)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
 

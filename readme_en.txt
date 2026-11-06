@@ -61,6 +61,8 @@ This README has been refreshed to cover every device shipped in v2.20
 description for each M5 firmware, plus a new section (⑦) introducing WifiRigCTRL for iOS.
 
 2026/11/03
+v3.34 released - added noise reduction (NR) for RX CW (Morse) decoding. While decoding CW you can enable an in-app narrow bandpass centred on the received tone (CW pitch; a 3-stage biquad, ~55 Hz effective) plus a gentle playback AGC (signal emphasis). Tap the RX frequency to toggle it (on iOS, tap the "NR" chip); it suppresses nearby QRM and band noise, improving both listenability and decode accuracy. The centre is fixed to the pitch when NR is turned on (in a crowded band a hopping centre would garble both audio and copy). The Pi-side afftdn denoiser is not used during CW decode, so there are no CPU-induced audio dropouts (NR is off by default). The GA / GE greeting buttons on the CW / RTTY screens were swapped left-right to reduce mis-taps. This version updates the Pi API to v3.34 (apply it via Admin -> Update Pi; the "Update" badge then disappears). See sections 6 and 7 for details.
+
 v3.33 released — greatly improved RX CW (Morse) decoding accuracy. The RX CW decoder's FFT analysis window was changed from 128 ms to 64 ms (FFT 1024 -> 512 points). Previously the window was about twice the length of a single element at 20 WPM (~60 ms), so elements and the gaps between them were smeared in time: a single key-down could split into several elements and the speed estimate could latch at about half the true value, producing scattered, garbled copy. Matching the window to the element length lets the decoder copy practical 20-25 WPM signals reliably. Frequency-tracking tolerances are unchanged in Hz. Trade-off: for extremely weak (barely audible) signals the coarser frequency resolution can pick up more noise, but signals of practical strength are unaffected. This release also stops a misdecode where long dahs (T) printed endlessly after a station finished (e.g. right after "K") — a "collapse guard" keeps an established speed lock from over-dropping on an irregular burst of noise. The run-together "UR" (..-.-.) now decodes. Fixed a case where the RTTY screen's waterfall could fail to appear when SPK was on (the receive spectrum now auto-recovers). The band-scope screen gains a filter-width readout (long-press to change width) and a real-time audio spectrum histogram (the WF button; filled histogram with peak-hold, tap a signal to QSY it onto the reference pitch, and it auto-zooms to the RX filter width). This is an app-only change; the Pi API is unchanged (api_version stays 3.32) and no Pi update is required. See sections 6 and 7 for details.
 --
 2026/11/03
@@ -198,7 +200,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.32/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.34/RaspberryPiSetup/readme.txt
 
 Main steps:
 
@@ -299,9 +301,9 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.33)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.34)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.33)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.34)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
 

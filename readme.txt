@@ -54,6 +54,9 @@ readmeを最新化し、Ver2.20対応の全デバイス（M5Core2 / M5Core2 Toug
 網羅する内容に更新しました。M5の各機種紹介文（M5Burner掲載用）、およびiOS版（WifiRigCTRL for iOS）の
 案内（⑦）を追加しています。
 --
+2026/11/15
+Ver4.00にて、D-STAR（DV）のレピータ運用に本格対応し、FT8/FT4 デコーダを更新しました。【D-STAR（DR）運用】IC-705／IC-9700 などで DR モード運用に対応：宛先UR／アクセス（エリア）レピータR1／ゲートウェイ（リンク先）レピータR2 のルーティング（CI-V 1F 01）、シンプレックス（UR=CQCQCQ）、MyCall（1F 00）・TXメッセージ（1F 02）の設定、レピータリスト（CS-705／RepeaterBook 形式 CSV）の取り込みと現在地からの近傍レピータ選択に対応しました。CI-V 直結・Pi 経由の CI-V ブリッジの両方で利用できます。D-STAR 設定中に一時的に「リグ切断」と誤表示される不具合を修正しました。【FT8/FT4】Pi 側 FT8/FT4 デコーダ mfsk-core を v0.16.0 に更新し、デコード精度を改善しました。本バージョンは Pi API を v4.00 に更新します（Admin → Update Pi が必要）。主な変更点は⑥⑦を参照ください。
+--
 2026/11/09
 Ver3.35にて、CW（モールス）の送受信を改善しました。【CW 送信・キーイング速度（WPM）】Pi（Hamlib）経由の CW 送信で、WPM スライダーを動かしても速度が変わらない不具合を修正しました（Pi 側 api.py が送信前にリグのキーヤー速度〔L KEYSPD〕を設定するようにしたため。Admin → Update Pi で api.py を v3.35 に更新してください）。※CI-V 直結の場合、CW はリグ内蔵キーヤーで送出されます。アプリの WPM スライダーを操作すると、リグ本体のキーヤー速度（CI-V コマンド）にも即設定されるため、アプリと本体の速度は常に一致し、送信符号の長さ・間隔は正しく保たれます（アプリは自分の WPM を基準に文字の送出間隔を計算するため、両者が揃っていることが重要です）。なお一部の機種で CI-V のキーヤー速度設定に対応しない場合は、リグ本体側の WPM をアプリと同じ値に合わせてご使用ください。【CW 受信デコード】文頭や短い文字（TU／GA／UR など）、15〜20WPM のやや遅めの信号での取りこぼしを改善しました（速度推定の初期シードを見直し、最初の要素でロックが過大化して文頭が崩れる問題を修正）。【CI-V 接続時の CW 受信デコード】CI-V（RS-BA1）接続でも CW 受信デコードが動作するようにしました（従来は Pi 経由の音声のみデコーダに渡っており、CI-V では無音＝デコードされませんでした）。【CW フィルタ幅】CW の既定フィルタ幅（Wid）を 200Hz にしました。本バージョンは Pi API を v3.35 に更新します（Admin → Update Pi が必要）。主な変更点は⑥⑦を参照ください。
 --
@@ -168,7 +171,7 @@ APRS動作のために
 ・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
 ③セットアップ手順(Raspberry Pi Zero2W)
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.34/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v4.00/RaspberryPiSetup/readme.txt
 を参照してセットアップを行ってください(verに応じたフォルダを参照ください)。
 主な手順は以下の通りです。
 ・Raspberry Pi Imagerのインストール
@@ -242,10 +245,10 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v3.34）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v4.00）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v3.34）。
+アプリを v1.30 より公開しています（最新版：v4.00）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
 
@@ -1118,7 +1121,7 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.27/WireGuard
 ⑦ iOS版について（WifiRigCTRL for iOS v3.33）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに iPhone / iPad でリグをリモート制御できるアプリです。
-v2.17 よりソースコードをGitHubで公開しています（最新版：v3.34）。
+v2.17 よりソースコードをGitHubで公開しています（最新版：v4.00）。
 Android版と同様、M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core版・Android版と共通です。
 

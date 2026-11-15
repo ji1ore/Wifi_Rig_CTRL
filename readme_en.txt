@@ -60,6 +60,9 @@ This README has been refreshed to cover every device shipped in v2.20
 (M5Core2 / M5Core2 Tough / M5CoreS3SE / Android / iOS). Added a short M5Burner-style
 description for each M5 firmware, plus a new section (⑦) introducing WifiRigCTRL for iOS.
 
+2026/11/15
+v4.00 released — D-STAR (DV) repeater operation and an updated FT8/FT4 decoder. [D-STAR DR] Added DR-mode operation for IC-705 / IC-9700: destination UR / access (area) repeater R1 / gateway (link) repeater R2 routing (CI-V 1F 01), simplex (UR=CQCQCQ), MyCall (1F 00) and TX message (1F 02), plus importing a repeater list (CS-705 / RepeaterBook CSV) and picking the nearest repeater by location. Works over direct CI-V and the Pi CI-V bridge. Fixed a transient "rig disconnected" message shown while configuring D-STAR routing. [FT8/FT4] The Pi-side mfsk-core decoder is updated to v0.16.0 for better decode accuracy. This version updates the Pi API to v4.00 (requires Admin -> Update Pi). See sections 6 and 7 for details.
+
 2026/11/09
 v3.35 released - CW (Morse) transmit and receive improvements. [CW transmit / keying speed (WPM)] Fixed the WPM slider not changing the keying speed on Pi (Hamlib) CW transmit (the Pi-side api.py now sets the rig keyer speed — L KEYSPD — before sending; update api.py to v3.35 via Admin -> Update Pi). NOTE: in CI-V direct mode, CW is sent with the radio's built-in keyer. Moving the app WPM slider also sets the radio's keyer speed immediately (over CI-V), so the app and radio speeds always match and the transmitted character length/spacing stays correct (the app paces the character spacing from its own WPM, so the two must agree). If a particular rig does not accept the CI-V keyer-speed command, set the radio's WPM to the same value as the app. [CW receive decoding] Improved copy of opening characters, short letters (TU / GA / UR, etc.), and slower 15-20 WPM signals (reworked the speed-estimate seed so the first element no longer over-inflates the lock and garbles the start of a transmission). [CW decode over CI-V] CW receive decoding now works on a CI-V (RS-BA1) connection too (previously only the Pi audio path fed the decoder, so CI-V produced no copy). [CW filter width] The default CW filter width (Wid) is now 200 Hz. This version updates the Pi API to v3.35 (requires Admin -> Update Pi). See sections 6 and 7 for details.
 
@@ -203,7 +206,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v3.34/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v4.00/RaspberryPiSetup/readme.txt
 
 Main steps:
 
@@ -304,9 +307,9 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v3.34)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v4.00)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v3.34)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v4.00)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
 

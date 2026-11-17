@@ -54,6 +54,12 @@ readmeを最新化し、Ver2.20対応の全デバイス（M5Core2 / M5Core2 Toug
 網羅する内容に更新しました。M5の各機種紹介文（M5Burner掲載用）、およびiOS版（WifiRigCTRL for iOS）の
 案内（⑦）を追加しています。
 --
+2026/11/17
+Ver4.02にて、v4.01で対応したアプリUIの英語化を仕上げました。英語（その他の言語）表示のときに、一部のボタンのキャプション・設定項目・ダイアログに日本語が残っていた問題を修正しました（SSH/VNC・WireGuard セットアップ、リグ選択〔外部連携／SOTAスポット／バックアップ〕、接続画面、バンドスコープ／RTTY／FT8 の一部ラベル、CW送信ダイアログ、運用地ラベル、トークン読取ダイアログ、Dropbox連携の一部エラーメッセージ 等を文字列リソース化）。英語端末では英語、日本語端末では従来どおり日本語で表示します。地名データや Pi 出力と照合する内部文字列、記号（→／D★）は仕様上そのままです。本バージョンはアプリ側のみの変更で、Pi の更新は不要です（Pi API は 4.00 のまま）。主な変更点は⑥⑦を参照ください。
+--
+2026/11/16
+Ver4.01にて、アプリUIの英語表示に対応しました（多言語化）。端末の言語が英語（その他の言語）の場合は英語表示、日本語の場合は従来どおり日本語表示になります（Android は文字列リソース values/values-ja、iOS は String Catalog により切り替え。地名データや Pi 出力と照合する内部文字列は仕様上そのまま）。あわせて、バックアップからの復元時に eQSL / Smart HAMLOG の設定（連携ON・URL・Station ID 等）が元に戻らないことがある不具合を修正しました（復元を「バックアップ時点の状態へ戻す」よう権威的に適用。認証情報は従来どおり暗号化ストアに保管し平文バックアップには含めません＝復元後に再入力）。本バージョンはアプリ側のみの変更で、Pi の更新は不要です（Pi API は 4.00 のまま）。主な変更点は⑥⑦を参照ください。
+--
 2026/11/15
 Ver4.00にて、D-STAR（DV）のレピータ運用に本格対応し、FT8/FT4 デコーダを更新しました。【D-STAR（DR）運用】IC-705／IC-9700 などで DR モード運用に対応：宛先UR／アクセス（エリア）レピータR1／ゲートウェイ（リンク先）レピータR2 のルーティング（CI-V 1F 01）、シンプレックス（UR=CQCQCQ）、MyCall（1F 00）・TXメッセージ（1F 02）の設定、レピータリスト（CS-705／RepeaterBook 形式 CSV）の取り込みと現在地からの近傍レピータ選択に対応しました。CI-V 直結・Pi 経由の CI-V ブリッジの両方で利用できます。D-STAR 設定中に一時的に「リグ切断」と誤表示される不具合を修正しました。【FT8/FT4】Pi 側 FT8/FT4 デコーダ mfsk-core を v0.16.0 に更新し、デコード精度を改善しました。本バージョンは Pi API を v4.00 に更新します（Admin → Update Pi が必要）。主な変更点は⑥⑦を参照ください。
 --
@@ -171,7 +177,7 @@ APRS動作のために
 ・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
 ③セットアップ手順(Raspberry Pi Zero2W)
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v4.00/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v4.02/RaspberryPiSetup/readme.txt
 を参照してセットアップを行ってください(verに応じたフォルダを参照ください)。
 主な手順は以下の通りです。
 ・Raspberry Pi Imagerのインストール
@@ -245,10 +251,10 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v4.00）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v4.01）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v4.00）。
+アプリを v1.30 より公開しています（最新版：v4.01）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
 
@@ -1118,10 +1124,10 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.27/WireGuard
 （v3.19 で ufw ファイアウォールにデバイス発見用 UDP 5001 の許可を追加。既に ufw 設定済みの場合は
 　最新 api.py 反映後に WireGuard 設定を再実行してください）
 
-⑦ iOS版について（WifiRigCTRL for iOS v3.33）
+⑦ iOS版について（WifiRigCTRL for iOS v4.01）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに iPhone / iPad でリグをリモート制御できるアプリです。
-v2.17 よりソースコードをGitHubで公開しています（最新版：v4.00）。
+v2.17 よりソースコードをGitHubで公開しています（最新版：v4.01）。
 Android版と同様、M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core版・Android版と共通です。
 

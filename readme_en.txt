@@ -60,6 +60,12 @@ This README has been refreshed to cover every device shipped in v2.20
 (M5Core2 / M5Core2 Tough / M5CoreS3SE / Android / iOS). Added a short M5Burner-style
 description for each M5 firmware, plus a new section (⑦) introducing WifiRigCTRL for iOS.
 
+2026/11/17
+v4.02 released — Completes the English UI started in v4.01. Fixed leftover Japanese text that still appeared in some button captions, settings rows and dialogs when running in English (or other non-Japanese locales): SSH/VNC & WireGuard setup, Rig-select (external integration / SOTA spots / backup), the Connect screen, some Band-scope / RTTY / FT8 labels, the CW-TX dialog, the operating-location label, the token-scan dialog, and a Dropbox-integration error message were moved to string resources. English devices show English; Japanese devices show Japanese. Place-name data, internal strings matched against the Pi's output, and symbols (→ / D★) are left unchanged. This is an app-only release; no Pi update is required (the Pi API stays at 4.00). See sections 6 and 7 for details.
+
+2026/11/16
+v4.01 released — English UI support (localization) and a settings-backup restore fix. [English UI] The app UI is now available in English; it follows the device language (English on English/other-locale devices, Japanese on Japanese devices). Android uses string resources (values = English / values-ja = Japanese); iOS uses the String Catalog. Place-name data (JCC/JGC) and strings matched against the Pi's output are intentionally left unchanged. [Backup restore fix] Fixed a case where restoring from a backup could fail to restore the eQSL / Smart HAMLOG settings (integration on/off, URL, Station ID, etc.); restore is now applied authoritatively so settings return to the exact state captured in the backup, including options left at their default. Credentials (passwords / API keys) stay in the encrypted store and are not included in the plaintext backup (re-enter after restoring). This is an app-only release; no Pi update is required (the Pi API stays at 4.00). See sections 6 and 7 for details.
+
 2026/11/15
 v4.00 released — D-STAR (DV) repeater operation and an updated FT8/FT4 decoder. [D-STAR DR] Added DR-mode operation for IC-705 / IC-9700: destination UR / access (area) repeater R1 / gateway (link) repeater R2 routing (CI-V 1F 01), simplex (UR=CQCQCQ), MyCall (1F 00) and TX message (1F 02), plus importing a repeater list (CS-705 / RepeaterBook CSV) and picking the nearest repeater by location. Works over direct CI-V and the Pi CI-V bridge. Fixed a transient "rig disconnected" message shown while configuring D-STAR routing. [FT8/FT4] The Pi-side mfsk-core decoder is updated to v0.16.0 for better decode accuracy. This version updates the Pi API to v4.00 (requires Admin -> Update Pi). See sections 6 and 7 for details.
 
@@ -206,7 +212,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v4.00/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v4.02/RaspberryPiSetup/readme.txt
 
 Main steps:
 

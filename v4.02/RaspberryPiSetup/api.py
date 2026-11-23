@@ -217,6 +217,34 @@ def _mfsk_serve_ok() -> bool:
     return bool(b) and os.path.isfile(b)
 
 
+class _FifoLock:
+    """来た順に取れるロック (threading.Lock は順番を保証しない)。
+    同じ周期のチェックポイント A → B → 全長 の問い合わせを、この順で mfsk-serve に送るため。"""
+
+    def __init__(self):
+        self._cv = threading.Condition()
+        self._next = 0     # 次に配る整理券
+        self._serving = 0  # いま処理中の整理券
+
+    def __enter__(self):
+        with self._cv:
+            t = self._next
+            self._next += 1
+            while self._serving != t:
+                self._cv.wait()
+        return self
+
+    def __exit__(self, *exc):
+        with self._cv:
+            self._serving += 1
+            self._cv.notify_all()
+        return False
+
+    def locked(self) -> bool:
+        with self._cv:
+            return self._serving != self._next
+
+
 class _MfskServe:
     """mfsk-serve を1プロセス保持する。1インスタンスは同時に1リクエストのみ(内部ロック)。
     デコード(フル)・早期デコード・送信エンコードは互いに待たせないよう別インスタンスにする。"""
@@ -224,7 +252,7 @@ class _MfskServe:
     def __init__(self, name: str):
         self.name = name
         self.proc = None
-        self.lock = threading.Lock()
+        self.lock = _FifoLock()
         self._id = 0
 
     def _kill(self):
@@ -294,10 +322,16 @@ def _mfsk_learn_calls() -> list:
     return out
 
 
-def _mfsk_serve_lines(wav_path: str, depth: int, early: bool,
-                      period_epoch: "float | None", period_s: float,
-                      band: "tuple | None") -> list:
-    """mfsk-serve で wav を復号し、従来の mfsk-decode と同じ JSON 行 (freq/snr/dt/msg) のリストで返す。"""
+def _mfsk_band() -> "tuple | None":
+    """フィルター帯域 (_ft8_decode_filter) から mfsk-serve に渡す帯域。無ければ None (既定の帯域)。"""
+    if not _ft8_decode_filter:
+        return None
+    centers = [c for c, _ in _ft8_decode_filter]
+    rngs    = [r for _, r in _ft8_decode_filter]
+    return (max(100, min(centers) - max(rngs) * 2), min(3000, max(centers) + max(rngs) * 2))
+
+
+def _mfsk_decode_req(wav_path: str, depth: int, band: "tuple | None") -> dict:
     req = {
         "op": "decode",
         "mode": "FT4" if _ft8_is_ft4 else "FT8",
@@ -307,11 +341,104 @@ def _mfsk_serve_lines(wav_path: str, depth: int, early: bool,
     }
     if band:
         req["band"] = [band[0], band[1]]
+    return req
+
+
+# FT8 の Normal / Deep (mfsk-core の SicEarly) がチェックポイントで途中の処理をする長さ (12 kHz サンプル):
+# A = 141 696 (約 11.8 秒、その時点の行を返す)、B = 162 432 (約 13.5 秒、引き算だけ)。
+# mfsk-core の Decoder::prefix_points と同じ値。FT4 と FT8 Fast にはチェックポイントは無い。
+_FT8_CHECKPOINTS = (141_696, 162_432)
+
+
+def _mfsk_checkpoints() -> tuple:
+    """この周期でチェックポイントを送るか。送るなら長さ (サンプル数) の並び、送らないなら ()。
+    環境変数 MFSK_SERVE_CHECKPOINTS=off で送らない (周期の終わりに 1 回で復号する、#1 の動き)。"""
+    if os.environ.get("MFSK_SERVE_CHECKPOINTS", "").strip().lower() in ("0", "off", "no", "false"):
+        return ()
+    if _ft8_is_ft4 or _ft8_decode_depth < 2 or not _mfsk_serve_ok():
+        return ()
+    return _FT8_CHECKPOINTS
+
+
+def _pcm_scale(pcm: bytes) -> float:
+    """ピークが 16384 を超えるとき、そこまで下げる倍率 (従来の WAV 書き出しと同じ規則)。"""
+    try:
+        import numpy as _np
+        peak = float(_np.max(_np.abs(_np.frombuffer(pcm, dtype=_np.int16).astype(_np.float32))))
+        return 16384.0 / peak if peak > 16384.0 else 1.0
+    except Exception:
+        return 1.0
+
+
+def _pcm_apply_scale(pcm: bytes, scale: float) -> bytes:
+    if scale == 1.0:
+        return pcm
+    import numpy as _np
+    smp = _np.frombuffer(pcm, dtype=_np.int16).astype(_np.float32) * scale
+    return _np.clip(smp, -32768, 32767).astype(_np.int16).tobytes()
+
+
+def _mfsk_checkpoint_worker(pcm: bytes, scale: float, period_epoch: float, period_s: float):
+    """周期の途中 (チェックポイント) までの音声を mfsk-serve に渡し、その時点でできる処理を先に済ませる。
+    返ってきた行は使わない (表示・ALL.TXT・QSO は周期の終わりの結果だけ。同じ行が最後にもう一度返る)。
+    周期が終わった後に残る処理が減るので、最後の結果が早く出る。"""
+    wav_path = ""
+    try:
+        # _ft8_pcm_to_wav は書き出し時にもう一度ピークで縮小するので使わない (周期の最後の WAV と同じ値にするため)
+        fd, wav_path = tempfile.mkstemp(suffix=".wav")
+        os.close(fd)
+        with wave.open(wav_path, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(FT8_SAMPLE_RATE)
+            wf.writeframes(_pcm_apply_scale(pcm, scale))
+        req = _mfsk_decode_req(wav_path, _ft8_decode_depth, _mfsk_band())
+        req["prefix"] = True
+        req["period"] = int(period_epoch // period_s)
+        t0 = time.time()
+        _done, rows = _mfsk_rx.request(req)
+        print(f"[mfsk_serve] checkpoint {len(pcm) // 2} smp: {time.time() - t0:.2f}s rows={len(rows)}")
+    except Exception as e:
+        print(f"[mfsk_serve] checkpoint {len(pcm) // 2} smp failed: {e!r}")
+    finally:
+        if wav_path:
+            try: os.unlink(wav_path)
+            except Exception: pass
+
+
+def _mfsk_budget_ms() -> int:
+    """QSO 中の周期の終わりの復号にかける時間の上限 (ms)。0 なら打ち切らない。
+    自動送信は周期の境界で直前の復号を最大 2 秒 (FT4 は 1 秒) 待つので、その中に QSO の更新の
+    余裕を残して終わるようにする。環境変数 MFSK_SERVE_BUDGET_MS で変えられる。"""
+    v = os.environ.get("MFSK_SERVE_BUDGET_MS", "").strip()
+    if v:
+        try:
+            return max(0, int(v))
+        except ValueError:
+            pass
+    return 700 if _ft8_is_ft4 else 1500
+
+
+def _mfsk_serve_lines(wav_path: str, depth: int, early: bool,
+                      period_epoch: "float | None", period_s: float,
+                      band: "tuple | None", deadline: bool = False) -> list:
+    """mfsk-serve で wav を復号し、従来の mfsk-decode と同じ JSON 行 (freq/snr/dt/msg) のリストで返す。
+    deadline=True (QSO 中で返信の判断に使う復号) なら時間の上限を付け、間に合う分だけ返す。
+    チェックポイントで先に見つかった局は、打ち切られても必ず含まれる。"""
+    req = _mfsk_decode_req(wav_path, depth, band)
+    if deadline and not early and _mfsk_budget_ms() > 0:
+        req["budget_ms"] = _mfsk_budget_ms()
     # 周期インデックスを渡すと前2周期 (FT8 a7) などの周期またぐ状態が使われる。
     # 早期復号は音声が途中までなので渡さない。
+    # 周期の全長の音声は常に prefix (decode_prefix) で渡す: チェックポイントを送った周期はその続きから
+    # 処理され、送らなかった周期は 1 回の復号と同じ結果になる。WAV は周期の全長にそろえてある。
     if not early and period_epoch is not None:
         req["period"] = int(period_epoch // period_s)
+        req["prefix"] = True
     _done, rows = (_mfsk_early if early else _mfsk_rx).request(req)
+    if (_done.get("budget") or {}).get("exhausted"):
+        print(f"[mfsk_serve] 時間の上限 {req.get('budget_ms')} ms で打ち切り: {len(rows)} 行 "
+              f"(残りの候補 {(_done.get('budget') or {}).get('candidates_skipped')} 件)")
     lines, seen = [], set()
     for r in rows:
         text = r.get("text", "")
@@ -684,10 +811,12 @@ def _ft8_jt9_worker(wav_path: str, period_n: int, utc_sec: int,
         if _use_serve:
             # 常駐 mfsk-serve (ハッシュ表を周期をまたいで保持)。失敗時は従来の mfsk-decode へ。
             try:
-                _band = (flow, fhigh) if _ft8_decode_filter else None
+                _band = _mfsk_band()
+                # QSO 中で返信の判断に使う復号なら、送信の締め切りに間に合うよう時間の上限を付ける
                 _lines = _mfsk_serve_lines(
                     wav_path, depth_override if depth_override else _ft8_decode_depth,
-                    not emit_display, period_epoch, 7.5 if _ft8_is_ft4 else 15.0, _band)
+                    not emit_display, period_epoch, 7.5 if _ft8_is_ft4 else 15.0, _band,
+                    deadline=bool(run_qso and _qso.get("active")))
             except Exception as _se:
                 print(f"[mfsk_serve] {_se!r} — falling back to mfsk-decode")
                 if not os.path.isfile(_MFSK_DECODE_BIN):
@@ -1129,6 +1258,10 @@ def _ft8_decode_loop():
         _early_tail = _FT4_EARLY_TAIL_S if _ft8_is_ft4 else _FT8_EARLY_TAIL_S
         _early_bytes = int(FT8_SAMPLE_RATE * max(0.0, period_s - _early_tail)) * 2
         _early_launched = False
+        # チェックポイント (FT8 Normal/Deep + mfsk-serve のときだけ)。周期の頭で決める。
+        _ckpts = _mfsk_checkpoints()
+        _ckpt_i = 0
+        _ckpt_scale = None  # 最初のチェックポイントで決めた縮小率。この周期の残りの WAV も同じ率にする
         _mgr_sub.ensure("12000")
         sid, q = _mgr_sub.subscribe(maxsize=512)
         pcm = bytearray()
@@ -1141,6 +1274,17 @@ def _ft8_decode_loop():
                 try:
                     chunk = q.get(timeout=min(0.5, rem + 0.1))
                     pcm.extend(chunk)
+                    # チェックポイント: その長さが溜まったら、そこまでの音声で mfsk-serve に先に処理させる
+                    while _ckpt_i < len(_ckpts) and len(pcm) >= _ckpts[_ckpt_i] * 2:
+                        _n = _ckpts[_ckpt_i] * 2
+                        _ckpt_i += 1
+                        if _ckpt_scale is None:
+                            _ckpt_scale = _pcm_scale(bytes(pcm[:_n]))
+                        threading.Thread(
+                            target=_mfsk_checkpoint_worker,
+                            args=(bytes(pcm[:_n]), _ckpt_scale, period_start, period_s),
+                            daemon=True,
+                        ).start()
                     # 2段デコード: 早期(返信用)ぶんが溜まったら depth1・表示なしで先行起動
                     if _ft8_two_stage and not _early_launched and len(pcm) >= _early_bytes:
                         _early_launched = True
@@ -1175,14 +1319,18 @@ def _ft8_decode_loop():
             fd, wav_path = tempfile.mkstemp(suffix=".wav")
             os.close(fd); fd = -1
 
-            pcm_raw = bytes(pcm[:period_bytes])
+            # 周期の全長にそろえる (足りない分は末尾を無音に)。mfsk-serve の prefix は全長で最終結果を返す。
+            pcm_raw = bytes(pcm[:period_bytes]).ljust(period_bytes, b"\0")
             try:
                 import numpy as _np
                 _smp = _np.frombuffer(pcm_raw, dtype=_np.int16).astype(_np.float32)
                 _peak = float(_np.max(_np.abs(_smp)))
                 _rms  = float(_np.sqrt(_np.mean(_smp ** 2)))
                 print(f"[ft8_decode] period={period_n} utc={utc_sec}s pcm={len(pcm)//2}/{period_bytes//2}smp peak={_peak:.0f} rms={_rms:.1f}")
-                if _peak > 16384.0:
+                if _ckpt_scale is not None:
+                    # チェックポイントと同じ音声を渡すため、その縮小率を使う
+                    _smp = _smp * _ckpt_scale
+                elif _peak > 16384.0:
                     _smp = _smp * (16384.0 / _peak)
                 pcm_write = _np.clip(_smp, -32768, 32767).astype(_np.int16).tobytes()
             except Exception:

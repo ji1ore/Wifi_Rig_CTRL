@@ -1,5 +1,5 @@
 #!/bin/bash
-# update_pi.sh — macOS 開発機から api.py / mfsk-decode を Pi へ転送して再起動する開発用スクリプト。
+# update_pi.sh — macOS 開発機から api.py / mfsk-decode を Pi へ転送し、mfsk-serve を入れて再起動する開発用スクリプト。
 # アプリの「Update Pi」ボタンと同等の処理を、ssh/scp 経由で行います (sshpass / rsync が必要)。
 #
 # ※ Pi 側のスクリプト (setup_fastapi_radio.sh / create_api.sh / set_api_key.sh) は
@@ -62,6 +62,28 @@ fi
 cd ~/mfsk-decode
 cargo build --release 2>&1 | tail -5
 echo "[mfsk-decode] バイナリ: $(ls -lh target/release/mfsk-decode)"
+REMOTE
+
+echo "=== mfsk-serve インストール (常駐デコーダ。失敗しても mfsk-decode で動きます) ==="
+# 既定: mfsk-core の最新リリースタグ。固定したいときは MFSK_SERVE_REF=v0.16.2 (タグ) や
+# MFSK_SERVE_REF=<コミット> を付けて実行してください。
+$SSH "${PI_USER}@${PI_HOST}" "MFSK_SERVE_REF='${MFSK_SERVE_REF:-}' bash -s" <<'REMOTE' || echo "[mfsk-serve] インストールできませんでした (mfsk-decode を使います)"
+set -e
+set -o pipefail
+. "$HOME/.cargo/env"
+rustup toolchain install stable --no-self-update >/dev/null 2>&1 || true  # mfsk-serve は Rust 1.93 以上
+GIT=https://github.com/jl1nie/mfsk-core
+REF="$MFSK_SERVE_REF"
+if [ -z "$REF" ]; then
+    REF=$(git ls-remote --tags --refs "$GIT" 'v*' | sed 's#.*refs/tags/##' \
+          | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+fi
+if echo "$REF" | grep -Eq '^[0-9a-fA-F]{7,40}$'; then SEL="--rev $REF"; else SEL="--tag $REF"; fi
+echo "[mfsk-serve] $SEL"
+cargo install --git "$GIT" $SEL --profile dist mfsk-serve 2>&1 | tail -3 \
+  || cargo install --git "$GIT" $SEL --profile release mfsk-serve 2>&1 | tail -3
+echo "$SEL" > "$HOME/.cargo/mfsk-serve.ref"
+ls -lh "$HOME/.cargo/bin/mfsk-serve"
 REMOTE
 
 echo "=== fastapi 再起動 ==="

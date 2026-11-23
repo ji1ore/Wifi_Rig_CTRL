@@ -75,6 +75,7 @@ async def lifespan(app: FastAPI):
     threading.Thread(target=watchdog_heartbeat, daemon=True).start()
     threading.Thread(target=_ensure_venv_numpy, daemon=True).start()
     threading.Thread(target=_ensure_minimodem, daemon=True).start()
+    threading.Thread(target=_mfsk_serve_autoinstall, daemon=True).start()
     yield
 
 app = FastAPI(dependencies=[Depends(verify_key)], lifespan=lifespan)
@@ -172,6 +173,154 @@ _qso: dict = {
 _ft8_known_calls: set = set()  # セッション中に確認されたコールサイン
 _ft8_my_call: str = ""        # 最後に設定された自局コールサイン（QSO外でも参照用）
 _last_compound_dx: str = ""   # 最後にデコードされた複合コールサイン（/付き）
+_ft8_tx_hashed: set = set()   # 自局が送信でハッシュとして送ったコール（デコーダのハッシュ表に教える）
+
+
+# ---------------------------------------------------------------------------
+# mfsk-serve: 常駐デコーダ/エンコーダ (JSON Lines over stdin/stdout)
+# 周期ごとにプロセスを起動する mfsk-decode と違い、デコーダ(ハッシュ表・前2周期)が
+# 周期をまたいで保持されるため、<...> は推測置換ではなくライブラリ側で解決される。
+# バイナリが無ければ従来の mfsk-decode にフォールバックする。
+# ---------------------------------------------------------------------------
+def _mfsk_serve_disabled() -> bool:
+    """mfsk-serve を使わない設定: 環境変数 MFSK_SERVE=off か、ファイル ~/mfsk-serve.off がある。
+    そのときは従来どおり mfsk-decode / ft8_encode を使い、自動インストールもしない。"""
+    if os.environ.get("MFSK_SERVE", "").strip().lower() in ("0", "off", "no", "false"):
+        return True
+    return (_HOME_DIR / "mfsk-serve.off").exists()
+
+
+def _mfsk_serve_bin() -> str:
+    """mfsk-serve のパス。毎回調べる (起動後に自動インストールされても、再起動なしで使われる)。"""
+    env = os.environ.get("MFSK_SERVE_BIN")
+    if env:
+        return env
+    for p in (str(_HOME_DIR / ".cargo" / "bin" / "mfsk-serve"), "/usr/local/bin/mfsk-serve"):
+        if os.path.isfile(p):
+            return p
+    return ""
+
+
+_MFSK_SERVE_TIMEOUT_S = 20.0  # 1リクエストの上限。超えたらプロセスを殺して作り直す
+# デコーダのワーカースレッド数 (mfsk-serve --threads N)。0 = 全コア。
+# Pi では rigctld・音声配信・FastAPI と同居するため既定 2。環境変数 MFSK_SERVE_THREADS で変更可。
+try:
+    _MFSK_SERVE_THREADS = max(0, int(os.environ.get("MFSK_SERVE_THREADS", "2")))
+except ValueError:
+    _MFSK_SERVE_THREADS = 2
+
+
+def _mfsk_serve_ok() -> bool:
+    if _mfsk_serve_disabled():
+        return False
+    b = _mfsk_serve_bin()
+    return bool(b) and os.path.isfile(b)
+
+
+class _MfskServe:
+    """mfsk-serve を1プロセス保持する。1インスタンスは同時に1リクエストのみ(内部ロック)。
+    デコード(フル)・早期デコード・送信エンコードは互いに待たせないよう別インスタンスにする。"""
+
+    def __init__(self, name: str):
+        self.name = name
+        self.proc = None
+        self.lock = threading.Lock()
+        self._id = 0
+
+    def _kill(self):
+        p, self.proc = self.proc, None
+        if p is not None:
+            try: p.kill()
+            except Exception: pass
+            try: p.wait(timeout=2.0)
+            except Exception: pass
+
+    def request(self, req: dict) -> tuple:
+        """req を送り (done/encoded 行, row 行のリスト) を返す。失敗時は例外(プロセスは作り直す)。"""
+        with self.lock:
+            if self.proc is None or self.proc.poll() is not None:
+                args = [_mfsk_serve_bin()]
+                if _MFSK_SERVE_THREADS > 0:
+                    args += ["--threads", str(_MFSK_SERVE_THREADS)]
+                self.proc = subprocess.Popen(
+                    args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL, text=True, bufsize=1)
+            self._id += 1
+            req = dict(req, id=self._id)
+            proc = self.proc
+            watchdog = threading.Timer(_MFSK_SERVE_TIMEOUT_S, proc.kill)
+            watchdog.start()
+            rows = []
+            try:
+                proc.stdin.write(_json.dumps(req) + "\n")
+                proc.stdin.flush()
+                while True:
+                    line = proc.stdout.readline()
+                    if not line:
+                        raise RuntimeError("mfsk-serve exited or timed out")
+                    ans = _json.loads(line)
+                    if ans.get("id") != self._id:
+                        continue
+                    t = ans.get("type")
+                    if t == "row":
+                        rows.append(ans)
+                    elif t == "error":
+                        raise RuntimeError(ans.get("error", "error"))
+                    elif t in ("done", "encoded"):
+                        return ans, rows
+            except Exception:
+                self._kill()
+                raise
+            finally:
+                watchdog.cancel()
+
+
+_mfsk_rx    = _MfskServe("rx")     # フル復号 (周期をまたぐ状態を保持)
+_mfsk_early = _MfskServe("early")  # 2段の早期復号(返信専用)
+_mfsk_tx    = _MfskServe("tx")     # 送信エンコード
+
+
+def _mfsk_learn_calls() -> list:
+    """デコーダのハッシュ表に教えるコール: 自局・相手局・既知の複合コール・自局が送ったハッシュ。"""
+    my_call = (_qso.get("my_call", "").strip() or _ft8_my_call.strip()).upper()
+    dx_call = (_qso.get("dx_call", "").strip() if _qso.get("active") else "").upper()
+    calls = [my_call, dx_call, _last_compound_dx]
+    calls += [c for c in _ft8_known_calls if "/" in c]
+    calls += list(_ft8_tx_hashed)
+    out, seen = [], set()
+    for c in calls:
+        if c and c not in seen:
+            seen.add(c); out.append(c)
+    return out
+
+
+def _mfsk_serve_lines(wav_path: str, depth: int, early: bool,
+                      period_epoch: "float | None", period_s: float,
+                      band: "tuple | None") -> list:
+    """mfsk-serve で wav を復号し、従来の mfsk-decode と同じ JSON 行 (freq/snr/dt/msg) のリストで返す。"""
+    req = {
+        "op": "decode",
+        "mode": "FT4" if _ft8_is_ft4 else "FT8",
+        "wav": wav_path,
+        "depth": {1: "fast", 3: "deep"}.get(depth, "normal"),
+        "learn": _mfsk_learn_calls(),
+    }
+    if band:
+        req["band"] = [band[0], band[1]]
+    # 周期インデックスを渡すと前2周期 (FT8 a7) などの周期またぐ状態が使われる。
+    # 早期復号は音声が途中までなので渡さない。
+    if not early and period_epoch is not None:
+        req["period"] = int(period_epoch // period_s)
+    _done, rows = (_mfsk_early if early else _mfsk_rx).request(req)
+    lines, seen = [], set()
+    for r in rows:
+        text = r.get("text", "")
+        if text in seen:
+            continue
+        seen.add(text)
+        lines.append(_json.dumps({"freq": r.get("freq_hz", 0.0), "snr": r.get("snr_db", 0.0),
+                                  "dt": r.get("dt_sec", 0.0), "msg": text}, ensure_ascii=False))
+    return lines
 
 
 def _is_unknown_hash(tok: str) -> bool:
@@ -489,7 +638,8 @@ def _ft8_jt9_worker(wav_path: str, period_n: int, utc_sec: int,
     _jt9_decode_done.clear()
     all_msgs = []
     try:
-        if not os.path.isfile(_MFSK_DECODE_BIN):
+        _use_serve = _mfsk_serve_ok()
+        if not _use_serve and not os.path.isfile(_MFSK_DECODE_BIN):
             if not _mfsk_binary_warning_sent:
                 _mfsk_binary_warning_sent = True
                 _ft8_broadcast({"type": "system_msg",
@@ -498,6 +648,7 @@ def _ft8_jt9_worker(wav_path: str, period_n: int, utc_sec: int,
             return
         _mfsk_binary_warning_sent = False
         cmd = [_MFSK_DECODE_BIN]
+        proc = None
         if _ft8_is_ft4:
             cmd.append("--ft4")
 
@@ -529,9 +680,23 @@ def _ft8_jt9_worker(wav_path: str, period_n: int, utc_sec: int,
 
         cmd.append(wav_path)
         t1 = time.time()
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        _lines = None
+        if _use_serve:
+            # 常駐 mfsk-serve (ハッシュ表を周期をまたいで保持)。失敗時は従来の mfsk-decode へ。
+            try:
+                _band = (flow, fhigh) if _ft8_decode_filter else None
+                _lines = _mfsk_serve_lines(
+                    wav_path, depth_override if depth_override else _ft8_decode_depth,
+                    not emit_display, period_epoch, 7.5 if _ft8_is_ft4 else 15.0, _band)
+            except Exception as _se:
+                print(f"[mfsk_serve] {_se!r} — falling back to mfsk-decode")
+                if not os.path.isfile(_MFSK_DECODE_BIN):
+                    _lines = []
+        if _lines is None:
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            _lines = proc.stdout
         try:
-            for line in proc.stdout:
+            for line in _lines:
                 line = line.strip()
                 if not line:
                     continue
@@ -592,7 +757,8 @@ def _ft8_jt9_worker(wav_path: str, period_n: int, utc_sec: int,
                                 pass
                 except Exception as e:
                     print(f"[mfsk_decode] parse: {e!r} line={line!r}")
-            proc.wait(timeout=5.0)
+            if proc is not None:
+                proc.wait(timeout=5.0)
         except subprocess.TimeoutExpired:
             proc.kill()
 
@@ -4570,11 +4736,41 @@ def _ft4_get_syms_python(msg: str) -> "list | None":
         return None
 
 
+def _mfsk_encode_pcm(msg: str, audio_freq: int, rate: int, is_ft4: bool) -> "bytes | None":
+    """mfsk-serve の encode で S16_LE PCM を作る。使えなければ None (従来の ft8_encode へ)。
+    メッセージがハッシュとして送るコールは _ft8_tx_hashed に記録し、次の復号で
+    デコーダに教える（自局が送ったハッシュ付きコールへの返信が <...> にならない）。"""
+    if not _mfsk_serve_ok():
+        return None
+    fd, out = tempfile.mkstemp(suffix=".raw")
+    os.close(fd)
+    try:
+        ans, _ = _mfsk_tx.request({"op": "encode", "mode": "FT4" if is_ft4 else "FT8",
+                                   "text": msg, "f0_hz": float(audio_freq),
+                                   "rate": int(rate), "out": out})
+        _ft8_tx_hashed.update(c.upper() for c in (ans.get("hashed_calls") or []))
+        with open(out, "rb") as f:
+            return f.read() or None
+    except Exception as e:
+        print(f"[mfsk_serve] encode failed: {e!r} — falling back to ft8_encode")
+        return None
+    finally:
+        try: os.unlink(out)
+        except Exception: pass
+
+
 def _ft8_get_pcm(msg: str, audio_freq: int, rate: int = 12000, is_ft4: bool = False) -> bytes:
     """FT8/FT4 メッセージから S16_LE PCM を生成する。
     ft8_encode (PCM直接出力) が使えればそちらを優先。
     長さが期待値と合わない場合は Python FT4 エンコーダにフォールバック。"""
     import numpy as np
+    _serve_pcm = _mfsk_encode_pcm(msg, audio_freq, rate, is_ft4)
+    if _serve_pcm:
+        pcm = np.frombuffer(_serve_pcm, dtype=np.int16).astype(np.float32)
+        peak = np.abs(pcm).max()
+        if peak > 0:
+            pcm = pcm * (_FT8_TX_AMPLITUDE * _ft8_tx_gain / peak)
+        return np.clip(pcm, -32767, 32767).astype(np.int16).tobytes()
     if os.path.isfile(_FT8_ENCODE_BIN):
         result = subprocess.run(
             [_FT8_ENCODE_BIN, msg, str(float(audio_freq)), str(rate), "1" if is_ft4 else "0"],
@@ -6454,7 +6650,86 @@ fn load_wav_12khz(path: &str) -> Result<Vec<i16>, Box<dyn std::error::Error>> {
 """.strip()
 
 
-def _mfsk_build_worker():
+_MFSK_SERVE_GIT = "https://github.com/jl1nie/mfsk-core"
+_MFSK_SERVE_REF_FILE = _HOME_DIR / ".cargo" / "mfsk-serve.ref"  # インストール済みの ref を記録
+
+
+def _mfsk_serve_pick_ref(w) -> "list | None":
+    """cargo install に渡す ref 指定を返す。
+    MFSK_SERVE_REF (タグ名 or コミット) があればそれ。なければ mfsk-core の最新リリースタグ (v*) を
+    git ls-remote で調べる。ハッシュをスクリプトに書かずに、リリース済みのものだけが入る。"""
+    ref = os.environ.get("MFSK_SERVE_REF", "").strip()
+    if ref:
+        if re.fullmatch(r"[0-9a-fA-F]{7,40}", ref):
+            return ["--rev", ref]
+        return ["--tag", ref]
+    try:
+        r = subprocess.run(["git", "ls-remote", "--tags", "--refs", _MFSK_SERVE_GIT, "v*"],
+                           capture_output=True, text=True, timeout=60)
+        tags = [l.split("refs/tags/")[-1] for l in r.stdout.splitlines() if "refs/tags/v" in l]
+        def _key(t):
+            m = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", t)
+            return tuple(int(x) for x in m.groups()) if m else None
+        tags = sorted((t for t in tags if _key(t)), key=_key)
+        if tags:
+            return ["--tag", tags[-1]]
+        w(f"mfsk-serve: タグが取得できません rc={r.returncode} {r.stderr.strip()[:200]}")
+    except Exception as e:
+        w(f"mfsk-serve: git ls-remote 失敗: {e}")
+    return None
+
+
+def _mfsk_serve_recorded_ref() -> str:
+    """インストール済み mfsk-serve の ref 指定 ("--tag v0.16.2" など)。不明なら ""。"""
+    try:
+        return _MFSK_SERVE_REF_FILE.read_text().split(" profile=")[0].strip()
+    except Exception:
+        return ""
+
+
+_mfsk_build_lock = threading.Lock()  # ビルド/インストールを同時に 2 本走らせない
+
+
+def _mfsk_serve_install(w, log, cargo_bin: str, env: dict, ref: "list | None" = None) -> bool:
+    """mfsk-serve (常駐デコーダ) を cargo install する。失敗しても mfsk-decode は使える。
+    --profile dist (LTO) を先に試し、メモリ不足などで失敗したら通常の release で入れ直す。
+    nice -n 19 で動かし、ビルド中も FT8 の復号 (mfsk-decode) を優先させる。"""
+    if ref is None:
+        ref = _mfsk_serve_pick_ref(w)
+    if ref is None:
+        w("mfsk-serve: インストールをスキップ (mfsk-decode を使います)")
+        return False
+    for profile in ("dist", "release"):
+        cmd = [cargo_bin, "install", "--git", _MFSK_SERVE_GIT, *ref, "--profile", profile, "mfsk-serve"]
+        if os.path.isfile("/usr/bin/nice"):
+            cmd = ["/usr/bin/nice", "-n", "19"] + cmd
+        w("mfsk-serve インストール: " + " ".join(c for c in cmd if c != cargo_bin))
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                text=True, env=env)
+        for line in proc.stdout:
+            log.write(line)
+            log.flush()
+        proc.wait()
+        if proc.returncode == 0:
+            try:
+                _MFSK_SERVE_REF_FILE.write_text(" ".join(ref) + f" profile={profile}\n")
+            except Exception:
+                pass
+            # 古いバイナリで常駐しているプロセスを止める。次のリクエストで新しいものが起動する。
+            for inst in (_mfsk_rx, _mfsk_early, _mfsk_tx):
+                with inst.lock:
+                    inst._kill()
+            w(f"mfsk-serve インストール完了 ({' '.join(ref)}, profile={profile})")
+            return True
+        w(f"mfsk-serve インストール失敗 (profile={profile}, returncode={proc.returncode})")
+    return False
+
+
+def _mfsk_build_worker(build_decode: bool = True, serve_ref: "list | None" = None):
+    """build_decode=False なら mfsk-decode は作り直さず mfsk-serve だけ入れる。
+    serve_ref は cargo install の ref 指定 (None なら最新リリースタグを調べる)。"""
+    if not _mfsk_build_lock.acquire(blocking=False):
+        return  # 別のビルドが実行中
     import datetime as _dt
     log = open(_MFSK_BUILD_LOG, "w", buffering=1)
     def w(msg):
@@ -6462,7 +6737,7 @@ def _mfsk_build_worker():
         log.write(f"[{ts}] {msg}\n")
         log.flush()
     try:
-        w(f"mfsk-decode ビルド開始")
+        w("mfsk-decode ビルド開始" if build_decode else "mfsk-serve インストール開始")
         cargo_env = str(_HOME_DIR / ".cargo" / "env")
         # Rust インストール確認
         cargo_bin = str(_HOME_DIR / ".cargo" / "bin" / "cargo")
@@ -6481,23 +6756,11 @@ def _mfsk_build_worker():
                 return
             w("Rust インストール完了")
 
-        # ソース展開 (Cargo.lock を削除して最新 mfsk-core を取得)
-        src_dir = _HOME_DIR / "mfsk-decode" / "src"
-        src_dir.mkdir(parents=True, exist_ok=True)
-        (_HOME_DIR / "mfsk-decode" / "Cargo.toml").write_text(_CARGO_TOML)
-        (src_dir / "main.rs").write_text(_MAIN_RS)
-        lock_path = _HOME_DIR / "mfsk-decode" / "Cargo.lock"
-        if lock_path.exists():
-            lock_path.unlink()
-            w("Cargo.lock 削除 (最新依存関係を取得)")
-        w("ソース展開完了")
-
-        # ビルド
-        w("cargo build --release 開始 (初回は 10〜15 分かかります)...")
         env = os.environ.copy()
         env["PATH"] = str(_HOME_DIR / ".cargo" / "bin") + ":" + env.get("PATH", "")
         env["HOME"] = str(_HOME_DIR)
-        # rustup default が未設定 / toolchain が壊れている場合に備えて再インストール
+        # rustup default が未設定 / toolchain が壊れている・古い場合に備えて再インストール
+        # (mfsk-serve は Rust 1.93 以上が必要。mfsk-serve だけ入れるときも更新する)
         r_ru = subprocess.run(
             "rustup default stable",
             shell=True,
@@ -6512,39 +6775,80 @@ def _mfsk_build_worker():
         )
         w(f"rustup toolchain install stable: rc={r_inst.returncode}" +
           (f" {r_inst.stderr.strip()[:200]}" if r_inst.returncode != 0 else ""))
-        proc = subprocess.Popen(
-            [cargo_bin, "build", "--release"],
-            cwd=str(_HOME_DIR / "mfsk-decode"),
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, env=env
-        )
-        for line in proc.stdout:
-            log.write(line)
-            log.flush()
-        proc.wait()
-        if proc.returncode == 0:
-            bin_path = _HOME_DIR / "mfsk-decode" / "target" / "release" / "mfsk-decode"
-            w(f"ビルド完了: {bin_path}")
-            w("=== 完了 ===")
-        else:
-            w(f"ビルド失敗 (returncode={proc.returncode})")
-            w("=== 失敗 ===")
+        decode_ok = (_HOME_DIR / "mfsk-decode" / "target" / "release" / "mfsk-decode").exists()
+        if build_decode:
+            # ソース展開 (Cargo.lock を削除して最新 mfsk-core を取得)
+            src_dir = _HOME_DIR / "mfsk-decode" / "src"
+            src_dir.mkdir(parents=True, exist_ok=True)
+            (_HOME_DIR / "mfsk-decode" / "Cargo.toml").write_text(_CARGO_TOML)
+            (src_dir / "main.rs").write_text(_MAIN_RS)
+            lock_path = _HOME_DIR / "mfsk-decode" / "Cargo.lock"
+            if lock_path.exists():
+                lock_path.unlink()
+                w("Cargo.lock 削除 (最新依存関係を取得)")
+            w("ソース展開完了")
+
+            # ビルド
+            w("cargo build --release 開始 (初回は 10〜15 分かかります)...")
+            proc = subprocess.Popen(
+                [cargo_bin, "build", "--release"],
+                cwd=str(_HOME_DIR / "mfsk-decode"),
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, env=env
+            )
+            for line in proc.stdout:
+                log.write(line)
+                log.flush()
+            proc.wait()
+            decode_ok = proc.returncode == 0
+            if decode_ok:
+                bin_path = _HOME_DIR / "mfsk-decode" / "target" / "release" / "mfsk-decode"
+                w(f"ビルド完了: {bin_path}")
+            else:
+                w(f"ビルド失敗 (returncode={proc.returncode})")
+        # 常駐デコーダ mfsk-serve (ハッシュ表を周期をまたいで保持・高速)。mfsk-decode はフォールバック。
+        serve_ok = _mfsk_serve_install(w, log, cargo_bin, env, serve_ref)
+        w("=== 完了 ===" if (decode_ok or serve_ok) else "=== 失敗 ===")
     except Exception as e:
         log.write(f"[error] {e}\n=== 失敗 ===\n")
     finally:
         log.close()
+        _mfsk_build_lock.release()
+
+
+def _mfsk_serve_autoinstall():
+    """起動時: mfsk-serve が未インストールで Rust がある (mfsk-decode をビルドした) Pi なら、
+    少し待ってから低優先度で 1 回だけインストールする。入るまでは mfsk-decode で動く。
+    新しいリリースへの更新は「Update Pi」(/admin/build_mfsk) で行う。"""
+    time.sleep(120)
+    if _mfsk_serve_disabled() or _mfsk_serve_ok() or not (_HOME_DIR / ".cargo" / "bin" / "cargo").is_file():
+        return
+    ref = _mfsk_serve_pick_ref(lambda m: print(f"[mfsk_serve] {m}", flush=True))
+    if ref is None:
+        return
+    print(f"[mfsk_serve] 自動インストール開始 {' '.join(ref)} (log: {_MFSK_BUILD_LOG})", flush=True)
+    _mfsk_build_worker(False, ref)
 
 
 @app.post("/admin/build_mfsk")
 async def admin_build_mfsk(force: bool = False):
-    """mfsk-decode をバックグラウンドでビルドする (初回 Update Pi 後に Android から呼ぶ)"""
+    """mfsk-decode をバックグラウンドでビルドする (初回 Update Pi 後に Android から呼ぶ)。
+    mfsk-decode がビルド済みでも、mfsk-serve が未インストールか最新リリースより古ければ
+    mfsk-serve だけインストールする。"""
     bin_path = _HOME_DIR / "mfsk-decode" / "target" / "release" / "mfsk-decode"
-    if bin_path.exists() and not force:
+    decode_needed = force or not bin_path.exists()
+    serve_ref = await asyncio.to_thread(
+        _mfsk_serve_pick_ref, lambda m: print(f"[build_mfsk] {m}", flush=True))
+    serve_needed = serve_ref is not None and not _mfsk_serve_disabled() and (
+        force or not _mfsk_serve_ok() or _mfsk_serve_recorded_ref() != " ".join(serve_ref))
+    if not decode_needed and not serve_needed:
         return {"status": "already_built", "path": str(bin_path)}
-    if bin_path.exists() and force:
+    if _mfsk_build_lock.locked():
+        return {"status": "building", "log": _MFSK_BUILD_LOG}
+    if decode_needed and bin_path.exists() and force:
         try: bin_path.unlink()
         except Exception: pass
-    threading.Thread(target=_mfsk_build_worker, daemon=False).start()
+    threading.Thread(target=_mfsk_build_worker, args=(decode_needed, serve_ref), daemon=False).start()
     return {"status": "building", "log": _MFSK_BUILD_LOG}
 
 
@@ -6696,7 +7000,12 @@ async def admin_version():
                         break
     except Exception:
         pass
-    return {"api_version": API_VERSION, "rigctld": _rigctld, "mfsk_version": _mfsk_ver}
+    try:
+        _serve_ref = _MFSK_SERVE_REF_FILE.read_text().strip() if _mfsk_serve_ok() else ""
+    except Exception:
+        _serve_ref = "?"
+    return {"api_version": API_VERSION, "rigctld": _rigctld, "mfsk_version": _mfsk_ver,
+            "mfsk_serve": _serve_ref}
 
 # ─── RTTY FSK TX via DTR/RTS (FT-991A Data COMポート) ─────────────────────────
 # DTR: High=Mark, Low=Space (FSK信号)

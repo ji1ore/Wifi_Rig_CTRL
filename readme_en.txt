@@ -60,6 +60,12 @@ This README has been refreshed to cover every device shipped in v2.20
 (M5Core2 / M5Core2 Tough / M5CoreS3SE / Android / iOS). Added a short M5Burner-style
 description for each M5 firmware, plus a new section (⑦) introducing WifiRigCTRL for iOS.
 
+2026/11/24
+v4.10 released — Adds D-STAR text messaging and SSTV image send/receive (prototype). [D-STAR messaging] In addition to setting your TX message, the app now shows the received station's message and callsign on screen, and lists your receive-only message history (your own transmissions are not kept). Tap the D★ display to edit the TX message; the RX display auto-clears after a period of no signal (reduces flicker). [SSTV (prototype)] Transmit a photo over FM/SSB (Robot36 / Martin M1·M2 / Scottie S1·S2) and view received images in a gallery. Encoding/decoding runs on the Pi (pysstv = MIT / colaclanth-sstv = GPL-3.0, both run on the Pi as separate processes and are not bundled in the app). This is a prototype feature; reception is sensitive to signal conditions (audio level) and will be improved. Rigs without D-STAR (e.g. FT-991) can open the SSTV menu from a long-press on the FM button. [Other] D-STAR mode switching (DR / Simplex) is more reliable, with an option to return the rig to FM at startup when it is in DV. The FT8/FT4 decoder (Pi-side mfsk-core) is updated to v0.16.2. The Open Source Licenses in the About screen now list the SSTV libraries. This release updates the Pi API to 4.10 (Admin → Update Pi required). See sections 6 and 7 for details.
+
+2026/11/21
+v4.03 released — Improves the SETUP (SSH) screen. (1) Added a "Find Pi on network" button that scans the local Wi-Fi over SSH (port 22) and lists the hosts it finds; tap one to auto-fill its IP address. Unlike the Connect-screen discovery (which needs api.py running on the Pi), the SETUP screen targets a Pi you are about to set up, so it uses a method that finds the Pi as long as SSH is enabled — it works even on a fresh, not-yet-set-up Pi. (2) The VNC-desktop choice in SETUP now defaults to "None", so by default no VNC is installed and setup is faster and lighter (you can still choose XFCE / PIXEL). This is an app-only release; no Pi update is required (the Pi API stays at 4.00). See sections 6 and 7 for details.
+
 2026/11/17
 v4.02 released — Completes the English UI started in v4.01. Fixed leftover Japanese text that still appeared in some button captions, settings rows and dialogs when running in English (or other non-Japanese locales): SSH/VNC & WireGuard setup, Rig-select (external integration / SOTA spots / backup), the Connect screen, some Band-scope / RTTY / FT8 labels, the CW-TX dialog, the operating-location label, the token-scan dialog, and a Dropbox-integration error message were moved to string resources. English devices show English; Japanese devices show Japanese. Place-name data, internal strings matched against the Pi's output, and symbols (→ / D★) are left unchanged. This is an app-only release; no Pi update is required (the Pi API stays at 4.00). See sections 6 and 7 for details.
 
@@ -212,7 +218,7 @@ Microphone capable of sending audio to the radio (e.g., wireless mic)
 
 ③ Setup Procedure (Raspberry Pi Zero 2W)
 Follow the instructions in:
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v4.02/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v4.10/RaspberryPiSetup/readme.txt
 
 Main steps:
 
@@ -313,9 +319,9 @@ During this time, audio may drop for a few seconds.
 
 On M5Core2, you may need to press and hold slightly longer on the main screen.
 
-⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v4.00)
+⑥ Android Version (Wifi_RIG_CTRL_ForAndroid v4.10)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v4.00)
+Starting from v1.30, an Android smartphone app is available as an alternative to the M5CoreS3SE for remote rig control. (Latest: v4.10)
 No M5Core / Module Audio / Unit Encoder hardware is required.
 The Raspberry Pi setup is the same as for the M5Core version.
 
@@ -1278,10 +1284,10 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.27/WireGuard
 (v3.19 adds a ufw allow rule for UDP 5001, used for device discovery. If ufw is already configured,
  re-run WireGuard setup after updating the Pi to the latest api.py.)
 
-⑦ iOS Version (WifiRigCTRL for iOS v3.32)
+⑦ iOS Version (WifiRigCTRL for iOS v4.10)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 An iPhone/iPad app that offers the same kind of remote rig control as the M5CoreS3SE,
-with source published on GitHub since v2.17 (latest: v3.27).
+with source published on GitHub since v2.17 (latest: v4.10).
 As with the Android app, no M5Core / Module Audio / Unit Encoder hardware is required.
 Raspberry Pi setup is identical to the M5Core and Android versions.
 

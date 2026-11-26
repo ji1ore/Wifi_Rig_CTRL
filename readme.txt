@@ -54,6 +54,9 @@ readmeを最新化し、Ver2.20対応の全デバイス（M5Core2 / M5Core2 Toug
 網羅する内容に更新しました。M5の各機種紹介文（M5Burner掲載用）、およびiOS版（WifiRigCTRL for iOS）の
 案内（⑦）を追加しています。
 --
+2026/11/26
+Ver4.11にて、WireGuard（VPN）セットアップの信頼性を向上しました。【DuckDNS 事前検証】WireGuard の導入を始める前に、入力された DuckDNS のドメイン／トークンで実際に更新を試して正しいか検証します。失敗（OK 以外）した場合は画面に大きな警告を表示してセットアップを中止し、インポート（続行）に進ませません。読み取りミスやトークン誤りにその場で気づけます。【クリップボード貼り付け】ドメイン欄・トークン欄にクリップボード貼り付けボタン（📋）を追加しました（Android / iOS）。カメラ読み取りでの UUID 誤読を回避でき、トークンは UUID を自動抽出、ドメインは xxx.duckdns.org を貼っても xxx のみ取り込みます。【その他】ドメイン入力を正規化（http(s)://・末尾 / ・.duckdns.org を除去）し、二重ドメイン（xxx.duckdns.org.duckdns.org）を防止。iOS はアプリ内の約 42 項目に英語訳を追加し、日本語ローカライズの登録（knownRegions の ja）も修正しました。本バージョンは Pi API を 4.11 に更新します（Admin → Update Pi が必要）。主な変更点は⑥⑦を参照ください。
+
 2026/11/24
 Ver4.10にて、D-STAR のテキストメッセージに対応し、試作機能として SSTV 画像の送受信を追加しました。【D-STAR メッセージ】送信メッセージの設定に加え、受信した相手局のメッセージとコールサインを画面に表示し、受信メッセージの履歴（受信のみ・自局送信は残しません）を一覧できます。D★表示をタップして送信メッセージを編集でき、無信号が一定時間続くと受信表示を自動で消します（ちらつき抑制）。【SSTV（試作）】FM/SSB で写真を送信（Robot36 / Martin M1・M2 / Scottie S1・S2）し、受信した画像をギャラリーで確認できます。エンコード／デコードは Pi 側（pysstv＝MIT ／ colaclanth-sstv＝GPL-3.0、いずれも Pi 上で別プロセス実行・アプリに非同梱）で行います。本機能は試作（プロトタイプ）の位置づけで、受信は電波状況（音声レベル）の影響を受けやすく、今後改善していきます。D-STAR 非対応機（FT-991 等）でも FM ボタン長押しから SSTV メニューを表示できます。【その他】D-STAR のモード遷移（DR／シンプレックス）を安定化し、起動時にリグが DV のとき FM に戻すオプションを追加しました。FT8/FT4 デコーダ（Pi 側 mfsk-core）を v0.16.2 に更新。About 画面のオープンソースライセンス表記に SSTV ライブラリを追記しました。本バージョンは Pi API を 4.10 に更新します（Admin → Update Pi が必要）。主な変更点は⑥⑦を参照ください。
 --
@@ -183,7 +186,7 @@ APRS動作のために
 ・無線機に音声を飛ばせるマイク(ラジオマイク等)
 
 ③セットアップ手順(Raspberry Pi Zero2W)
-https://github.com/ji1ore/M5CoreHamCAT/blob/main/v4.10/RaspberryPiSetup/readme.txt
+https://github.com/ji1ore/M5CoreHamCAT/blob/main/v4.11/RaspberryPiSetup/readme.txt
 を参照してセットアップを行ってください(verに応じたフォルダを参照ください)。
 主な手順は以下の通りです。
 ・Raspberry Pi Imagerのインストール
@@ -257,10 +260,10 @@ CATデバイスの選択を間違えると接続できませんのでご注意�
 音声は遅延防止のために10分ごとに再接続しています。そのタイミングで数秒聞こえなくなりますのでご了承ください。
 M5Core2の場合、メイン画面上の操作を長押し気味にする必要があります。
 
-⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v4.10）
+⑥ Android版について（Wifi_RIG_CTRL_ForAndroid v4.11）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに Android スマートフォンでリグをリモート制御できる
-アプリを v1.30 より公開しています（最新版：v4.10）。
+アプリを v1.30 より公開しています（最新版：v4.11）。
 M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core 版と共通です。
 
@@ -1130,10 +1133,10 @@ https://github.com/ji1ore/M5CoreHamCAT/tree/main/v3.27/WireGuard
 （v3.19 で ufw ファイアウォールにデバイス発見用 UDP 5001 の許可を追加。既に ufw 設定済みの場合は
 　最新 api.py 反映後に WireGuard 設定を再実行してください）
 
-⑦ iOS版について（WifiRigCTRL for iOS v4.10）
+⑦ iOS版について（WifiRigCTRL for iOS v4.11）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 M5CoreS3SE の代わりに iPhone / iPad でリグをリモート制御できるアプリです。
-v2.17 よりソースコードをGitHubで公開しています（最新版：v4.10）。
+v2.17 よりソースコードをGitHubで公開しています（最新版：v4.11）。
 Android版と同様、M5Core/Module Audio/Unit Encoder 等のハードウェアは不要です。
 Raspberry Pi のセットアップは M5Core版・Android版と共通です。
 
